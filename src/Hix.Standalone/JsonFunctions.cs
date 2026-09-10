@@ -135,6 +135,20 @@ internal static class JsonFunctions {
         if (required.Length != 0) schema["required"] = new JArray(required);
         return schema;
       }
+      case TaggedHixPattern tagged: {
+        var schema = SchemaFor(tagged.Underlying, known, definitions, visiting);
+        schema["type"] = "object";
+        var properties = schema["properties"] as JObject ?? new JObject();
+        properties[TaggedHixPattern.FieldName] = new JObject {
+          ["type"] = "string", ["const"] = tagged.Discriminator
+        };
+        schema["properties"] = properties;
+        var required = new HashSet<string>((schema["required"] as JArray)?.Values<string>() ?? [], StringComparer.Ordinal) {
+          TaggedHixPattern.FieldName
+        };
+        schema["required"] = new JArray(required);
+        return schema;
+      }
       case ConstantHixPattern constant: {
         var schema = SchemaFor(constant.Underlying, known, definitions, visiting);
         schema["const"] = constant.Value == null ? JValue.CreateNull() : JToken.FromObject(constant.Value);
@@ -257,9 +271,14 @@ internal static class JsonFunctions {
   private static HixPattern ObjectPattern(JObject schema) {
     if (schema["properties"] is JObject properties) {
       var required = new HashSet<string>((schema["required"] as JArray)?.Values<string>() ?? [], StringComparer.Ordinal);
-      return new TableHixPattern(properties.Properties().Select(property =>
+      var fields = properties.Properties().Select(property =>
         new HixPatternField(property.Name, PatternFor((JObject)property.Value), !required.Contains(property.Name),
-          property.Value["default"] is { } value ? ConstantValue(value) : null, property.Value["default"] != null)).ToArray());
+          property.Value["default"] is { } value ? ConstantValue(value) : null, property.Value["default"] != null)).ToArray();
+      if (required.Contains(TaggedHixPattern.FieldName) && properties[TaggedHixPattern.FieldName]?["const"] is JValue tag &&
+          tag.Type == JTokenType.String)
+        return new TaggedHixPattern(new TableHixPattern(fields.Where(field =>
+          field.Name != TaggedHixPattern.FieldName).ToArray()), tag.Value<string>());
+      return new TableHixPattern(fields);
     }
     return new MapHixPattern(schema["propertyNames"] is JObject keys ? PatternFor(keys) : new KindHixPattern(K.String),
       schema["additionalProperties"] is JObject values ? PatternFor(values) : HixPattern.Any);
@@ -295,6 +314,21 @@ internal static class JsonFunctions {
     if (pattern is ConstrainedHixPattern constrained) return ApplyDefaults(thread, value, constrained.Underlying, definitions);
     if (pattern is EnumHixPattern enumeration) return ApplyDefaults(thread, value, enumeration.Underlying, definitions);
     if (pattern is ConstantHixPattern constant) return ApplyDefaults(thread, value, constant.Underlying, definitions);
+    if (pattern is UnionHixPattern union && value is HixTableValue unionValue &&
+        unionValue.TryGetValue(thread, HixString.Dynamic(TaggedHixPattern.FieldName), out var discriminator)) {
+      var tag = thread.ResolveText(discriminator);
+      foreach (var member in union.Patterns) {
+        var candidate = Resolve(member, definitions, new HashSet<string>(StringComparer.Ordinal));
+        if (candidate is TaggedHixPattern taggedCandidate && taggedCandidate.Discriminator == tag)
+          return ApplyDefaults(thread, value, member, definitions);
+      }
+    }
+    if (pattern is TaggedHixPattern tagged && value is HixTableValue taggedValue) {
+      var key = HixString.Dynamic(TaggedHixPattern.FieldName);
+      var result = taggedValue.TryGetValue(thread, key, out _) ? taggedValue :
+        taggedValue.Put(thread, key, new LiteralHixValue(HixString.Dynamic(tagged.Discriminator)));
+      return ApplyDefaults(thread, result, tagged.Underlying, definitions);
+    }
     if (pattern is TableHixPattern table && value is HixTableValue objectValue) {
       var result = objectValue;
       foreach (var field in table.Fields) {
@@ -314,6 +348,13 @@ internal static class JsonFunctions {
       return new TupleHixValue(tupleValue.Values.Select((item, index) => index < tuple.Fields.Count
         ? ApplyDefaults(thread, item, tuple.Fields[index].Pattern, definitions) : item).ToArray());
     return value;
+  }
+
+  private static HixPattern Resolve(HixPattern pattern, IReadOnlyDictionary<string, HixPattern> definitions,
+    ISet<string> active) {
+    while (pattern is NamedHixPattern named && active.Add(named.Name) && definitions.TryGetValue(named.Name, out var resolved))
+      pattern = resolved;
+    return pattern;
   }
 
   private static IHixValue FromHost(object value) => value switch {

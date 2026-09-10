@@ -221,6 +221,11 @@ public static class PatternTypeAnalysis {
 
   private static HixPattern Member(HixPattern receiver, string name, IReadOnlyDictionary<string, HixPattern> patterns) {
     if (receiver is NamedHixPattern named && patterns.TryGetValue(named.Name, out var resolved)) receiver = resolved;
+    if (receiver is TaggedHixPattern tagged) {
+      if (name == TaggedHixPattern.FieldName)
+        return new ConstantHixPattern(tagged.Discriminator, new KindHixPattern(HixValueKind.String));
+      receiver = tagged.Underlying;
+    }
     return receiver is TableHixPattern table
       ? table.Fields.FirstOrDefault(field => field.Name == name)?.Pattern ?? HixPattern.Any : HixPattern.Any;
   }

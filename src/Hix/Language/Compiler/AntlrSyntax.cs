@@ -264,8 +264,28 @@ public static class AntlrSyntax {
       return null;
     }
 
-    public override HixIrNode VisitTypeDeclaration(Parser.TypeDeclarationContext context) =>
-      At(new TypeDeclarationIr(context.IDENTIFIER().GetText(), Pattern(context.patternExpression()), declarationMetadata), context);
+    public override HixIrNode VisitTypeDeclaration(Parser.TypeDeclarationContext context) {
+      var name = context.IDENTIFIER().GetText();
+      var pattern = Pattern(context.patternExpression());
+      foreach (var metadata in declarationMetadata) {
+        if (backend.Functions.ResolveMetadata(metadata.Name, HixMetadataKind.TypeDefinition).Count == 0) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown type metadata '%" + metadata.Name + "'"));
+          continue;
+        }
+        if (backend.Functions.ResolveMetadata(metadata.Name, HixMetadataKind.TypeDefinition, metadata.Values.Count).Count == 0) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "metadata function '%" + metadata.Name +
+            "' does not accept " + metadata.Values.Count + " arguments"));
+          continue;
+        }
+        if (metadata.Name == "tagged") {
+          var discriminator = metadata.Values.Count == 0 ? name : metadata.Values[0] is StringExpressionIr text ? text.Value : null;
+          if (discriminator == null)
+            diagnostics.Add(new HixParseDiagnostic(metadata.Line, "tagged discriminator must be a constant string"));
+          else pattern = new TaggedHixPattern(pattern, discriminator);
+        }
+      }
+      return At(new TypeDeclarationIr(name, pattern, declarationMetadata), context);
+    }
 
     public override HixIrNode VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());

@@ -65,6 +65,11 @@ public sealed record DefinedHixPattern(HixPattern Root, IReadOnlyDictionary<stri
   public override string Display => Root.Display;
 }
 
+public sealed record TaggedHixPattern(HixPattern Underlying, string Discriminator) : HixPattern {
+  public const string FieldName = "$type";
+  public override string Display => "%tagged<" + Discriminator + "> " + Underlying.Display;
+}
+
 public sealed record ConstantHixPattern(object Value, HixPattern Underlying) : HixPattern {
   public override string Display => "%const<" + Convert.ToString(Value, CultureInfo.InvariantCulture) + "> " + Underlying.Display;
 }
@@ -158,6 +163,17 @@ public static class HixPatternMatcher {
         if (!active.Add(named.Name)) return true;
         var matched = Matches(resolved, value, context, definitions, path, active, out failure);
         active.Remove(named.Name); return matched;
+      case TaggedHixPattern tagged when value is HixTableValue table:
+        if (!table.TryGetValue(context, HixString.Dynamic(TaggedHixPattern.FieldName), out var discriminator)) {
+          failure = new(path + "." + TaggedHixPattern.FieldName, tagged.Discriminator, "missing"); return false;
+        }
+        if (!ConstantEquals(tagged.Discriminator, discriminator, context)) {
+          failure = new(path + "." + TaggedHixPattern.FieldName, tagged.Discriminator,
+            discriminator.Render(context).Resolve(context.Strings), "constant mismatch"); return false;
+        }
+        return Matches(tagged.Underlying, value, context, definitions, path, active, out failure);
+      case TaggedHixPattern tagged:
+        failure = new(path, tagged.Display, value.Kind.ToString().ToLowerInvariant(), "tagged patterns require a table"); return false;
       case UnionHixPattern union:
         foreach (var member in union.Patterns)
           if (Matches(member, value, context, definitions, path, new HashSet<string>(active), out _)) return true;
@@ -266,6 +282,11 @@ public static class HixPatternRelations {
       return Relate(actualBody, expected, definitions);
     if (expected is NamedHixPattern namedExpected && definitions.TryGetValue(namedExpected.Name, out var expectedBody))
       return Relate(actual, expectedBody, definitions);
+    if (actual is TaggedHixPattern taggedActual) return Relate(taggedActual.Underlying, expected, definitions);
+    if (expected is TaggedHixPattern taggedExpected) {
+      var relation = Relate(actual, taggedExpected.Underlying, definitions);
+      return relation == HixPatternRelation.Never ? relation : HixPatternRelation.Maybe;
+    }
     if (actual is UnionHixPattern actualUnion) return Merge(actualUnion.Patterns.Select(item => Relate(item, expected, definitions)));
     if (expected is UnionHixPattern expectedUnion) {
       var relations = expectedUnion.Patterns.Select(item => Relate(actual, item, definitions)).ToArray();

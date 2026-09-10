@@ -34,7 +34,7 @@ public sealed record HixRootDefinition(
 );
 
 [Flags]
-public enum HixMetadataKind { None = 0, Pattern = 1, PatternField = 2, File = 4 }
+public enum HixMetadataKind { None = 0, Pattern = 1, PatternField = 2, File = 4, TypeDefinition = 8 }
 
 public sealed record FunctionSignature(
   HixValueKind ResultType, IReadOnlyList<HixValueKind> ArgumentTypes, bool IsVariadic = false

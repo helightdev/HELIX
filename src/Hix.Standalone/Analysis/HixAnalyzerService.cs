@@ -124,7 +124,11 @@ public sealed class HixAnalyzerService {
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "FileMetadata", signature.ArgumentCount, signature.IsVariadic, "File", "None", "None",
         signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
-    return functions.Concat(roots).Concat(kinds).Concat(metadata).Concat(fileMetadata).ToArray();
+    var typeMetadata = all.Where(definition => (definition.Metadata & HixMetadataKind.TypeDefinition) != 0)
+      .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
+        "TypeMetadata", signature.ArgumentCount, signature.IsVariadic, "Type", "None", "Pattern",
+        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
+    return functions.Concat(roots).Concat(kinds).Concat(metadata).Concat(typeMetadata).Concat(fileMetadata).ToArray();
   }
 
   private static bool ResolvedPatternDiagnostic(string message, ISet<string> patterns) {

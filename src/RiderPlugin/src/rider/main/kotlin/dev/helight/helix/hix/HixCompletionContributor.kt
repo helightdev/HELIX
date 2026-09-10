@@ -82,6 +82,7 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
             HixLookup.SemanticRole.FileMetadata -> addMetadata(context, result, "FileMetadata", "file metadata")
             HixLookup.SemanticRole.PatternMetadata -> addMetadata(context, result, "PatternMetadata",
                 "pattern metadata", HixLookup.patternMetadataTargetAt(context.parsed, position).orEmpty())
+            HixLookup.SemanticRole.TypeMetadata -> addMetadata(context, result, "TypeMetadata", "type metadata", "Type")
             else -> Unit
         }
     }

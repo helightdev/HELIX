@@ -20,6 +20,8 @@ public static class MetadataFunctions {
       Meta("title", Pattern, [Signature(K.String)], "Adds a display title."),
       Meta("description", Pattern, [Signature(K.String)], "Adds descriptive documentation."),
       Meta("default", HixMetadataKind.PatternField, [Signature(K.Any)], "Sets a table-field default."),
+      Meta("tagged", HixMetadataKind.TypeDefinition, [Signature(), Signature(K.String)],
+        "Adds a required $type discriminator to a table type. The discriminator value defaults to the type name."),
       Meta("import", HixMetadataKind.File, [Signature(K.String)], "Imports relative Hix path globs."),
       Meta("backend", HixMetadataKind.File, [Signature(K.String)], "Selects the analyzer backend."),
       Meta("pragma", HixMetadataKind.File, [Signature(K.String)], "Configures compiler diagnostics and artifacts."),

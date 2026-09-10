@@ -8,6 +8,12 @@ import kotlin.test.assertTrue
 
 class HixLookupTest {
     @Test
+    fun `type declaration metadata has its own semantic role`() {
+        val source = "%tagged<person>\ntype Person = @{string name}"
+        assertEquals(HixLookup.SemanticRole.TypeMetadata,
+            HixLookup.semanticRoleAt(HixAntlrSyntax.parse(source), source.indexOf("tagged")))
+    }
+    @Test
     fun `semantic roles distinguish kinds and pattern metadata from functions`() {
         val source = "type Values = %many string"
         val parsed = HixAntlrSyntax.parse(source)

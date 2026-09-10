@@ -124,6 +124,69 @@ public class StandaloneTests {
       args: new IHixValue[] {new NumberHixValue(0)});
     Assert.False(rejectedWrite.Success);
   }
+  [Fact] public void TaggedTypesInsertAndEnforceDiscriminators() {
+    const string tagged = "%tagged\ntype Person = @{string name}\nfunc main { return(Person(param)) }";
+    var constructed = Run(tagged, args: new IHixValue[] {new HixTableValue([
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixThread.String("Ada"))
+    ])});
+    Assert.True(constructed.Success, constructed.Error.Resolve(constructed.Strings));
+    var table = Assert.IsType<HixTableValue>(constructed.Value);
+    Assert.Equal("Person", Assert.IsType<LiteralHixValue>(table.Entries.Single(entry =>
+      entry.Key.Resolve(constructed.Strings) == "$type").Value).Value.Resolve(constructed.Strings));
+
+    var matching = Run(tagged, args: new IHixValue[] {new HixTableValue([
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixThread.String("Ada")),
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("$type"), HixThread.String("Person"))
+    ])});
+    Assert.True(matching.Success, matching.Error.Resolve(matching.Strings));
+    var conflicting = Run(tagged, args: new IHixValue[] {new HixTableValue([
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixThread.String("Ada")),
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("$type"), HixThread.String("Other"))
+    ])});
+    Assert.False(conflicting.Success);
+    Assert.Contains("constant mismatch", conflicting.Error.Resolve(conflicting.Strings));
+
+    const string custom = "%tagged<person-record>\ntype Person = @{string name}\n";
+    var parsed = Run(custom + "func main { return(parseJson(param, Person)) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic("{\"name\":\"Ada\"}"))
+    });
+    Assert.True(parsed.Success, parsed.Error.Resolve(parsed.Strings));
+    var generated = Run(custom + "func main { return(generateJsonSchema(Person)) }");
+    Assert.True(generated.Success, generated.Error.Resolve(generated.Strings));
+    var definition = JObject.Parse(ReadText(generated))["$defs"]?["Person"];
+    Assert.Equal("person-record", (string)definition?["properties"]?["$type"]?["const"]);
+    Assert.Contains("$type", definition?["required"]?.Values<string>() ?? []);
+    var imported = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic(ReadText(generated))),
+      new LiteralHixValue(HixString.Dynamic("{\"name\":\"Ada\"}"))
+    });
+    Assert.True(imported.Success, imported.Error.Resolve(imported.Strings));
+    Assert.Contains(Assert.IsType<HixTableValue>(imported.Value).Entries,
+      entry => entry.Key.Resolve(imported.Strings) == "$type" && imported.Value is HixTableValue);
+  }
+  [Fact] public void TaggedUnionDeserializationSelectsTheDiscriminatedPattern() {
+    const string source = """
+      %tagged<cat>
+      type Cat = @{string name, number lives = [9]}
+      %tagged<dog>
+      type Dog = @{string name, bool good = [true]}
+      type Animal = %union<Cat><Dog>
+      func main { return(parseJson(param, Animal)) }
+      """;
+    var parsed = Run(source, args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic("{\"$type\":\"dog\",\"name\":\"Mochi\"}"))
+    });
+    Assert.True(parsed.Success, parsed.Error.Resolve(parsed.Strings));
+    var dog = Assert.IsType<HixTableValue>(parsed.Value);
+    Assert.True(Assert.IsType<BooleanHixValue>(dog.Entries.Single(entry =>
+      entry.Key.Resolve(parsed.Strings) == "good").Value).Value);
+    Assert.DoesNotContain(dog.Entries, entry => entry.Key.Resolve(parsed.Strings) == "lives");
+
+    var unknown = Run(source, args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic("{\"$type\":\"bird\",\"name\":\"Mochi\"}"))
+    });
+    Assert.False(unknown.Success);
+  }
   [Fact] public void JsonSchemasRoundTripPatternsIncludingNamedReferences() {
     var generated = Run("type Person = @{string name, %matches<^a+$> string code}\n" +
       "func main { return(generateJsonSchema(Person)) }");

@@ -587,8 +587,12 @@ public sealed class HixThread {
     if (name is "var" or "tar" or "local") return ModifyStorage(name, arguments);
     if (program.Patterns.TryGetValue(name, out var pattern)) {
       if (arguments.Length != 1) return Error("pattern '" + name + "' expects one value");
-      return HixPatternMatcher.Matches(pattern, arguments[0], this, program.Patterns, out var patternFailure)
-        ? arguments[0] : Error("value does not match pattern '" + name + "': " + patternFailure);
+      var value = arguments[0];
+      if (pattern is TaggedHixPattern tagged && value is HixTableValue table &&
+          !table.TryGetValue(this, HixString.Dynamic(TaggedHixPattern.FieldName), out _))
+        value = table.Put(this, HixString.Dynamic(TaggedHixPattern.FieldName), String(tagged.Discriminator));
+      return HixPatternMatcher.Matches(pattern, value, this, program.Patterns, out var patternFailure)
+        ? value : Error("value does not match pattern '" + name + "': " + patternFailure);
     }
 
     if (scope.Contains(name)) return Invoke(name, arguments, line);

@@ -131,11 +131,27 @@ public static class LanguageValidation {
         case EnumHixPattern enumeration: ValidatePattern(enumeration.Underlying, owner, path); break;
         case DocumentedHixPattern documented: ValidatePattern(documented.Underlying, owner, path); break;
         case ConstrainedHixPattern constrained: ValidatePattern(constrained.Underlying, owner, path); break;
+        case TaggedHixPattern tagged:
+          if (!IsTablePattern(tagged.Underlying, new HashSet<string>()))
+            Error(owner, "tagged type must be a table pattern");
+          ValidatePattern(tagged.Underlying, owner, path); break;
         case DelegateHixPattern callable:
           foreach (var field in callable.Parameters) ValidatePattern(field.Pattern, owner, new HashSet<string>(path));
           ValidatePattern(callable.Result, owner, path); break;
       }
     }
+
+    bool IsTablePattern(HixPattern pattern, ISet<string> active) => pattern switch {
+      TableHixPattern or MapHixPattern or KindHixPattern {ValueKind: HixValueKind.Table} => true,
+      NamedHixPattern named when active.Add(named.Name) && patterns.TryGetValue(named.Name, out var resolved) =>
+        IsTablePattern(resolved, active),
+      UnionHixPattern union => union.Patterns.Count != 0 && union.Patterns.All(member =>
+        IsTablePattern(member, new HashSet<string>(active))),
+      DocumentedHixPattern documented => IsTablePattern(documented.Underlying, active),
+      ConstrainedHixPattern constrained => IsTablePattern(constrained.Underlying, active),
+      TaggedHixPattern tagged => IsTablePattern(tagged.Underlying, active),
+      _ => false
+    };
   }
 
   private static IEnumerable<HixIrNode> Descendants(HixIrNode node) {

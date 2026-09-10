@@ -219,6 +219,7 @@ public sealed class LanguageAnalysis {
     if (pattern is EnumHixPattern enumeration) return Conversion(enumeration.Underlying, target);
     if (pattern is ConstrainedHixPattern constrained) return Conversion(constrained.Underlying, target);
     if (pattern is DocumentedHixPattern documented) return Conversion(documented.Underlying, target);
+    if (pattern is TaggedHixPattern tagged) return Conversion(tagged.Underlying, target);
     var source = pattern switch {
       KindHixPattern kind => kind.ValueKind,
       TupleHixPattern or ManyHixPattern => HixValueKind.Tuple,
@@ -341,6 +342,7 @@ public sealed class LanguageAnalysis {
       case EnumHixPattern enumeration: AddPatternReferences(enumeration.Underlying, owner, references); break;
       case DocumentedHixPattern documented: AddPatternReferences(documented.Underlying, owner, references); break;
       case ConstrainedHixPattern constrained: AddPatternReferences(constrained.Underlying, owner, references); break;
+      case TaggedHixPattern tagged: AddPatternReferences(tagged.Underlying, owner, references); break;
       case DelegateHixPattern callable:
         foreach (var field in callable.Parameters) AddPatternReferences(field.Pattern, owner, references);
         AddPatternReferences(callable.Result, owner, references); break;

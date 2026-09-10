@@ -55,6 +55,7 @@ class HixDocumentationProvider : DocumentationProvider {
         val catalogKind = when (role) {
             HixLookup.SemanticRole.Pattern -> "Kind"
             HixLookup.SemanticRole.PatternMetadata -> "PatternMetadata"
+            HixLookup.SemanticRole.TypeMetadata -> "TypeMetadata"
             HixLookup.SemanticRole.FileMetadata -> "FileMetadata"
             HixLookup.SemanticRole.Metadata -> null
             null -> null
