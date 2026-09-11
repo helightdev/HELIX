@@ -198,8 +198,10 @@ public static class HixPatternMatcher {
         if (tuple.Values.Count < required || tuple.Values.Count > expected.Fields.Count) {
           failure = new(path, expected.Display, "tuple", "expected " + required + ".." + expected.Fields.Count + " elements"); return false;
         }
-        for (var i = 0; i < tuple.Values.Count; i++)
+        for (var i = 0; i < tuple.Values.Count; i++) {
+          if (expected.Fields[i].Optional && tuple.Values[i].Kind == HixValueKind.Null) continue;
           if (!Matches(expected.Fields[i].Pattern, tuple.Values[i], context, definitions, path + "[" + i + "]", active, out failure)) return false;
+        }
         return true;
       case TableHixPattern expected when value is HixTableValue table:
         foreach (var field in expected.Fields) {
@@ -207,6 +209,7 @@ public static class HixPatternMatcher {
             if (field.Optional) continue;
             failure = new(path + "." + field.Name, field.Pattern.Display, "missing"); return false;
           }
+          if (field.Optional && member.Kind == HixValueKind.Null) continue;
           if (!Matches(field.Pattern, member, context, definitions, path + "." + field.Name, active, out failure)) return false;
         }
         return true;

@@ -83,6 +83,8 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("pure func trailing(string first, string second,) -> string { return(join(<a>, <b>,)) }")]
   [InlineData("mixin Trailing { expression { local tuple = @[<a>, <b>,]; local table = @{first=<a>, second=<b>,}; emit(tuple) } }")]
   [InlineData("type NullableString = %union<string><null>\ntype Pair = @[string left, number right]\ntype Handler = delegate(string value) -> null\npure func typed(string value) -> null { return(null) }")]
+  [InlineData("type Pet = %union<Dog><Cat>;\n%tagged type Dog = @{};\n%tagged type Cat = @{};\n%tagged type House = @{Pet pet,};")]
+  [InlineData("type Pet = %union<Dog><Cat>\n%tagged type Dog = @{}\n%tagged type Cat = @{}\n%tagged type House = @{Pet pet}")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));
@@ -136,7 +138,7 @@ public sealed class HixAntlrGrammarTests {
   [Fact]
   public void TablePatternFieldsAcceptAssignedDefaults() {
     var semantic = Hix.Compiler.AntlrSyntax.Parse(
-      "type Person = @{string name, number age = [18], %default<draft> string state}");
+      "type Person = @{string name, number age = [18], %default<draft> string state, %optional string tag}");
 
     Assert.Empty(semantic.Diagnostics);
     var fields = Assert.IsType<Hix.TableHixPattern>(semantic.Declarations.OfType<Hix.Compiler.TypeDeclarationIr>()
@@ -144,6 +146,8 @@ public sealed class HixAntlrGrammarTests {
     Assert.False(fields[0].HasDefault);
     Assert.Equal(18d, fields[1].DefaultValue);
     Assert.Equal("draft", fields[2].DefaultValue);
+    Assert.True(fields[3].HasDefault);
+    Assert.Null(fields[3].DefaultValue);
   }
 
   [Theory]

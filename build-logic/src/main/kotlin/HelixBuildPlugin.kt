@@ -184,15 +184,55 @@ private fun registerHixGrammarTasks(project: Project) {
         description = "Generates all ANTLR outputs for the Hix language."
         dependsOn(csharp, ide)
     }
+    val halGrammarDirectory = project.layout.projectDirectory.dir("src/Grammars/hal")
+    val halCsharpOutput = project.layout.projectDirectory.dir("src/Hix/Language/Hal/Generated")
+    val halIdeOutput = project.layout.projectDirectory.dir(
+        "src/RiderPlugin/src/rider/main/java/dev/helight/helix/hal/generated",
+    )
+    val halGrammarFiles = listOf(halGrammarDirectory.file("HalLexer.g4"), halGrammarDirectory.file("HalParser.g4"))
+    val halCsharp = project.tasks.register("generateHalCSharpGrammar", JavaExec::class.java) {
+        group = "code generation"
+        description = "Generates the C# lexer and parser for Hal."
+        classpath = antlrTool
+        mainClass.set("org.antlr.v4.Tool")
+        workingDir = halGrammarDirectory.asFile
+        inputs.files(halGrammarFiles)
+        outputs.dir(halCsharpOutput)
+        args("-Dlanguage=CSharp", "-visitor", "-no-listener", "-package", "Hix.Hal.Generated",
+            "-o", halCsharpOutput.asFile.absolutePath, "-lib", halCsharpOutput.asFile.absolutePath,
+            "HalLexer.g4", "HalParser.g4")
+        doLast { normalizeGeneratedSources(halCsharpOutput.asFile, "cs") }
+    }
+    val halIde = project.tasks.register("generateHalIdeGrammar", JavaExec::class.java) {
+        group = "code generation"
+        description = "Generates the Rider lexer and parser for Hal."
+        classpath = antlrTool
+        mainClass.set("org.antlr.v4.Tool")
+        workingDir = halGrammarDirectory.asFile
+        inputs.files(halGrammarFiles)
+        outputs.dir(halIdeOutput)
+        args("-Dlanguage=Java", "-visitor", "-no-listener", "-package", "dev.helight.helix.hal.generated",
+            "-o", halIdeOutput.asFile.absolutePath, "-lib", halIdeOutput.asFile.absolutePath,
+            "HalLexer.g4", "HalParser.g4")
+        doLast { normalizeGeneratedSources(halIdeOutput.asFile, "java") }
+    }
+    project.tasks.register("generateHalGrammar") {
+        group = "code generation"
+        description = "Generates all ANTLR outputs for Hal."
+        dependsOn(halCsharp, halIde)
+    }
+    project.tasks.named("generateHixGrammar") { dependsOn(halCsharp, halIde) }
     project.tasks.named("buildHix") { dependsOn(csharp) }
+    project.tasks.named("buildHix") { dependsOn(halCsharp) }
     project.tasks.named("buildHixMixinGenerator") { dependsOn(csharp) }
+    project.tasks.named("buildHixMixinGenerator") { dependsOn(halCsharp) }
     project.gradle.projectsEvaluated {
         project.findProject(":riderPlugin")?.tasks?.matching {
             it.name == "compileKotlin" || it.name == "compileJava"
-        }?.configureEach { dependsOn(ide) }
+        }?.configureEach { dependsOn(ide, halIde) }
         project.findProject(":riderPlugin")?.tasks?.matching {
             it.name == "compileDotNet"
-        }?.configureEach { dependsOn(csharp) }
+        }?.configureEach { dependsOn(csharp, halCsharp) }
     }
 }
 

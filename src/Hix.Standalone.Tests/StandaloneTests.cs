@@ -116,6 +116,9 @@ public class StandaloneTests {
       "func main { return(parseJson(param, Person)) }";
     var valid = Run(source, args: new IHixValue[] {new LiteralHixValue(HixString.Dynamic("{\"name\":\"Ada\",\"age\":37,\"role\":\"admin\"}"))});
     Assert.True(valid.Success, valid.Error.Resolve(valid.Strings));
+    var validTable = Assert.IsType<HixTableValue>(valid.Value);
+    Assert.IsType<NullHixValue>(validTable.Select(new HixThread(new HixStandaloneBackend().CreateContext()),
+      HixString.Dynamic("nickname")));
     var invalid = Run(source, args: new IHixValue[] {new LiteralHixValue(HixString.Dynamic("{\"name\":\"Ada\",\"age\":0,\"role\":\"admin\"}"))});
     Assert.False(invalid.Success);
     Assert.Contains("constraint failed", invalid.Error.Resolve(invalid.Strings));
@@ -230,6 +233,119 @@ public class StandaloneTests {
     var person = JObject.Parse(ReadText(generated))["$defs"]?["Person"];
     Assert.Equal("Person record", (string)person?["title"]);
     Assert.Equal("A documented person type.", (string)person?["description"]);
+  }
+  [Fact] public void HalParsesTypedSectionsNestedCollectionsAndLocalReferences() {
+    const string definitions = """
+      %tagged<person>
+      type Person = @{string name, number age = [18], Address address, Names aliases, %optional any friend}
+      type Address = @{string city}
+      type Names = %many<string>
+      """;
+    const string hal = """
+      %uid<people/example>
+      %title<People>
+      --- Person
+      name = Ada Lovelace
+      address = Address { city = "London" }
+      aliases = Names [ "Ada", Countess ]
+      friend = ref(grace)
+      favoriteCity = ref(grace)#address#city
+
+      --- Person &grace
+      name = Grace Hopper
+      address = Address { city = Arlington }
+      aliases = [ Amazing Grace ]
+      """;
+    var result = Run(definitions + "\nfunc main { return(parseHal(param)) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic(hal))
+    });
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    var primary = Assert.IsType<HixTableValue>(result.Value);
+    Assert.IsType<HixTableValue>(primary.Entries.Single(entry => entry.Key.Resolve(result.Strings) == "friend").Value);
+    Assert.Equal("Arlington", Assert.IsType<LiteralHixValue>(primary.Entries.Single(entry =>
+      entry.Key.Resolve(result.Strings) == "favoriteCity").Value).Value.Resolve(result.Strings));
+
+    var parsed = Run(definitions + "\nfunc main { return(parseHal(param, <grace>)) }", args: new IHixValue[] {HixThread.String(hal)});
+    Assert.True(parsed.Success, parsed.Error.Resolve(parsed.Strings));
+    var grace = Assert.IsType<HixTableValue>(parsed.Value);
+    Assert.Equal("Grace Hopper", Assert.IsType<LiteralHixValue>(grace.Entries.Single(entry =>
+      entry.Key.Resolve(parsed.Strings) == "name").Value).Value.Resolve(parsed.Strings));
+    Assert.Equal("person", Assert.IsType<LiteralHixValue>(grace.Entries.Single(entry =>
+      entry.Key.Resolve(parsed.Strings) == "$type").Value).Value.Resolve(parsed.Strings));
+    Assert.Contains(grace.Entries, entry => entry.Key.Resolve(parsed.Strings) == "age");
+
+    var written = Run(definitions + "\nfunc main { return(writeHal(param, Person)) }", args: new[] {grace});
+    Assert.True(written.Success, written.Error.Resolve(written.Strings));
+    Assert.StartsWith("--- Person\n", ReadText(written));
+  }
+  [Fact] public void HalParsesTypedRecordsNestedInsideTypedLists() {
+    const string definitions = """
+      type Person = @{string name}
+      type People = %many<Person>
+      type House = @{string address, People inhabitants, Person owner}
+      """;
+    const string hal = """
+      --- House
+      address = somewhere
+      inhabitants People [
+        Person { "name" = Ada Lovelace, },
+        Person {
+          name = Grace Hopper
+        },
+      ],
+      owner Person { name = Linus, }
+      """;
+    var result = Run(definitions + "\nfunc main { return(parseHal(param)) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic(hal))
+    });
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    var house = Assert.IsType<HixTableValue>(result.Value);
+    var thread = new HixThread(new HixStandaloneBackend().CreateContext());
+    var inhabitants = Assert.IsType<TupleHixValue>(house.Select(thread, HixString.Dynamic("inhabitants")));
+    Assert.Equal(2, inhabitants.Values.Count);
+    Assert.Equal("Ada Lovelace", Assert.IsType<LiteralHixValue>(Assert.IsType<HixTableValue>(inhabitants.Values[0])
+      .Select(thread, HixString.Dynamic("name"))).Value.Resolve(null));
+    Assert.Equal("Linus", Assert.IsType<LiteralHixValue>(Assert.IsType<HixTableValue>(house
+      .Select(thread, HixString.Dynamic("owner"))).Select(thread, HixString.Dynamic("name"))).Value.Resolve(null));
+  }
+  [Fact] public void HalParsesTaggedUnionMembersInsideLists() {
+    const string definitions = """
+      type Pet = %union<Dog><Cat>;
+      %tagged type Dog = @{string name};
+      %tagged type Cat = @{string name};
+      type House = @{%many<Pet> pets};
+      """;
+    const string hal = """
+      --- House
+      pets = [
+        Cat { name = Miso }
+        Dog { name = Rex }
+      ]
+      """;
+    var result = Run(definitions + "\nfunc main { return(parseHal(param)) }", args: new IHixValue[] {
+      HixThread.String(hal)
+    });
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    var pets = Assert.IsType<TupleHixValue>(Assert.IsType<HixTableValue>(result.Value).Entries.Single(entry =>
+      entry.Key.Resolve(result.Strings) == "pets").Value);
+    Assert.Equal(new[] {"Cat", "Dog"}, pets.Values.Cast<HixTableValue>().Select(pet =>
+      Assert.IsType<LiteralHixValue>(pet.Entries.Single(entry => entry.Key.Resolve(result.Strings) == "$type").Value)
+        .Value.Resolve(result.Strings)));
+  }
+  [Fact] public void TuplePatternsAcceptCommonPatternAndFieldMetadata() {
+    var unit = AntlrSyntax.Parse("""
+      %title<Pair>
+      %description<A tuple pattern.>
+      type Pair = @[%enum<left><right> string side, %optional %graph<flow> string next]
+      """);
+    Assert.Empty(unit.Diagnostics);
+    HixPattern pattern = Assert.Single(unit.Declarations.OfType<TypeDeclarationIr>()).Pattern;
+    Assert.IsType<DocumentedHixPattern>(pattern);
+    while (pattern is DocumentedHixPattern documented) pattern = documented.Underlying;
+    var tuple = Assert.IsType<TupleHixPattern>(pattern);
+    Assert.IsType<EnumHixPattern>(tuple.Fields[0].Pattern);
+    Assert.True(tuple.Fields[1].Optional);
+    Assert.Equal(HixGraphFieldKind.Flow, tuple.Fields[1].Graph);
   }
   [Fact] public void JsonSchemasRoundTripPatternsIncludingNamedReferences() {
     var generated = Run("type Person = @{string name, %matches<^a+$> string code}\n" +

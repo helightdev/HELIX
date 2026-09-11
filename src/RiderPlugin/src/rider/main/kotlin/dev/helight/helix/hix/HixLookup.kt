@@ -108,8 +108,8 @@ internal object HixLookup {
     fun enumValuesAt(parsed: HelixAntlrParse, offset: Int): List<String> {
         fun contains(rule: org.antlr.v4.runtime.ParserRuleContext) =
             offset >= rule.start.startIndex && offset <= rule.stop.stopIndex + 1
-        fun values(metadata: HixParser.MetadataListContext?): List<String> {
-            val enumeration = metadata?.metadata()?.firstOrNull { it.IDENTIFIER()?.text == "enum" }
+        fun values(metadata: Iterable<HixParser.MetadataContext>?): List<String> {
+            val enumeration = metadata?.firstOrNull { it.IDENTIFIER()?.text == "enum" }
                 ?: return emptyList()
             val list = enumeration.valueList() ?: return emptyList()
             return if (list.argumentValue().isNotEmpty()) list.argumentValue().map { it.text }
@@ -118,7 +118,7 @@ internal object HixLookup {
 
         val local = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.LocalDeclarationStatementContext>()
             .filter(::contains).minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return emptyList()
-        values(local.patternExpression()?.metadataList()).takeIf { it.isNotEmpty() }?.let { return it }
+        values(local.patternExpression()?.inlineMetadataList()?.metadata()?.asIterable()).takeIf { it.isNotEmpty() }?.let { return it }
 
         val entry = HixAntlrSyntax.rules(local).filterIsInstance<HixParser.TableKeyedEntryContext>()
             .filter(::contains).minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return emptyList()
@@ -128,7 +128,7 @@ internal object HixLookup {
             .firstOrNull { it.IDENTIFIER()?.text == typeName } ?: return emptyList()
         val field = declaration.patternExpression()?.patternPrimary()?.tablePattern()?.patternField()
             ?.firstOrNull { it.ROOT_IDENTIFIER()?.text == fieldName }
-        return values(field?.metadataList())
+        return values(field?.metadataList()?.metadata()?.asIterable())
     }
     fun site(parsed: HelixAntlrParse, offset: Int): Site {
         val tokens = parsed.tokens.filter { it.start < offset && it.type !in setOf(0,

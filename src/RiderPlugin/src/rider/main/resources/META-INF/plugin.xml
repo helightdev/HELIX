@@ -32,8 +32,16 @@
               implementationClass="dev.helight.helix.hix.HixFileType"
               fieldName="INSTANCE"
               language="Hix"
-              extensions="additionalfile;hix"
+              extensions="hix"
               patterns="*.HelixSourceGenerator.additionalfile" />
+    <fileType name="Hal" implementationClass="dev.helight.helix.hal.HalFileType"
+              fieldName="INSTANCE" language="Hal" extensions="hal" />
+    <lang.parserDefinition language="Hal" implementationClass="dev.helight.helix.hal.HalParserDefinition" />
+    <lang.syntaxHighlighterFactory language="Hal" implementationClass="dev.helight.helix.hal.HalSyntaxHighlighterFactory" />
+    <completion.contributor language="Hal" implementationClass="dev.helight.helix.hal.HalCompletionContributor" />
+    <annotator language="Hal" implementationClass="dev.helight.helix.hal.HalAnnotator" />
+    <lang.braceMatcher language="Hal" implementationClass="dev.helight.helix.hal.HalBraceMatcher" />
+    <lang.quoteHandler language="Hal" implementationClass="dev.helight.helix.hal.HalQuoteHandler" />
     <lang.parserDefinition language="Hix"
                            implementationClass="dev.helight.helix.hix.HixParserDefinition" />
     <lang.syntaxHighlighterFactory language="Hix"

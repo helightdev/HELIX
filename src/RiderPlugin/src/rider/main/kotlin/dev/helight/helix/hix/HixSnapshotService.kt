@@ -328,7 +328,7 @@ class HixSnapshotService(private val project: Project) {
     private fun refreshAffectedDirectories(events: List<VFileEvent>) {
         if (openFiles.isEmpty()) return
         val directories = events.asSequence().flatMap(::eventPaths)
-            .filter { HixFileType.isCanonical(it.substringAfterLast('/')) }
+            .filter(::affectsHixAnalysis)
             .map { it.substringBeforeLast('/', "") }
             .toSet()
         if (directories.isEmpty()) return
@@ -385,6 +385,7 @@ class HixSnapshotService(private val project: Project) {
         private val BACKEND_METADATA = Regex("(?m)^[ \\t]*%backend[ \\t]*<([^>\\r\\n]+)>")
         val SEMANTIC_SNAPSHOT: Key<MixinFileSnapshot> = Key.create("helix.mixin.semantic.snapshot")
         fun getInstance(project: Project): HixSnapshotService = project.service()
+        internal fun affectsHixAnalysis(path: String) = HixFileType.isCanonical(path.replace('\\', '/').substringAfterLast('/'))
 
         fun sourceHash(source: CharSequence): Long {
             var hash = 1469598103934665603L

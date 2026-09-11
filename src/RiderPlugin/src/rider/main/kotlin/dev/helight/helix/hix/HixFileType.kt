@@ -6,11 +6,12 @@ import com.intellij.openapi.fileTypes.LanguageFileType
 object HixLanguage : Language("Hix")
 
 object HixFileType : LanguageFileType(HixLanguage) {
-    override fun getDefaultExtension() = "HelixSourceGenerator.additionalfile"
-    override fun getDescription() = "Hix source-generator library"
+    override fun getDefaultExtension() = "hix"
+    override fun getDescription() = "Hix language file"
     override fun getIcon() = null
     override fun getName() = "Hix"
 
     fun isCanonical(name: String): Boolean =
-        name.endsWith(".HelixSourceGenerator.additionalfile", ignoreCase = true)
+        name.endsWith(".hix", ignoreCase = true) ||
+            name.endsWith(".HelixSourceGenerator.additionalfile", ignoreCase = true)
 }

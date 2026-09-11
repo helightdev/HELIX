@@ -12,6 +12,7 @@ public class HixStandaloneBackend : HixBackend {
     base.RegisterFunctions(functions);
     functions.Add(new PrintFunction());
     JsonFunctions.Register(functions);
+    HalFunctions.Register(functions);
     IoFunctions.Register(functions);
   }
   private sealed class PrintFunction() : FunctionDefinition("print", [new(HixValueKind.Null, [HixValueKind.Any], true)]) {

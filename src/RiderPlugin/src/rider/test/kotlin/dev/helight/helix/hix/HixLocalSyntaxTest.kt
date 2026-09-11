@@ -9,8 +9,16 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `hal edits do not invalidate hix analysis`() {
+        assertTrue(HixSnapshotService.affectsHixAnalysis("/project/manifest.hix"))
+        assertTrue(!HixSnapshotService.affectsHixAnalysis("/project/assets/person.hal"))
+    }
+
+    @Test
     fun `canonical source-generator files and standalone hix files use the hix file type`() {
-        assertEquals("HelixSourceGenerator.additionalfile", HixFileType.defaultExtension)
+        assertEquals("hix", HixFileType.defaultExtension)
+        assertTrue(HixFileType.isCanonical("manifest.hix"))
+        assertTrue(HixFileType.isCanonical("Library.HIX"))
         assertTrue(HixFileType.isCanonical("Core.HelixSourceGenerator.additionalfile"))
         assertTrue(HixFileType.isCanonical("Core.HELIXSOURCEGENERATOR.ADDITIONALFILE"))
     }

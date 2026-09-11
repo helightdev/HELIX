@@ -175,8 +175,8 @@ public static class AntlrSyntax {
 
     private HixPattern Pattern(Parser.PatternExpressionContext context) {
       var pattern = context.patternPrimary() == null ? HixPattern.Any : Pattern(context.patternPrimary());
-      if (context.metadataList() == null) return pattern;
-      pattern = ApplyPatternMetadata(pattern, context.metadataList().metadata().Select(item => (MetadataIr)Visit(item)),
+      if (context.inlineMetadataList() == null) return pattern;
+      pattern = ApplyPatternMetadata(pattern, context.inlineMetadataList().metadata().Select(item => (MetadataIr)Visit(item)),
         HixMetadataKind.Pattern, out _, out _, out var hasDefault, out _);
       if (hasDefault) diagnostics.Add(new HixParseDiagnostic(context.Start.Line,
         "defaults are only allowed on table pattern fields"));
@@ -207,7 +207,8 @@ public static class AntlrSyntax {
       if (hasAssignedDefault && hasMetadataDefault)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "a pattern field cannot have two defaults"));
       var defaultValue = hasAssignedDefault ? ConstantValue((ExpressionIr)Visit(context.value())) : metadataDefault;
-      return new HixPatternField(name, pattern, optional, defaultValue, hasAssignedDefault || hasMetadataDefault, graph);
+      return new HixPatternField(name, pattern, optional, defaultValue,
+        hasAssignedDefault || hasMetadataDefault || optional, graph);
     }
 
     private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values,

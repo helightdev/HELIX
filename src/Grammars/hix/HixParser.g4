@@ -14,6 +14,7 @@ topLevelDeclaration
     ;
 
 metadataList: metadata (trivia* metadata)*;
+inlineMetadataList: metadata+;
 
 metadata
     : METADATA_PREFIX IDENTIFIER valueList?
@@ -25,7 +26,7 @@ metadataValue: BEGIN_METADATA_VALUE value VALUE_END_INLINE;
 // Declarations
 mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier patternParameterList? mixinBody;
 
-typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression;
+typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression SEMICOLON?;
 
 mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
 
@@ -41,7 +42,7 @@ functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
 
 // Patterns
 patternExpression
-    : metadataList patternPrimary?
+    : inlineMetadataList patternPrimary?
     | patternPrimary
     ;
 
