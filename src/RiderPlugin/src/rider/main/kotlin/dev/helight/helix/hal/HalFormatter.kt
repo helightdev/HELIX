@@ -41,10 +41,18 @@ private class HalPassthroughBlock(node: ASTNode, wrap: Wrap?, alignment: Alignme
     }
     override fun getIndent(): Indent? = null
     override fun getSpacing(child1: Block?, child2: Block): Spacing = Spacing.getReadOnlySpacing()
-    // A concrete result is required even when the PSI block has no children;
-    // DELEGATE_TO_NEXT_CHILD makes Rider index a nonexistent child while it
-    // computes editor indentation.
-    override fun getChildAttributes(newChildIndex: Int) = ChildAttributes(Indent.getNoneIndent(), null)
+    override fun getChildAttributes(newChildIndex: Int): ChildAttributes {
+        val children = subBlocks
+        if (children.isEmpty()) return ChildAttributes(Indent.getNoneIndent(), null)
+        if (newChildIndex > 0) {
+            val previous = children[minOf(newChildIndex - 1, children.lastIndex)]
+            if (previous is HalPassthroughBlock &&
+                previous.myNode.text.trimEnd().lastOrNull() in setOf('{', '[', '('))
+                return ChildAttributes(Indent.getNormalIndent(), null)
+            return ChildAttributes.DELEGATE_TO_PREV_CHILD
+        }
+        return ChildAttributes.DELEGATE_TO_NEXT_CHILD
+    }
     override fun isLeaf() = myNode.firstChildNode == null
 }
 

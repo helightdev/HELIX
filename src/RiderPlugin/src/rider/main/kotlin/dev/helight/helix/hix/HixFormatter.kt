@@ -39,10 +39,29 @@ private class HixPassthroughBlock(node: ASTNode, wrap: Wrap?, alignment: Alignme
     }
     override fun getIndent(): Indent? = null
     override fun getSpacing(child1: Block?, child2: Block): Spacing = Spacing.getReadOnlySpacing()
-    // This method is also queried for an empty block while Rider calculates the
-    // indentation for Enter/backspace. Delegating to a child in that case makes
-    // FormatProcessor try to read child 0 from an empty list.
-    override fun getChildAttributes(newChildIndex: Int) = ChildAttributes(Indent.getNoneIndent(), null)
+    override fun getChildAttributes(newChildIndex: Int): ChildAttributes {
+        val children = subBlocks
+        if (children.isEmpty()) return ChildAttributes(Indent.getNoneIndent(), null)
+
+        // Prefer the preceding syntax when Enter is pressed. Besides avoiding an
+        // invalid delegation into an empty list, this retains the indentation of
+        // content introduced by @> / @+ and of an already-chopped argument list.
+        if (newChildIndex > 0) {
+            val previous = children[minOf(newChildIndex - 1, children.lastIndex)]
+            if (previous is HixPassthroughBlock && previous.opensIndentedRegion())
+                return ChildAttributes(Indent.getNormalIndent(), null)
+            return ChildAttributes.DELEGATE_TO_PREV_CHILD
+        }
+        return ChildAttributes.DELEGATE_TO_NEXT_CHILD
+    }
+
+    private fun opensIndentedRegion(): Boolean {
+        // Function/block headers are commonly represented as one composite PSI
+        // child (for example, `func main {`), unlike table openers which are a
+        // standalone leaf. Inspect the significant trailing character so both
+        // shapes receive the same editor indentation.
+        return myNode.text.trimEnd().lastOrNull() in setOf('{', '(', '[')
+    }
     override fun isLeaf() = myNode.firstChildNode == null
 }
 

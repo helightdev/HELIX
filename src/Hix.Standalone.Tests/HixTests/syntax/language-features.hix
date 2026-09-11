@@ -15,7 +15,7 @@ pure func arrow(number value) -> number => plus($value, 1);
 %test
 func syntaxFeaturesExecuteFromTheirCanonicalParse {
   local tuple = @[<left>, 2,]
-  local table = @{first=<a>, second=<b>,}
+  local table = @{first = <a>, second = <b>,}
   local mapper = func => <[$0]>;
   local selected = when [true] {
     true -> <yes>
