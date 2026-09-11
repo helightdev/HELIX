@@ -1,0 +1,115 @@
+pure func hasOpcode(table compilation, string expected) -> bool {
+  local names = map(instructions($compilation), func => opcode($0))
+  return(contains($names, $expected))
+}
+
+pure func bytecodeSelection(string value) -> string {
+  local selected = when [$value] {
+    <first> -> <one>
+    <second> -> <two>
+    else -> <other>
+  }
+  return($selected)
+}
+
+pure func bytecodeLoop(number value) -> number {
+  local current = [$value]
+  :again
+  $current = plus($current, 1)
+  when(compare($current, <lt>, 2)) { goto again }
+  return($current)
+}
+
+pure func bytecodeMarked(number value) -> number {
+  %marker<bytecode-stored>
+  local copied = [$value]
+  %marker<bytecode-returned>
+  return(plus($copied, 1))
+}
+
+%test
+func literalAndCollectionOpcodesAreExplicit {
+  local empty = null
+  local yes = true
+  local no = false
+  local emptyTuple = @[]
+  local emptyTable = @{}
+  local packedTuple = @[true, false]
+  local packedTable = @{value=null}
+  local compiled = compile()
+  assert(success($compiled))
+  assert(hasOpcode($compiled, <LoadNull>))
+  assert(hasOpcode($compiled, <LoadTrue>))
+  assert(hasOpcode($compiled, <LoadFalse>))
+  assert(hasOpcode($compiled, <LoadTuple>))
+  assert(hasOpcode($compiled, <LoadTable>))
+  assert(hasOpcode($compiled, <PackTuple>))
+  assert(hasOpcode($compiled, <PackTable>))
+}
+
+%test
+func staticCallsAndFunctionBoundariesAreInspectable {
+  local source
+    @> pure func increment(number value) -> number { return(plus($value, 1)) }
+    @> pure func twice(number value) -> number { return(increment(increment($value))) }
+  local compiled = compile($source)
+  assert(success($compiled))
+  assert(eq(length(functions($compiled)), 2))
+  assert(hasOpcode($compiled, <Call>))
+  assert(contains(disassemble($compiled), <static increment>))
+  assert(contains(disassemble(function($compiled, <twice>)), <.function>))
+}
+
+%test
+func selectionsUseOrdinaryLocalsEqualityAndJumps {
+  local compiled = compile()
+  assert(success($compiled))
+  assert(hasOpcode($compiled, <Equal>))
+  assert(hasOpcode($compiled, <JumpFalse>))
+}
+
+%test
+func smartParametersLowerToRootsAndMembers {
+  local source
+    @> pure func read(string value) -> string {
+    @>   local copied = $0
+    @>   return(<[$copied]:[$it]:[$value]>)
+    @> }
+  local compiled = compile($source)
+  assert(success($compiled))
+  assert(hasOpcode($compiled, <LoadRoot>))
+  assert(hasOpcode($compiled, <Member>))
+  assert(not(contains(disassemble($compiled), <Smart>)))
+}
+
+%test
+func relativeBranchesExposeResolvedTargets {
+  local compiled = compile()
+  assert(success($compiled))
+  local branches = where(instructions($compiled), func => not(eq(target($0), missing)))
+  assert(compare(length($branches), <gt>, 0))
+}
+
+%test
+func bytecodeMarkersRetainTypesAndInstructionLocations {
+  local compiled = compile()
+  local input = marker($compiled, <bytecode-stored>)
+  local result = marker($compiled, <bytecode-returned>)
+  assert(eq(inferredType($input), <number>))
+  assert(eq(inferredType($result), <null>))
+  assert(compare(offset($input), <lt>, offset($result)))
+  assert(exists($input#instruction))
+  assert(exists($result#instruction))
+}
+
+%test
+func malformedAndInvalidProgramsProduceDiagnostics {
+  local malformed @> pure func broken( {
+  local invalid @> pure func broken { replaceAll(true) }
+  local malformedCompilation = compile($malformed)
+  local invalidCompilation = compile($invalid)
+  assert(not(success($malformedCompilation)))
+  assert(not(success($invalidCompilation)))
+  assert(compare(length(diagnostics($malformedCompilation)), <gt>, 0))
+  assert(contains(get(diagnostics($invalidCompilation), 0), <no overload of 'replaceAll'>))
+}

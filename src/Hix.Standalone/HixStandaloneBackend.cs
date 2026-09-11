@@ -8,12 +8,15 @@ public class HixStandaloneBackend : HixBackend {
   }
   public TextWriter Output { get; }
   public string WorkingDirectory { get; }
+  public IReadOnlyList<string> CompilationSources { get; private set; } = [];
+  public void SetCompilationSources(IEnumerable<string> sources) => CompilationSources = sources?.ToArray() ?? [];
   protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
     base.RegisterFunctions(functions);
     functions.Add(new PrintFunction());
     JsonFunctions.Register(functions);
     HalFunctions.Register(functions);
     IoFunctions.Register(functions);
+    CompilationFunctions.Register(functions);
   }
   private sealed class PrintFunction() : FunctionDefinition("print", [new(HixValueKind.Null, [HixValueKind.Any], true)]) {
     public override bool HasEffects => true;

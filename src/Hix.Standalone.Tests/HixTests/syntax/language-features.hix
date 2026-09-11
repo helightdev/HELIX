@@ -1,0 +1,31 @@
+type NullableString = string?
+type Pair = @[string left, number right]
+type Handler = delegate(string value) -> null
+type Pet = Dog | Cat
+%tagged type Dog = @{string name}
+%tagged type Cat = @{string name, number lives = [9]}
+%tagged type House = @{Pet pet, %optional string address}
+
+pure func trailing(string first, string second,) -> string {
+  return(join($first, $second,))
+}
+
+pure func arrow(number value) -> number => plus($value, 1);
+
+%test
+func syntaxFeaturesExecuteFromTheirCanonicalParse {
+  local tuple = @[<left>, 2,]
+  local table = @{first=<a>, second=<b>,}
+  local mapper = func => <[$0]>;
+  local selected = when [true] {
+    true -> <yes>
+    else -> <no>
+  }
+  assert(success(compile()))
+  assert(eq(arrow(2), 3))
+}
+
+%test
+func nullableUnionTupleDelegateAndTaggedPatternsCompile {
+  assert(success(compile()))
+}

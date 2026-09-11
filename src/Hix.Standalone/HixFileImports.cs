@@ -8,25 +8,37 @@ using Hix.Compiler;
 
 namespace Hix.Standalone;
 
+public sealed record HixSourceFile(string Path, string Source);
+
 public static class HixFileImports {
-  public static IReadOnlyList<string> Load(string entryFile) {
-    var sources = new List<string>();
+  public static IReadOnlyList<string> Load(string entryFile) => LoadFiles(entryFile).Select(file => file.Source).ToArray();
+
+  public static IReadOnlyList<HixSourceFile> LoadFiles(string entryFile) {
+    var sources = new List<HixSourceFile>();
     var visited = new HashSet<string>(PathComparer);
-    Visit(Path.GetFullPath(entryFile), sources, visited);
+    var manifests = new HashSet<string>(PathComparer);
+    Visit(Path.GetFullPath(entryFile), sources, visited, manifests);
     return sources;
   }
 
-  private static void Visit(string file, ICollection<string> sources, ISet<string> visited) {
+  private static void Visit(string file, ICollection<HixSourceFile> sources, ISet<string> visited,
+    ISet<string> manifests) {
     file = Path.GetFullPath(file);
     if (!visited.Add(file)) return;
+    var manifest = HixManifest.Find(file);
+    if (manifest != null && manifests.Add(manifest.Path)) {
+      var directory = Path.GetDirectoryName(manifest.Path);
+      foreach (var pattern in manifest.Imports)
+        foreach (var imported in Match(directory, pattern)) Visit(imported, sources, visited, manifests);
+    }
     var source = File.ReadAllText(file);
     var unit = AntlrSyntax.Parse(source, new HixStandaloneBackend(TextWriter.Null, Path.GetDirectoryName(file)), true);
     foreach (var metadata in unit.Metadata.Where(item => item.Name == "import")) {
       if (metadata.Values.Count != 1 || metadata.Values[0] is not StringExpressionIr value)
         throw new ArgumentException("%import requires one literal path glob");
-      foreach (var imported in Match(Path.GetDirectoryName(file), value.Value)) Visit(imported, sources, visited);
+      foreach (var imported in Match(Path.GetDirectoryName(file), value.Value)) Visit(imported, sources, visited, manifests);
     }
-    sources.Add(source);
+    sources.Add(new HixSourceFile(file, source));
   }
 
   private static IEnumerable<string> Match(string directory, string pattern) {

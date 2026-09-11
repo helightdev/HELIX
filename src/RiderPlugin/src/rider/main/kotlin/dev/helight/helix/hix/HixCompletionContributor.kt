@@ -7,6 +7,7 @@ import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.components.service
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import dev.helight.helix.hix.generated.HixLexer
@@ -34,11 +35,12 @@ private data class HixCompletionContext(
     val parsed: HelixAntlrParse,
     val token: HelixAntlrToken?,
     val service: HixSnapshotService,
-    val path: String?
+    val file: VirtualFile?
 ) {
+    val path get() = file?.path
     fun definitions(kind: String, receiverType: String = "", operandType: String = "",
                     prefix: String = "") =
-        service.queryDefinitions(kind, receiverType, operandType, prefix, source).asList()
+        service.queryDefinitions(kind, receiverType, operandType, prefix, source, file).asList()
 
     fun metadataDefinition(argument: HixLookup.MetadataArgument) =
         (definitions("FileMetadata", prefix = argument.name) +
@@ -53,7 +55,7 @@ private data class HixCompletionContext(
             val parsed = HixAntlrSyntax.parse(source)
             return HixCompletionContext(source, offset, parsed,
                 parsed.tokens.firstOrNull { it.start < offset && offset <= it.end },
-                parameters.position.project.service(), parameters.originalFile.virtualFile?.path)
+                parameters.position.project.service(), parameters.originalFile.virtualFile)
         }
     }
 }
@@ -134,14 +136,14 @@ private object PatternProvider : CompletionProvider<CompletionParameters>() {
         }
         val names = HixAntlrSyntax.rules(context.parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
             .map { it.IDENTIFIER().text }.toMutableSet()
-        if (context.path != null) names += context.service.snapshotsInDirectory(context.path)
+        if (context.file != null) names += context.service.snapshotsInContext(context.file)
             .flatMap { it.declarations.asList() }.filter { it.kind == "Pattern" }.map { it.name }
         names.forEach { result.addElement(LookupElementBuilder.create(it).withTypeText("pattern")) }
 
         if (!patternArgument) {
             val start = context.token?.start?.coerceIn(0, context.offset) ?: context.offset
             context.service.lazyCompletions("CSharpType",
-                context.source.substring(start, context.offset), context.source).forEach { item ->
+                context.source.substring(start, context.offset), context.source, context.file).forEach { item ->
                 result.addElement(LookupElementBuilder.create(item, item.insertText)
                     .withPresentableText(item.name).withTypeText(item.kind))
             }
@@ -197,7 +199,7 @@ private object ExpressionProvider : CompletionProvider<CompletionParameters>() {
                     .withTypeText(definition.resultType.lowercase()))
             }
 
-        if (context.path != null && !site.member) context.service.snapshotsInDirectory(context.path)
+        if (context.file != null && !site.member) context.service.snapshotsInContext(context.file)
             .flatMap { it.declarations.asList() }.filter { declaration -> when {
                 site.chained || statementContext -> declaration.kind == "Function"
                 valueContext -> declaration.kind in setOf("Function", "Pattern")

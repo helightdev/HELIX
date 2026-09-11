@@ -166,7 +166,13 @@ public sealed class FunctionDeclarationIr(string name, bool pure, bool inline, b
   public IReadOnlyList<MetadataIr> Metadata { get; } = metadata ?? [];
 }
 
-public abstract class StatementIr(IEnumerable<HixIrNode> children = null) : HixIrNode(children: children?.ToArray());
+public abstract class StatementIr(IEnumerable<HixIrNode> children = null) : HixIrNode(children: children?.ToArray()) {
+  public IReadOnlyList<MetadataIr> Metadata { get; private set; } = [];
+  public void SetMetadata(IReadOnlyList<MetadataIr> metadata) {
+    Metadata = metadata ?? [];
+    Adopt(Metadata, Children.Where(child => child is not MetadataIr));
+  }
+}
 
 public sealed class BlockStatementIr(IReadOnlyList<StatementIr> statements, string label = null)
   : StatementIr(statements) {

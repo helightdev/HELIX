@@ -15,6 +15,12 @@ public class StandaloneTests {
     var program = HixCompiler.CompileFunctions(new[] {source}, backend);
     return new HixVM(new[] {program}).Invoke(program, backend.CreateThread(), entry, args);
   }
+  [Fact] public void HixAuthoredFunctionSuitesPass() {
+    var output = new StringWriter();
+    var result = HixTestRunner.Run([Path.Combine(AppContext.BaseDirectory, "HixTests")], output);
+    Assert.True(result.Success, output.ToString());
+    Assert.True(result.Passed >= 54, output.ToString());
+  }
   [Fact] public void MainReturnsValue() {
     var result = Run("func main { return(42) }");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
@@ -75,6 +81,40 @@ public class StandaloneTests {
       Assert.Contains("failure", error.ToString());
     } finally { File.Delete(file); }
   }
+  [Fact] public void TestRunnerRunsAssertionsCasesAndCompilationTests() {
+    var directory = Path.Combine(Path.GetTempPath(), "hix-tests-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try {
+      var invalid = Path.Combine(directory, "invalid.hix");
+      File.WriteAllText(invalid, "%backend<Test>\n---\nfunc broken { @ }");
+      var tests = Path.Combine(directory, "values.hix");
+      File.WriteAllText(tests, "%backend<Test>\n---\n" +
+        "%test\n%testcase(@[2], 2)\n%testcase(@[3], 3)\n" +
+        "func identity(number value) -> number { assert(eq(param#value, param#value)); return(param#value) }\n" +
+        "%test\nfunc assertion { assert(true) }\n" +
+        "%test\nfunc compilation { local result = compile(readFile(<invalid.hix>)); assert(not(success($result))) }");
+
+      var output = new StringWriter();
+      var result = HixTestRunner.Run([tests], output);
+      Assert.True(result.Success, output.ToString());
+      Assert.Equal(4, result.Passed);
+      Assert.Contains("identity[1]", output.ToString());
+      Assert.Contains("compilation", output.ToString());
+      Assert.Equal(0, Program.Run(["test", tests], new StringWriter(), new StringWriter()));
+      Assert.Equal(0, Program.Run(["test", directory], new StringWriter(), new StringWriter()));
+    } finally { Directory.Delete(directory, true); }
+  }
+  [Fact] public void TestRunnerReportsAssertionAndExpectedOutputFailures() {
+    var file = Path.Combine(Path.GetTempPath(), "hix-test-" + Guid.NewGuid().ToString("N") + ".hix");
+    try {
+      File.WriteAllText(file, "%backend<Test>\n---\n%test\nfunc assertion { assert(false) }\n" +
+        "%test\n%testcase(@[], 2)\nfunc output { return(1) }");
+      var result = HixTestRunner.Run([file], new StringWriter());
+      Assert.Equal(2, result.Failed);
+      Assert.Contains(result.Tests, test => test.Message.Contains("assertion failed"));
+      Assert.Contains(result.Tests, test => test.Message.Contains("expected 2 but received 1"));
+    } finally { File.Delete(file); }
+  }
   [Theory]
   [InlineData("*")]
   [InlineData("**")]
@@ -91,6 +131,33 @@ public class StandaloneTests {
       var output = new StringWriter(); var error = new StringWriter();
       Assert.Equal(0, Program.Run(new[] {entry}, output, error));
       Assert.Equal("42" + Environment.NewLine, output.ToString());
+    } finally { Directory.Delete(directory, true); }
+  }
+  [Fact] public void ClosestHalManifestProvidesHixContext() {
+    var directory = Path.Combine(Path.GetTempPath(), "hix-manifest-" + Guid.NewGuid().ToString("N"));
+    var nested = Path.Combine(directory, "assets", "nested");
+    Directory.CreateDirectory(nested);
+    try {
+      File.WriteAllText(Path.Combine(directory, "manifest.hal"),
+        "--- Manifest\nbackend = Standalone\nimports = [\"definitions/**\"]\n");
+      Directory.CreateDirectory(Path.Combine(directory, "definitions"));
+      File.WriteAllText(Path.Combine(directory, "definitions", "answer.hix"), "func answer { return(42) }");
+      var entry = Path.Combine(nested, "main.hix");
+      File.WriteAllText(entry, "func main { print(answer()) }");
+
+      var output = new StringWriter(); var error = new StringWriter();
+      Assert.Equal(0, Program.Run([entry], output, error));
+      Assert.Equal("42" + Environment.NewLine, output.ToString());
+    } finally { Directory.Delete(directory, true); }
+  }
+  [Fact] public void HalManifestRequiresManifestRootType() {
+    var directory = Path.Combine(Path.GetTempPath(), "hix-manifest-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try {
+      var manifest = Path.Combine(directory, "manifest.hal");
+      File.WriteAllText(manifest, "--- Settings\nbackend = Standalone\n");
+      var exception = Assert.Throws<ArgumentException>(() => HixManifest.Load(manifest));
+      Assert.Contains("root section must have type Manifest", exception.Message);
     } finally { Directory.Delete(directory, true); }
   }
   [Fact] public void BackendCanRegisterRootsWithoutVmChanges() {

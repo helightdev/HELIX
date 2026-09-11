@@ -18,6 +18,14 @@ public sealed class HixAnalyzerServiceTests {
   }
 
   [Fact]
+  public void TestBackendCatalogIncludesTestMetadata() {
+    var definitions = new HixAnalyzerService(new HixTestBackend()).Definitions;
+    Assert.Contains(definitions, item => item is {Name: "test", Kind: "DeclarationMetadata"});
+    Assert.Equal(2, definitions.Count(item => item is {Name: "testcase", Kind: "DeclarationMetadata"}));
+    Assert.DoesNotContain(definitions, item => item.Name == "syntaxError");
+  }
+
+  [Fact]
   public void DefinitionQueriesAreContextualAndDoNotDependOnDocumentRanges() {
     var service = new HixAnalyzerService();
 

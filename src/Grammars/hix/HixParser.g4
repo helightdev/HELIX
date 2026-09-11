@@ -81,6 +81,11 @@ patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 statementBlock: LC (statement | SEMICOLON | trivia)* RC;
 
 statement
+    : metadataList trivia* statementBody
+    | statementBody
+    ;
+
+statementBody
     : labelIdentifier NEWLINE
     | labelIdentifier? statementBlock
     | invocationStatement

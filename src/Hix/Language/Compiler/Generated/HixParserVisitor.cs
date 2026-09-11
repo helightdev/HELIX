@@ -189,6 +189,12 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitStatement([NotNull] HixParser.StatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.statementBody"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitStatementBody([NotNull] HixParser.StatementBodyContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.invocationStatement"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

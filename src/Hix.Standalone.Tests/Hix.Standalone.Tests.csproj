@@ -16,4 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="../Hix.Standalone/Hix.Standalone.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="HixTests/**/*.hix" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="HixTests/**/*.hal" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

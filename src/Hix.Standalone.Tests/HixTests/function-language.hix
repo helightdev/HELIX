@@ -1,0 +1,118 @@
+pure func privateInner { local value = <callee>; return($it) }
+pure func privateOuter(string value) -> string {
+  local value = <outer>
+  local nested = privateInner(<nested>)
+  return(<[$0]:[$value]:[$nested]>)
+}
+
+%test
+func functionFramesKeepParametersAndLocalsPrivate {
+  local value = <caller>
+  assert(eq(privateOuter(<input>), <input:outer:nested>))
+  assert(eq($value, <caller>))
+}
+
+pure func positional(string first, string second) -> string => <[$1]:[$first]>;
+
+%test
+func smartParametersBindByNameAndPosition {
+  assert(eq(positional(<left>, <right>), <right:left>))
+}
+
+pure func coercedString(string value) -> string => $value;
+pure func overload(string value) -> string => <string>;
+pure func overload(number value) -> string => <number>;
+
+%test
+func signatureBindingPrefersExactThenImplicitConversion {
+  assert(eq(coercedString(12), <12>))
+  assert(eq(trim(34), <34>))
+  assert(eq(plus(<2>, 3), 5))
+  assert(eq(overload(56), <number>))
+  assert(eq(overload(<56>), <string>))
+}
+
+pure func completeParameter { return($it) }
+pure func dynamicShape -> string => <[kind($it)]-[$0]-[$1]>;
+
+%test
+func completeParameterPreservesOneOrManyArguments {
+  assert(eq(completeParameter(<value>), <value>))
+  assert(eq(completeParameter(<left>, <right>), @[<left>, <right>]))
+  assert(eq(dynamicShape(<left>, 2), <tuple-left-2>))
+}
+
+pure func apply(any value) -> any { return(call(func => <[$0]~>, $value)) }
+
+%test
+func functionsAreFirstClassValues {
+  local callback = func => uppercase($0);
+  assert(eq(call($callback, <hello>), <HELLO>))
+  assert(eq(apply(<global>), <global~>))
+  assert(eq(call(function(<overload>), 12), <number>))
+}
+
+pure func optionalValue(%optional string value) -> any => $value;
+pure func defaulted(string value = [<default>]) -> string => $value;
+pure func nullableValue(string? value) -> bool => eq($value, null);
+
+%test
+func optionalNullableAndDefaultParametersRemainDistinct {
+  assert(eq(optionalValue(), missing))
+  assert(not(exists(optionalValue())))
+  assert(eq(defaulted(), <default>))
+  assert(nullableValue(null))
+  assert(is([optionalValue(null)?], error))
+}
+
+pure func named(string first, string second = [<second>], string third = [<third>]) -> string =>
+  <[$first]:[$second]:[$third]>;
+
+%test
+func namedArgumentsAreReorderedAndDefaultsAreApplied {
+  assert(eq(named(first = <one>), <one:second:third>))
+  assert(eq(named(third = <3>, first = <1>, second = <2>), <1:2:3>))
+}
+
+pure func selected(bool first, bool second) -> string {
+  local result = when {
+    ($first, $second) -> <both>
+    ($first) -> <first>
+    else -> <neither>
+  }
+  return($result)
+}
+
+%test
+func whenExpressionsSelectLazily {
+  assert(eq(selected(true, true), <both>))
+  assert(eq(selected(true, false), <first>))
+  assert(eq(selected(false, true), <neither>))
+  local value = when <yes> {
+    <yes> -> <selected>
+    else -> error<unreachable>
+  }
+  assert(eq($value, <selected>))
+  assert(eq([<present>] ?: error<unreachable>, <present>))
+}
+
+pure func factorial(number value) -> number {
+  local result = when {
+    (eq($value, 0)) -> 1
+    else -> mult($value, factorial(minus($value, 1)))
+  }
+  return($result)
+}
+
+%test
+%testcase(@[0], 1)
+%testcase(@[1], 1)
+%testcase(@[6], 720)
+func recursiveFunctionsWork(number value) -> number => factorial($value);
+
+%test
+func interpolationAndChainingCompose {
+  local records = @[@{value=@{name=<Ada>}}, @{value=@{name=<Grace>}}]
+  assert(eq($records:map(func => $0#value#name):join<, >, <Ada, Grace>))
+  assert(eq(<answer:[plus(20, 22)]>, <answer:42>))
+}

@@ -36,7 +36,7 @@ public sealed record HixRootDefinition(
 [Flags]
 public enum HixMetadataKind {
   None = 0, Pattern = 1, PatternField = 2, File = 4, TypeDefinition = 8,
-  FunctionDefinition = 16, MixinDefinition = 32
+  FunctionDefinition = 16, MixinDefinition = 32, Statement = 64, VariableDeclaration = 128
 }
 
 public sealed record FunctionSignature(

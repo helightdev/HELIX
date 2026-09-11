@@ -29,7 +29,8 @@ public sealed class HelixMixinLanguageHost {
         _symbolCache = symbolCache;
         _analyzers = new Dictionary<string, HixAnalyzerService>(StringComparer.OrdinalIgnoreCase) {
             ["Unity"] = NewAnalyzer(new RiderAnalyzerHost(this)),
-            ["Standalone"] = new HixAnalyzerService()
+            ["Standalone"] = new HixAnalyzerService(),
+            ["Test"] = new HixAnalyzerService(new TestAnalyzerBackend())
         };
         var model = solution.GetProtocolSolution().GetHelixExpressionModel();
         model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(Analyzer(request.Backend), request)));
@@ -39,6 +40,13 @@ public sealed class HelixMixinLanguageHost {
             Analyzer(request.Backend).QueryDefinitions(request.Kind, request.ReceiverType, request.OperandType,
                 request.Prefix).Select(Definition).ToArray())));
         model.GetMixinLanguageCatalog.SetAsync((_, backend) => RdTask.Successful(LanguageCatalog(Analyzer(backend))));
+    }
+
+    private sealed class TestAnalyzerBackend : HixBackend {
+        protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
+            base.RegisterFunctions(functions);
+            Hix.Functions.TestMetadataFunctions.Register(functions);
+        }
     }
 
     private HixAnalyzerService Analyzer(string name) =>

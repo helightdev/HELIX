@@ -200,6 +200,13 @@ public class HixParserBaseVisitor<T> extends AbstractParseTreeVisitor<T> impleme
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
+	@Override public T visitStatementBody(HixParser.StatementBodyContext ctx) { return visitChildren(ctx); }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation returns the result of calling
+	 * {@link #visitChildren} on {@code ctx}.</p>
+	 */
 	@Override public T visitInvocationStatement(HixParser.InvocationStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}

@@ -22,6 +22,8 @@ public static class MetadataFunctions {
       Meta("matches", Pattern, [Signature(K.String)], "Adds a regular-expression constraint."),
       Meta("title", Documented, [Signature(K.String)], "Adds a display title."),
       Meta("description", Documented, [Signature(K.String)], "Adds descriptive documentation."),
+      Meta("doc", HixMetadataKind.FunctionDefinition | HixMetadataKind.MixinDefinition, [Signature(K.String)],
+        "Adds descriptive documentation. Prefer %description for new declarations."),
       Meta("default", HixMetadataKind.PatternField, [Signature(K.Any)], "Sets a table-field default."),
       Meta("graph", HixMetadataKind.PatternField, [Signature(K.String)],
         "Marks a field as a graph value input or an outgoing flow link."),

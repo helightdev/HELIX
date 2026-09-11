@@ -1,0 +1,27 @@
+%test
+func standaloneFileFunctionsOperateRelativeToTheTestFile {
+  local first = <.hix-function-test.txt>
+  local second = <.hix-function-test-copy.txt>
+  local renamed = <.hix-function-test-renamed.txt>
+  deleteFile($first)
+  deleteFile($second)
+  deleteFile($renamed)
+
+  assert(createFile($first))
+  assert(writeFile(path = $first, content = <hello>))
+  assert(writeFile(path = $first, content = <!>, append = true))
+  assert(eq(readFile(path = $first), <hello!>))
+  assert(eq(readFile(path = $first, offset = 1, length = 3), <ell>))
+  assert(eq(readFileLength($first), 6))
+  assert(eq(readFileLines($first), <hello!>))
+  assert(contains(listFiles(<.>), resolvePath($first)))
+
+  assert(copyFile($first, $second))
+  assert(renameFile($second, $renamed))
+  assert(existsFile($renamed))
+  assert(not(existsFile($second)))
+  assert(deleteFile($first))
+  assert(deleteFile($renamed))
+  assert(not(existsFile($first)))
+  assert(is([readFile($first)?], error))
+}

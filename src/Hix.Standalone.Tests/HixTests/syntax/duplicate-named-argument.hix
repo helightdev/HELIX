@@ -1,0 +1,2 @@
+pure func pair(string first, string second) -> string => $first;
+func invalid { pair(first = <a>, first = <b>) }

@@ -1,0 +1,1 @@
+pure func invalid(string value, string value) -> string => $value;

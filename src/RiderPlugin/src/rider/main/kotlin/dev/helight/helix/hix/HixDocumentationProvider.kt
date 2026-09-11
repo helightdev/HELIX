@@ -37,7 +37,7 @@ class HixDocumentationProvider : DocumentationProvider {
         val context = originalElement ?: element
         val file = context.containingFile ?: return null
         val service = HixSnapshotService.getInstance(file.project)
-        val definitions = service.definitionsFor(file.text)
+        val definitions = service.definitionsFor(file.text, file.virtualFile)
         file.virtualFile?.let { service.observe(it, file.text) }
         val snapshot = service.snapshotForText(file.text, file.virtualFile?.path)
         val offset = context.textRange.startOffset

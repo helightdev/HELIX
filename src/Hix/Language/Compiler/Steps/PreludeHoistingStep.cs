@@ -32,7 +32,7 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
     private BlockStatementIr RewriteLateBlock(BlockStatementIr block) => CopyLocation(block,
       new BlockStatementIr(block.Statements.Select(RewriteLateStatement).ToArray(), block.Label));
 
-    private StatementIr RewriteLateStatement(StatementIr statement) => statement switch {
+    private StatementIr RewriteLateStatement(StatementIr statement) => PreserveMetadata(statement, statement switch {
       BlockStatementIr block => RewriteLateBlock(block),
       AssignmentStatementIr value => CopyLocation(value,
         new AssignmentStatementIr(value.Storage, value.Name,
@@ -45,7 +45,12 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
       SelectionStatementIr value => CopyLocation(value,
         new SelectionStatementIr((SelectionExpressionIr)RewriteLateSelection(value.Selection))),
       _ => Rewrite(statement)
-    };
+    });
+
+    private StatementIr PreserveMetadata(StatementIr source, StatementIr target) {
+      target.SetMetadata(source.Metadata.Select(Rewrite).ToArray());
+      return target;
+    }
 
     private CallExpressionIr RewriteEffectCall(CallExpressionIr call) => CopyLocation(call,
       new CallExpressionIr(call.Name, call.EffectiveArguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean, call.Binding));

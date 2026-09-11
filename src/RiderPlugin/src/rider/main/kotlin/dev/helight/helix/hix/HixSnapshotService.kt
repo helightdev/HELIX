@@ -26,6 +26,7 @@ import dev.helight.helix.protocol.MixinParseRequest
 import dev.helight.helix.protocol.MixinCompletionItem
 import dev.helight.helix.protocol.MixinCompletionRequest
 import dev.helight.helix.protocol.helixExpressionModel
+import dev.helight.helix.hal.HalManifest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -81,14 +82,14 @@ class HixSnapshotService(private val project: Project) {
             }
     }
 
-    fun definitionsFor(source: CharSequence): Array<MixinLanguageDefinition> {
-        val backend = backendFor(source)
+    fun definitionsFor(source: CharSequence, file: VirtualFile? = null): Array<MixinLanguageDefinition> {
+        val backend = effectiveBackend(source, file)
         ensureLanguageCatalog(backend)
         return catalogs[backend] ?: emptyArray()
     }
 
-    fun refreshLanguageCatalog(source: CharSequence) {
-        val backend = backendFor(source)
+    fun refreshLanguageCatalog(source: CharSequence, file: VirtualFile? = null) {
+        val backend = effectiveBackend(source, file)
         catalogs.remove(backend)
         definitionQueries.keys.removeIf { it.backend == backend }
         ensureLanguageCatalog(backend)
@@ -100,16 +101,18 @@ class HixSnapshotService(private val project: Project) {
             { ensureLanguageCatalog(backend) }, CATALOG_RETRY_DELAY_MS, TimeUnit.MILLISECONDS)
     }
 
-    fun lazyCompletions(kind: String, prefix: String, source: CharSequence): Array<MixinCompletionItem> = try {
+    fun lazyCompletions(kind: String, prefix: String, source: CharSequence,
+                        file: VirtualFile? = null): Array<MixinCompletionItem> = try {
         project.solution.helixExpressionModel.completeMixin
-            .sync(MixinCompletionRequest(kind, prefix, backendFor(source)), RpcTimeouts(500L, 2_000L)).items
+            .sync(MixinCompletionRequest(kind, prefix, effectiveBackend(source, file)), RpcTimeouts(500L, 2_000L)).items
     } catch (_: Throwable) {
         emptyArray()
     }
 
     fun queryDefinitions(kind: String, receiverType: String = "", operandType: String = "",
-                         prefix: String = "", source: CharSequence): Array<MixinLanguageDefinition> {
-        val key = DefinitionQueryKey(backendFor(source), kind, receiverType, operandType, prefix)
+                         prefix: String = "", source: CharSequence,
+                         file: VirtualFile? = null): Array<MixinLanguageDefinition> {
+        val key = DefinitionQueryKey(effectiveBackend(source, file), kind, receiverType, operandType, prefix)
         return definitionQueries[key] ?: try {
             project.solution.helixExpressionModel.queryMixinDefinitions.sync(
                 dev.helight.helix.protocol.MixinDefinitionQuery(kind, receiverType, operandType, prefix,
@@ -143,6 +146,15 @@ class HixSnapshotService(private val project: Project) {
         }.sortedBy { it.filePath.lowercase() }
     }
 
+    fun snapshotsInContext(file: VirtualFile): List<MixinFileSnapshot> {
+        val siblings = file.parent?.children.orEmpty().filter { !it.isDirectory && HixFileType.isCanonical(it.name) }
+        return (HalManifest.hixFiles(file) + siblings).distinctBy { normalise(it.path) }
+            .mapNotNull { byPath[normalise(it.path)] }.sortedBy { it.filePath.lowercase() }
+    }
+
+    private fun effectiveBackend(source: CharSequence, file: VirtualFile?): String =
+        backendFor(source, HalManifest.config(file)?.backend)
+
     fun updateOpenBuffer(filePath: String, source: String) {
         openBuffers[normalise(filePath)] = source
     }
@@ -173,10 +185,11 @@ class HixSnapshotService(private val project: Project) {
     }
 
     fun requestDirectory(origin: VirtualFile, sourceOverride: String? = null) {
-        val files = origin.parent?.children
+        val siblings = origin.parent?.children
             ?.filter { !it.isDirectory && HixFileType.isCanonical(it.name) }
             ?.sortedBy { it.path.lowercase() }
             ?: listOf(origin)
+        val files = (HalManifest.hixFiles(origin) + siblings).distinctBy { normalise(it.path) }
         val sources = files.map { file ->
             val path = normalise(file.path)
             knownFiles[path] = file
@@ -184,10 +197,11 @@ class HixSnapshotService(private val project: Project) {
                 file == origin && sourceOverride != null -> sourceOverride
                 else -> openBuffers[path] ?: read(file)
             }
-            path to source
+            Triple(path, source, effectiveBackend(source, file))
         }
-        sources.groupBy { backendFor(it.second) }.forEach { (backend, backendSources) ->
-            requestBatch(normalise(origin.parent?.path ?: origin.path), backendSources, backend)
+        sources.groupBy { it.third }.forEach { (backend, backendSources) ->
+            requestBatch(normalise(origin.parent?.path ?: origin.path),
+                backendSources.map { it.first to it.second }, backend)
         }
     }
 
@@ -327,16 +341,14 @@ class HixSnapshotService(private val project: Project) {
 
     private fun refreshAffectedDirectories(events: List<VFileEvent>) {
         if (openFiles.isEmpty()) return
-        val directories = events.asSequence().flatMap(::eventPaths)
+        val changed = events.asSequence().flatMap(::eventPaths)
             .filter(::affectsHixAnalysis)
-            .map { it.substringBeforeLast('/', "") }
             .toSet()
-        if (directories.isEmpty()) return
+        if (changed.isEmpty()) return
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
             openFiles.forEach { (path, state) ->
-                if (path.substringBeforeLast('/', "") !in directories || !state.file.isValid)
-                    return@forEach
+                if (!state.file.isValid) return@forEach
                 requestDirectory(state.file, openBuffers[path])
             }
         }
@@ -385,7 +397,10 @@ class HixSnapshotService(private val project: Project) {
         private val BACKEND_METADATA = Regex("(?m)^[ \\t]*%backend[ \\t]*<([^>\\r\\n]+)>")
         val SEMANTIC_SNAPSHOT: Key<MixinFileSnapshot> = Key.create("helix.mixin.semantic.snapshot")
         fun getInstance(project: Project): HixSnapshotService = project.service()
-        internal fun affectsHixAnalysis(path: String) = HixFileType.isCanonical(path.replace('\\', '/').substringAfterLast('/'))
+        internal fun affectsHixAnalysis(path: String): Boolean {
+            val name = path.replace('\\', '/').substringAfterLast('/')
+            return HixFileType.isCanonical(name) || name.equals("manifest.hal", true)
+        }
 
         fun sourceHash(source: CharSequence): Long {
             var hash = 1469598103934665603L
@@ -398,11 +413,12 @@ class HixSnapshotService(private val project: Project) {
 
         private fun normalise(path: String): String = path.replace('\\', '/')
 
-        fun backendFor(source: CharSequence): String {
+        fun backendFor(source: CharSequence, inherited: String? = null): String {
             val header = source.substring(0, source.indexOf("---").takeIf { it >= 0 } ?: source.length)
             return BACKEND_METADATA.find(header)?.groupValues?.get(1)?.trim()
-                ?.takeIf { it.equals("Unity", true) || it.equals("Standalone", true) }
-                ?.replaceFirstChar { it.uppercase() } ?: DEFAULT_BACKEND
+                ?.takeIf { it.equals("Unity", true) || it.equals("Standalone", true) || it.equals("Test", true) }
+                ?.replaceFirstChar { it.uppercase() }
+                ?: inherited?.replaceFirstChar { it.uppercase() } ?: DEFAULT_BACKEND
         }
 
         private fun batchHash(files: List<Pair<String, String>>, backend: String): Long {

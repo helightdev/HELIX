@@ -44,6 +44,8 @@ public class HixIrRewriter {
         value.Branches.Select(Rewrite).ToArray(), RewriteNode(value.Fallback)),
       _ => node
     };
+    if (node is StatementIr sourceStatement && rewritten is StatementIr rewrittenStatement)
+      rewrittenStatement.SetMetadata(sourceStatement.Metadata.Select(Rewrite).ToArray());
     return ReferenceEquals(rewritten, node) ? rewritten : CopyLocation(node, rewritten);
   }
 

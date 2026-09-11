@@ -17,6 +17,7 @@ public sealed class HixBytecodeCompiler {
   private HashSet<string> localNames = new(StringComparer.Ordinal);
   private readonly List<(int Instruction, Dictionary<string, int> Labels, string Name)> jumps = [];
   private readonly Stack<Dictionary<string, int>> labels = new();
+  private readonly Dictionary<string, (int Instruction, int Line, string Type)> markers = new(StringComparer.Ordinal);
   public HixBytecodeCompiler(HixStringPool seed) => strings = new(seed);
   private int S(string text) => strings.Intern(text).Id;
   private int Emit(HixOpcode op, int a = 0, int b = 0, int line = 0) {
@@ -74,8 +75,12 @@ public sealed class HixBytecodeCompiler {
     var scope = new LanguageFunctionScope(localFunctions.Select(MapFunction).ToArray(), global);
     var derivations = derivationBodies.Select(item => new BytecodeDerivation(item.Name, item.Line,
       item.Expressions.Select(MapExpression).ToArray(), new LanguageFunctionScope(item.Functions.Select(MapFunction).ToArray(), global))).ToArray();
+    var mappedMarkers = markers.ToDictionary(item => item.Key,
+      item => new BytecodeMarker(item.Value.Instruction < offsets.Length
+        ? offsets[item.Value.Instruction]
+        : bytes.Length, item.Value.Line, item.Value.Type), StringComparer.Ordinal);
     return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope,
-      globals.Patterns, globals.Backend, Fields(parameters));
+      globals.Patterns, globals.Backend, Fields(parameters), mappedMarkers);
   }
   private BytecodeExpression Expression(ExpressionDeclarationIr expression) =>
     new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
@@ -151,6 +156,18 @@ public sealed class HixBytecodeCompiler {
   private void Statement(StatementIr statement) {
     var line = statement.Line;
     sourceLine = line;
+    foreach (var metadata in statement.Metadata.Where(item => item.Name == "marker")) {
+      if (metadata.Values.Count != 1 || metadata.Values[0] is not StringExpressionIr name)
+        throw new ArgumentException("%marker requires one literal string");
+      if (markers.ContainsKey(name.Value)) throw new ArgumentException("duplicate bytecode marker '" + name.Value + "'");
+      var type = statement switch {
+        AssignmentStatementIr assignment => assignment.Value?.InferredPattern.Display ?? "missing",
+        InvocationStatementIr invocation => invocation.Call.InferredPattern.Display,
+        ExpressionStatementIr expression => expression.Expression.InferredPattern.Display,
+        _ => "null"
+      };
+      markers.Add(name.Value, (code.Count, line, type));
+    }
     switch (statement) {
       case BlockStatementIr block: NestedBlock(block); break;
       case AssignmentStatementIr assignment:

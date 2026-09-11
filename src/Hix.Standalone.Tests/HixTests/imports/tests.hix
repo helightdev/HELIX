@@ -1,0 +1,9 @@
+%import<library.hix>
+---
+
+%test
+%testcase(@[2], 4)
+%testcase(@[5], 10)
+func importedFunctionsAreAvailable(number value) -> number {
+  return(importedDouble($value))
+}

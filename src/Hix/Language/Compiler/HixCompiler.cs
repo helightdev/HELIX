@@ -38,7 +38,9 @@ public static class HixCompiler {
     var derivations = declarations.OfType<MixinDeclarationIr>().Where(mixin => mixin.IsDerivation).ToArray();
     var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
-    var prepared = new HixCompilerCatalog(strings.Freeze(), functions, derivations, backend, patterns);
+    // The functions are the module being prepared here. Supplying them as catalog imports as well
+    // duplicates every overload and prevents unique static binding (notably named-argument ordering).
+    var prepared = new HixCompilerCatalog(strings.Freeze(), [], derivations, backend, patterns);
     var compiled = new HixModuleIr([], [], functions);
     compiled = RunSteps(compiled, prepared);
     prepared = new HixCompilerCatalog(prepared.StringPool, compiled.Functions, derivations, backend, patterns);

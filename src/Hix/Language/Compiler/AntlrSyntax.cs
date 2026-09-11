@@ -43,11 +43,36 @@ public static class AntlrSyntax {
       tree.fileMetadataSection() is { } section && !HasSyntaxError(section)
       ? section.metadataList().metadata().Select(value => (MetadataIr)builder.Visit(value)).ToArray()
       : Array.Empty<MetadataIr>();
+    ValidateMetadata(metadata, HixMetadataKind.File, "file", backend ?? HixCoreBackend.Instance, diagnostics);
+    foreach (var statement in declarations.SelectMany(DescendantsAndSelf).OfType<StatementIr>()) {
+      var declaration = statement is AssignmentStatementIr {IsDeclaration: true};
+      ValidateMetadata(statement.Metadata, declaration
+          ? HixMetadataKind.Statement | HixMetadataKind.VariableDeclaration : HixMetadataKind.Statement,
+        declaration ? "variable declaration" : "statement", backend ?? HixCoreBackend.Instance, diagnostics);
+    }
     var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
     LanguageValidation.Validate(declarations, diagnostics, backend);
     if (diagnostics.Count == 0) PatternTypeAnalysis.Validate(declarations, patterns, diagnostics, backend);
     return new CompilationUnitIr(source, declarations, diagnostics, tokens, metadata);
+  }
+
+  private static void ValidateMetadata(IEnumerable<MetadataIr> metadata, HixMetadataKind target, string description,
+    HixBackend backend, ICollection<HixParseDiagnostic> diagnostics) {
+    foreach (var item in metadata.Where(item => item.Name != null)) {
+      if (backend.Functions.ResolveMetadata(item.Name, target).Count == 0) {
+        diagnostics.Add(new HixParseDiagnostic(item.Line, "unknown " + description + " metadata '%" + item.Name + "'"));
+      } else if (backend.Functions.ResolveMetadata(item.Name, target, item.Values.Count).Count == 0) {
+        diagnostics.Add(new HixParseDiagnostic(item.Line, "metadata function '%" + item.Name +
+          "' does not accept " + item.Values.Count + " arguments"));
+      }
+    }
+  }
+
+  private static IEnumerable<HixIrNode> DescendantsAndSelf(HixIrNode node) {
+    yield return node;
+    foreach (var child in node.Children)
+      foreach (var descendant in DescendantsAndSelf(child)) yield return descendant;
   }
 
   private static string RecoverIncompleteHeader(string source) {
@@ -316,6 +341,7 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
+      ValidateMetadata(declarationMetadata, HixMetadataKind.MixinDefinition, "mixin", backend, diagnostics);
       var identifier = context.mixinIdentifier();
       var parameters = context.patternParameterList()?.patternField().Select(SignatureField).ToArray() ?? [];
       return At(new MixinDeclarationIr(DeclarationName(identifier.IDENTIFIER() ?? identifier.NAMESPACE_IDENTIFIER(),
@@ -340,6 +366,7 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitFuncDeclaration(Parser.FuncDeclarationContext context) {
       Modifiers(context.funcModifier());
+      ValidateMetadata(declarationMetadata, HixMetadataKind.FunctionDefinition, "function", backend, diagnostics);
       var signatures = new List<FunctionSignature>();
       if (context.directFunctionSignature() is { } direct) {
         var parameters = direct.patternParameterList()?.patternField().Select(SignatureField).ToArray();
@@ -367,6 +394,12 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitStatementBlock(Parser.StatementBlockContext context) => Block(context);
     public override HixIrNode VisitStatement(Parser.StatementContext context) {
+      var statement = (StatementIr)Visit(context.statementBody());
+      statement.SetMetadata(context.metadataList()?.metadata()
+        .Select(item => (MetadataIr)Visit(item)).ToArray() ?? []);
+      return At(statement, context);
+    }
+    public override HixIrNode VisitStatementBody(Parser.StatementBodyContext context) {
       if (context.statementBlock() is { } block)
         return Block(block, context.labelIdentifier()?.LABEL_IDENTIFIER().GetText());
       if (context.labelIdentifier() is { } label)

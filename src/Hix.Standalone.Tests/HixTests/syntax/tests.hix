@@ -1,0 +1,41 @@
+func assertCompilationFails(string file, string diagnostic) -> null {
+  local compilation = compile(readFile($file))
+  assert(not(success($compilation)))
+  assert(compare(length(diagnostics($compilation)), <gt>, 0))
+  when(not(eq($diagnostic, <>))) {
+    assert(contains(get(diagnostics($compilation), 0), $diagnostic))
+  }
+}
+
+%test
+func invalidCallsAreRejected {
+  assertCompilationFails(<invalid-call.hix>, <no overload of 'replaceAll'>)
+}
+
+%test
+func duplicateParametersAreRejected {
+  assertCompilationFails(<duplicate-parameter.hix>, <duplicate signature field>)
+}
+
+%test
+func invalidNamedArgumentOrderingIsRejected {
+  assertCompilationFails(<named-argument-order.hix>, <no overload of 'pair'>)
+}
+
+%test
+func duplicateNamedArgumentsAreRejected {
+  assertCompilationFails(<duplicate-named-argument.hix>, <no overload of 'pair'>)
+}
+
+%test
+func effectsInPureFunctionsAreRejected {
+  assertCompilationFails(<pure-effect.hix>, <pure functions cannot perform>)
+}
+
+%test
+func legacySignatureSyntaxIsRejected {
+  assertCompilationFails(<legacy-signature.hix>, <>)
+}
+
+%test
+func validFileStillRuns { assert(true) }

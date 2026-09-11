@@ -1,0 +1,81 @@
+%test
+func serializationSuiteIsDiscovered { assert(true) }
+
+%tagged<cat>
+type Cat = @{string name, number lives = [9]};
+
+%tagged<dog>
+type Dog = @{string name, bool good = [true]};
+
+type Animal = Cat | Dog;
+type Address = @{string city, %optional string street};
+%title<Person record>
+%description<A person used by serialization tests.>
+type Person = @{string name, number age = [18], Address address, %many<string> roles};
+
+%test
+func jsonRoundTripsNestedPatternValues {
+  local source = <\x7b"name":"Ada","address":\x7b"city":"London"\x7d,"roles":\x5b"admin","author"\x5d\x7d>
+  local person = parseJson($source, Person)
+  assert(eq($person#name, <Ada>))
+  assert(eq($person#age, 18))
+  assert(eq($person#address#city, <London>))
+  assert(eq($person#address#street, missing))
+  assert(eq($person#roles, @[<admin>, <author>]))
+  assert(eq(parseJson(writeJson($person, Person), Person), $person))
+}
+
+%test
+func taggedJsonUnionSelectsMemberAndAppliesDefaults {
+  local dog = parseJson(<\x7b"$type":"dog","name":"Mochi"\x7d>, Animal)
+  assert(eq($dog#good, true))
+  assert(eq(get($dog, <$type>), <dog>))
+  assert(eq(get($dog, <lives>, missing), missing))
+  assert(is([parseJson(<\x7b"$type":"bird","name":"Mochi"\x7d>, Animal)?], error))
+}
+
+%test
+func generatedSchemasRetainStructuralInformation {
+  local schema = generateJsonSchema(Person)
+  assert(contains($schema, <"title":"Person record">))
+  assert(contains($schema, <"description":"A person used by serialization tests.">))
+  assert(contains($schema, <"default":18>))
+  assert(contains($schema, <"required">))
+  local imported = loadJsonSchema($schema)
+  local value = parseJson(<\x7b"name":"Grace","address":\x7b"city":"Arlington"\x7d,"roles":\x5b\x5d\x7d>, $imported)
+  assert(eq($value#age, 18))
+}
+
+%test
+func halParsesNestedTypedValuesAndLocalReferences {
+  local source = <--- Person
+name = Ada
+address Address \x7b city = London \x7d
+roles \x5badmin, author\x5d
+--- Person &friend
+name = Grace
+address Address \x7b city = Arlington \x7d
+roles \x5b\x5d
+>
+  local primary = parseHal($source)
+  local friend = parseHal($source, <friend>)
+  assert(eq($primary#name, <Ada>))
+  assert(eq($primary#address#city, <London>))
+  assert(eq($friend#name, <Grace>))
+  assert(contains(writeHal($friend, Person), <name = "Grace">))
+}
+
+%test
+func pathFunctionsUseCanonicalForwardSlashes {
+  assert(eq(joinPath(<path>, <dir>, <..>, <file.txt>), <path/file.txt>))
+  assert(eq(splitPath(<path/dir/file.txt>), @[<path>, <dir>, <file.txt>]))
+  assert(eq(trimExtension(<path/file.txt>), <path/file>))
+  assert(eq(normalizePath(<path/./dir/../file.txt>), <path/file.txt>))
+  assert(eq(pathDir(<path/dir/file.txt>), <path/dir>))
+  assert(eq(pathDir(<path/to/>), <path>))
+  assert(eq(pathName(<path/to/>), <to>))
+  assert(isRelativePath(<path/file>))
+  assert(not(isAbsolutePath(<path/file>)))
+  assert(isDirPath(<path/to/>))
+  assert(eq(pathSeparator(), </>))
+}

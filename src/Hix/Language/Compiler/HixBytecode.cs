@@ -196,6 +196,7 @@ public sealed record BytecodeFunction(string Name, bool IsPure, IReadOnlyList<By
 );
 
 public sealed record BytecodeExpression(int Body, bool IsPrelude, int Line);
+public sealed record BytecodeMarker(int Offset, int Line, string Type);
 
 public sealed record BytecodeDerivation(string Name, int Line, IReadOnlyList<BytecodeExpression> Expressions,
   LanguageFunctionScope Scope
@@ -214,12 +215,14 @@ public sealed class HixProgramImage {
   public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
   public IReadOnlyList<BytecodeField> Parameters { get; }
   public HixBackend Backend { get; }
+  public IReadOnlyDictionary<string, BytecodeMarker> Markers { get; }
 
   public HixProgramImage(
     byte[] code, Dictionary<int, int> sourceLines, IHixValue[] constants, HixStringPool strings,
     IReadOnlyList<BytecodeExpression> expressions, IReadOnlyList<BytecodeDerivation> derivations,
     LanguageFunctionScope scope, IReadOnlyDictionary<string, HixPattern> patterns,
-    HixBackend backend, IReadOnlyList<BytecodeField> parameters = null
+    HixBackend backend, IReadOnlyList<BytecodeField> parameters = null,
+    IReadOnlyDictionary<string, BytecodeMarker> markers = null
   ) {
     Bytecode = Array.AsReadOnly((byte[])code.Clone());
     SourceLines = new ReadOnlyDictionary<int, int>(new Dictionary<int, int>(sourceLines));
@@ -231,6 +234,8 @@ public sealed class HixProgramImage {
     Patterns = patterns;
     Parameters = parameters ?? [];
     Backend = backend;
+    Markers = new ReadOnlyDictionary<string, BytecodeMarker>((markers ?? new Dictionary<string, BytecodeMarker>())
+      .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal));
     scope.Attach(this);
     foreach (var derivation in derivations) derivation.Scope.Attach(this);
   }
@@ -246,6 +251,7 @@ public sealed class HixProgramImage {
     Patterns = image.Patterns;
     Parameters = image.Parameters;
     Backend = image.Backend;
+    Markers = image.Markers;
   }
 
   public HixProgramImage ForPass(bool prelude) => new(this, prelude);
@@ -289,6 +295,13 @@ public sealed class HixProgramImage {
     foreach (var pattern in Patterns.OrderBy(item => item.Key, StringComparer.Ordinal)) {
       builder.Append(pattern.Key);
       builder.Append(pattern.Value.Display);
+    }
+    builder.Append(Markers.Count);
+    foreach (var marker in Markers.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+      builder.Append(marker.Key);
+      builder.Append(marker.Value.Offset);
+      builder.Append(marker.Value.Line);
+      builder.Append(marker.Value.Type);
     }
     AppendFieldsIdentity(builder, Parameters);
     return builder.Hash.ToString("X16", CultureInfo.InvariantCulture) + ":" +

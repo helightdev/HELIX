@@ -356,8 +356,9 @@ public sealed class HixThread {
   public bool Equal(IHixValue left, IHixValue right) => (left, right) switch {
     (LiteralHixValue a, LiteralHixValue b) => a.Value == b.Value || ResolveText(a) == ResolveText(b),
     (TupleHixValue a, TupleHixValue b) => a.Values.Count == b.Values.Count && a.Values.Zip(b.Values, Equal).All(value => value),
-    (HixTableValue a, HixTableValue b) => a.Count == b.Count && a.Entries.All(entry =>
-      b.TryGetValue(this, entry.Key, out var value) && Equal(entry.Value, value)),
+    (HixTableValue a, HixTableValue b) => a.Count == b.Count && a.Entries.All(entry => b.Entries.Any(candidate =>
+      (entry.Key == candidate.Key || entry.Key.Resolve(Strings) == candidate.Key.Resolve(Strings)) &&
+      Equal(entry.Value, candidate.Value))),
     _ => left.Equals(right)
   };
 

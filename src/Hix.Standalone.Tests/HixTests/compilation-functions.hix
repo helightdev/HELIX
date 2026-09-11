@@ -1,0 +1,55 @@
+%test
+func compileCurrentFileExposesStatementMarkers {
+  %marker<compilation-local>
+  local compiled = compile()
+  assert(success($compiled))
+  assert(compare(length(functions($compiled)), <gt>, 0))
+
+  local marked = marker($compiled, <compilation-local>)
+  assert(eq(inferredType($marked), <table>))
+  assert(compare(offset($marked), <gte>, 0))
+  assert(compare(line($marked), <gt>, 0))
+
+  %marker<marked-assertion>
+  assert(contains(disassemble($compiled), <CALL>))
+  assert(eq(inferredType(marker($compiled, <marked-assertion>)), <null>))
+}
+
+%test
+func compileSourceExposesFunctionsInstructionsAndMarkers {
+  local source
+    @> pure func doubled(number value) -> number {
+    @>   %marker<stored>
+    @>   local result = mult($value, 2)
+    @>   %marker<returned>
+    @>   return($result)
+    @> }
+  local compiled = compile($source)
+  assert(success($compiled))
+  assert(eq(length(diagnostics($compiled)), 0))
+  assert(eq(length(functions($compiled)), 1))
+
+  local doubled = function($compiled, <doubled>)
+  assert(eq($doubled#name, <doubled>))
+  assert(compare(length(instructions($doubled)), <gt>, 3))
+  assert(contains(disassemble($doubled), <.function>))
+
+  local stored = marker($compiled, <stored>)
+  assert(eq(inferredType($stored), <number>))
+  assert(compare(offset($stored), <lt>, offset(marker($compiled, <returned>))))
+  assert(exists($stored#instruction))
+  assert(compare(length(operands($stored#instruction)), <gte>, 0))
+  assert(compare(line($stored#instruction), <gt>, 0))
+}
+
+%test
+func failedCompilationIsInspectableWithoutFailingExecution {
+  local source @> pure func broken { replaceAll(true) }
+  local compiled = compile($source)
+  assert(not(success($compiled)))
+  assert(eq(length(functions($compiled)), 0))
+  assert(eq(length(instructions($compiled)), 0))
+  assert(eq(disassemble($compiled), <>))
+  local diagnostic = get(diagnostics($compiled), 0)
+  assert(contains($diagnostic, <no overload of 'replaceAll'>))
+}

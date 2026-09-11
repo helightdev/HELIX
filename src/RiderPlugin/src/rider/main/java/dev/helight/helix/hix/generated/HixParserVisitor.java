@@ -167,6 +167,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitStatement(HixParser.StatementContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#statementBody}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitStatementBody(HixParser.StatementBodyContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#invocationStatement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

@@ -122,40 +122,85 @@ private fun unescapeString(text: String): String = buildString {
 
 internal object HalManifest {
     data class Field(val type: String, val name: String, val required: Boolean, val many: Boolean = false)
+    data class Config(val file: VirtualFile, val backend: String, val imports: List<String>)
     fun closest(file: VirtualFile?): VirtualFile? {
         var directory = file?.parent
-        while (directory != null) { directory.findChild("manifest.hix")?.let { return it }; directory = directory.parent }
+        while (directory != null) { directory.findChild("manifest.hal")?.let { return it }; directory = directory.parent }
         return null
     }
-    fun text(file: VirtualFile?): String {
-        val manifest = closest(file) ?: return ""
-        val sources = arrayListOf<String>(); val visited = hashSetOf<String>()
-        fun visit(sourceFile: VirtualFile) {
-            if (!visited.add(sourceFile.path)) return
-            val source = FileDocumentManager.getInstance().getCachedDocument(sourceFile)?.text
-                ?: runCatching { String(sourceFile.contentsToByteArray()) }.getOrNull() ?: return
-            Regex("%import<([^>]+)>").findAll(source).forEach { match ->
-                imported(sourceFile.parent, match.groupValues[1]).forEach(::visit)
+    fun config(file: VirtualFile?): Config? {
+        val manifest = closest(file) ?: return null
+        val source = FileDocumentManager.getInstance().getCachedDocument(manifest)?.text ?: read(manifest)
+        val section = runCatching { HalAntlrSyntax.parse(source).tree.sectionBlock().firstOrNull()?.section() }
+            .getOrNull() ?: return null
+        if (section.IDENTIFIER().text != "Manifest") return null
+        var backend = "Standalone"
+        val imports = arrayListOf<String>()
+        section.sectionEntry().mapNotNull { it.field() }.forEach { field ->
+            val name = fieldName(field.fieldKey())
+            val value = field.value()
+            when (name) {
+                "backend" -> scalarText(value)?.let { backend = it }
+                "imports" -> {
+                    val list = value?.list() ?: field.collectionValue()?.typedContainer()?.list()
+                    if (list != null) list.value().mapNotNullTo(imports, ::scalarText)
+                    else scalarText(value)?.let(imports::add)
+                }
             }
-            sources += source
         }
-        visit(manifest); return sources.joinToString("\n")
+        return Config(manifest, backend, imports)
     }
+    fun text(file: VirtualFile?): String = hixFiles(file).joinToString("\n", transform = ::read)
+    fun hixFiles(file: VirtualFile?): List<VirtualFile> {
+        val files = arrayListOf<VirtualFile>(); val visited = hashSetOf<String>(); val manifests = hashSetOf<String>()
+        lateinit var visit: (VirtualFile) -> Unit
+        fun includeContext(owner: VirtualFile?) {
+            val context = config(owner) ?: return
+            if (!manifests.add(context.file.path)) return
+            context.imports.flatMap { imported(context.file.parent, it) }.forEach(visit)
+        }
+        visit = fun(sourceFile: VirtualFile) {
+            if (!visited.add(sourceFile.path)) return
+            includeContext(sourceFile)
+            val source = FileDocumentManager.getInstance().getCachedDocument(sourceFile)?.text ?: read(sourceFile)
+            Regex("%import<([^>]+)>").findAll(source).forEach { match ->
+                imported(sourceFile.parent, match.groupValues[1]).forEach(visit)
+            }
+            files += sourceFile
+        }
+        includeContext(file)
+        return files
+    }
+    private fun scalarText(value: HalParser.ValueContext?): String? {
+        val scalar = value?.looseScalar()?.scalarAtom()?.takeIf { it.size == 1 }?.single()?.text ?: return null
+        return if (scalar.length >= 2 && scalar.first() == '"' && scalar.last() == '"') unescapeString(scalar) else scalar
+    }
+    private fun read(file: VirtualFile): String = runCatching {
+        String(file.contentsToByteArray(), file.charset)
+    }.getOrDefault("")
     private fun imported(base: VirtualFile, pattern: String): List<VirtualFile> {
         val normalized = pattern.replace('\\', '/')
-        val wildcard = normalized.indexOf('*')
-        if (wildcard < 0) return listOfNotNull(base.findFileByRelativePath(normalized))
-        val rootPath = normalized.substring(0, wildcard).substringBeforeLast('/', "")
-        val root = if (rootPath.isEmpty()) base else base.findFileByRelativePath(rootPath) ?: return emptyList()
-        val recursive = normalized.contains("**")
+        if (!normalized.contains('*')) return listOfNotNull(base.findFileByRelativePath(normalized))
+        val expression = buildString {
+            append('^'); var index = 0
+            while (index < normalized.length) {
+                if (normalized[index] == '*' && normalized.getOrNull(index + 1) == '*') {
+                    append(".*"); index += 2
+                } else if (normalized[index] == '*') {
+                    append("[^/]*"); index++
+                } else append(Regex.escape(normalized[index++].toString()))
+            }
+            append('$')
+        }.toRegex()
         val files = arrayListOf<VirtualFile>()
-        fun collect(directory: VirtualFile) {
+        fun collect(directory: VirtualFile, prefix: String) {
             directory.children.sortedBy { it.name.lowercase() }.forEach {
-                if (it.isDirectory && recursive) collect(it)
-                else if (!it.isDirectory && it.extension.equals("hix", true)) files += it
+                val relative = if (prefix.isEmpty()) it.name else "$prefix/${it.name}"
+                if (it.isDirectory) collect(it, relative)
+                else if (it.extension.equals("hix", true) && expression.matches(relative)) files += it
             }
         }
-        collect(root); return files
+        collect(base, ""); return files
     }
     fun types(text: String) = Regex("\\btype\\s+([A-Za-z_][\\w.]*)\\s*=").findAll(text)
         .map { it.groupValues[1] }.distinct().toList()
@@ -273,12 +318,18 @@ class HalCompletionContributor : CompletionContributor() {
             HalDependencyService.ensure(parameters.originalFile.project)
             val source = parameters.originalFile.text; val offset = parameters.offset.coerceIn(0, source.length)
             val before = source.substring(0, offset); val manifest = HalManifest.text(parameters.originalFile.virtualFile)
-            val line = before.substringAfterLast('\n'); val types = HalManifest.types(manifest)
+            val line = before.substringAfterLast('\n'); val isManifest = parameters.originalFile.virtualFile?.name
+                ?.equals("manifest.hal", true) == true
+            val types = HalManifest.types(manifest) + if (isManifest) listOf("Manifest") else emptyList()
             if (line.trimStart().startsWith("---") || line.substringBeforeLast('{', "").isNotEmpty() && line.trim().isEmpty())
                 types.forEach { result.addElement(LookupElementBuilder.create(it).withTypeText("Hix pattern")) }
             val scope = HalStructure.completionScope(source, offset)
             if (line.isBlank() || !line.contains('=')) scope?.let { (type, assigned) ->
-                HalManifest.fieldDefinitions(manifest, type).filter { it.name !in assigned }.forEach {
+                val fields = if (type == "Manifest" && isManifest) listOf(
+                    HalManifest.Field("Backend", "backend", false),
+                    HalManifest.Field("string", "imports", false, true))
+                else HalManifest.fieldDefinitions(manifest, type)
+                fields.filter { it.name !in assigned }.forEach {
                     result.addElement(LookupElementBuilder.create("${it.name} = ").withPresentableText(it.name).withTypeText(it.type))
                 }
             }
@@ -311,20 +362,23 @@ class HalAnnotator : Annotator {
         }
         val manifest = HalManifest.closest(element.virtualFile)
         if (manifest == null)
-            holder.newAnnotation(HighlightSeverity.WARNING, "No manifest.hix found in this directory or its ancestors")
+            holder.newAnnotation(HighlightSeverity.WARNING, "No manifest.hal found in this directory or its ancestors")
                 .range(TextRange(0, minOf(source.length, source.indexOf('\n').let { if (it < 0) source.length else it }))).create()
         else {
             val manifestText = HalManifest.text(element.virtualFile)
             val known = HalManifest.types(manifestText).toSet() +
-                setOf("any", "null", "bool", "number", "string", "tuple", "table")
+                setOf("any", "null", "bool", "number", "string", "tuple", "table") +
+                if (element.virtualFile?.name?.equals("manifest.hal", true) == true) setOf("Manifest") else emptySet()
             sections.filter { it.type !in known }.forEach {
                 holder.newAnnotation(HighlightSeverity.ERROR, "Unknown Hix pattern '${it.type}'")
                     .range(TextRange(it.headerStart + 4, it.headerStart + 4 + it.type.length)).create()
             }
             parsed.tree.sectionBlock().forEach { block ->
                 val section = block.section()
-                if (section.IDENTIFIER().text in known) validateFields(holder, manifestText, section.IDENTIFIER().text,
-                    section.sectionEntry().mapNotNull { entry -> entry.field()?.let(::fieldSite) },
+                val type = section.IDENTIFIER().text
+                val fields = section.sectionEntry().mapNotNull { entry -> entry.field()?.let(::fieldSite) }
+                if (type == "Manifest") validateManifest(holder, fields)
+                else if (type in known) validateFields(holder, manifestText, type, fields,
                     TextRange(section.start.startIndex, section.lineEnd().stop.stopIndex + 1), known)
             }
         }
@@ -346,6 +400,18 @@ class HalAnnotator : Annotator {
         HalValueSite(field.value(), field.collectionValue()))
     private fun fieldSite(field: HalParser.TableEntryContext) = HalFieldSite(field.fieldKey().start, fieldName(field.fieldKey()),
         HalValueSite(field.value(), field.collectionValue()))
+
+    private fun validateManifest(holder: AnnotationHolder, values: List<HalFieldSite>) {
+        values.groupBy(HalFieldSite::name).forEach { (name, occurrences) ->
+            if (name !in setOf("backend", "imports")) occurrences.forEach {
+                error(holder, it.token, "Unknown Manifest field '$name'")
+            }
+            occurrences.drop(1).forEach { error(holder, it.token, "Duplicate Manifest field '$name'") }
+        }
+        values.firstOrNull { it.name == "imports" && it.value.list == null }?.let {
+            error(holder, it.value.context, "Manifest imports must be a list of paths")
+        }
+    }
 
     private fun validateFields(holder: AnnotationHolder, manifest: String, type: String,
                                values: List<HalFieldSite>,

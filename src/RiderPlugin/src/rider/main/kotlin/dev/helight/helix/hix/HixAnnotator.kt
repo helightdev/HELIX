@@ -25,7 +25,7 @@ class HixAnnotator : Annotator {
                 .range(TextRange(diagnostic.start, diagnostic.end)).create()
         }
         val service = element.project.service<HixSnapshotService>()
-        val definitions = service.definitionsFor(element.text)
+        val definitions = service.definitionsFor(element.text, element.virtualFile)
         addLocalSemanticHighlighting(localParse, element.textLength, holder, definitions)
         element.virtualFile?.let { service.observe(it, element.text) }
         val path = element.virtualFile?.path
