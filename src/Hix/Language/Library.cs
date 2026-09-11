@@ -21,6 +21,8 @@ public sealed class FunctionLibrary {
 
   public IReadOnlyList<FunctionDefinition> Resolve(string name, int count) => Definitions.Resolve(name, count)
     .Where(definition => definition.Metadata == HixMetadataKind.None).ToArray();
+  public IReadOnlyList<FunctionDefinition> Resolve(string name) => Definitions.Resolve(name)
+    .Where(definition => definition.Metadata == HixMetadataKind.None).ToArray();
 
   public IEnumerable<FunctionDefinition> Enumerate() => Definitions.Enumerate()
     .Where(definition => definition.Metadata == HixMetadataKind.None);

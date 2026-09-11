@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Hix.Compiler;
 using Hix.Runtime;
 using K = Hix.HixValueKind;
 
@@ -37,11 +38,17 @@ internal static class IoFunctions {
       Pure("pathSeparator", [new FunctionSignature(K.String, [])], (_, _) => Text("/"))
     );
     functions.Add(
-      Effect("readFile", [new FunctionSignature(K.String, [K.String]), new FunctionSignature(K.String, [K.String, K.String]),
-        new FunctionSignature(K.String, [K.String, K.Number, K.Number]), new FunctionSignature(K.String, [K.String, K.Number, K.Number, K.String])], ReadFile),
+      Effect("readFile", [
+        new FunctionSignature(K.String, [K.String, K.String], ArgumentNames: ["path", "encoding"],
+          ArgumentDefaults: [null, new StringExpressionIr("utf8")]),
+        new FunctionSignature(K.String, [K.String, K.Number, K.Number, K.String],
+          ArgumentNames: ["path", "offset", "length", "encoding"],
+          ArgumentDefaults: [null, null, null, new StringExpressionIr("utf8")])
+      ], ReadFile),
       Effect("readFileLength", [new FunctionSignature(K.Number, [K.String])], (thread, args) => Try(thread,
         () => (IHixValue)new NumberHixValue(new FileInfo(ResolveNative(thread, args[0])).Length))),
-      Effect("readFileLines", [new FunctionSignature(K.String, [K.String]), new FunctionSignature(K.String, [K.String, K.String])],
+      Effect("readFileLines", [new FunctionSignature(K.String, [K.String, K.String],
+          ArgumentNames: ["path", "encoding"], ArgumentDefaults: [null, new StringExpressionIr("utf8")])],
         (thread, args) => Try(thread, () => Text(string.Join(Environment.NewLine,
           File.ReadAllLines(ResolveNative(thread, args[0]), EncodingOf(thread, args, 1)))))),
       Effect("createFile", [new FunctionSignature(K.Bool, [K.String])], (thread, args) => Mutate(() => {
@@ -57,9 +64,9 @@ internal static class IoFunctions {
       Effect("listFiles", [new FunctionSignature(K.Tuple, [K.String])], (thread, args) => Try(thread, () =>
         (IHixValue)new TupleHixValue(Directory.EnumerateFiles(ResolveNative(thread, args[0]))
           .OrderBy(path => path, StringComparer.Ordinal).Select(path => (IHixValue)Text(Forward(path))).ToArray()))),
-      Effect("writeFile", [new FunctionSignature(K.Bool, [K.String, K.String]),
-        new FunctionSignature(K.Bool, [K.String, K.String, K.String]),
-        new FunctionSignature(K.Bool, [K.String, K.String, K.String, K.Bool])], WriteFile)
+      Effect("writeFile", [new FunctionSignature(K.Bool, [K.String, K.String, K.String, K.Bool],
+        ArgumentNames: ["path", "content", "encoding", "append"],
+        ArgumentDefaults: [null, null, new StringExpressionIr("utf8"), new BooleanExpressionIr(false)])], WriteFile)
     );
   }
 
@@ -97,7 +104,8 @@ internal static class IoFunctions {
     return index < 0 ? path : path.Substring(index + 1);
   }
   private static Encoding EncodingOf(HixThread thread, IHixValue[] args, int index) =>
-    index >= args.Length ? new UTF8Encoding(false) : Encoding.GetEncoding(thread.ResolveText(args[index]));
+    thread.ResolveText(args[index]) is var name && string.Equals(name, "utf8", StringComparison.OrdinalIgnoreCase)
+      ? new UTF8Encoding(false) : Encoding.GetEncoding(name);
   private static IHixValue ReadFile(HixThread thread, IHixValue[] args) => Try(thread, () => {
     var path = ResolveNative(thread, args[0]);
     if (args.Length < 3) return (IHixValue)Text(File.ReadAllText(path, EncodingOf(thread, args, 1)));
@@ -111,7 +119,7 @@ internal static class IoFunctions {
   });
   private static IHixValue WriteFile(HixThread thread, IHixValue[] args) => Mutate(() => {
     var path = ResolveNative(thread, args[0]); var text = thread.ResolveText(args[1]); var encoding = EncodingOf(thread, args, 2);
-    var append = args.Length >= 4 && ((BooleanHixValue)args[3]).Value;
+    var append = ((BooleanHixValue)args[3]).Value;
     if (append) File.AppendAllText(path, text, encoding); else File.WriteAllText(path, text, encoding);
   });
   private static int ExactInt(HixThread thread, IHixValue value, string name) {

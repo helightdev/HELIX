@@ -317,10 +317,11 @@ public class StandaloneTests {
     Directory.CreateDirectory(directory);
     try {
       var backend = new HixStandaloneBackend(new StringWriter(), directory);
-      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(writeFile(<a.txt>, <hello>)) }", backend).Value).Value);
-      Assert.Equal("hello", ReadText(Run("func main { return(readFile(<a.txt>)) }", backend)));
-      Assert.Equal("ell", ReadText(Run("func main { return(readFile(<a.txt>, 1, 3)) }", backend)));
-      Assert.Equal(5, Assert.IsType<NumberHixValue>(Run("func main { return(readFileLength(<a.txt>)) }", backend).Value).Value);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(writeFile(path = <a.txt>, content = <hello>)) }", backend).Value).Value);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(writeFile(<a.txt>, <!>, append = true)) }", backend).Value).Value);
+      Assert.Equal("hello!", ReadText(Run("func main { return(readFile(path = <a.txt>)) }", backend)));
+      Assert.Equal("ell", ReadText(Run("func main { return(readFile(path = <a.txt>, offset = 1, length = 3)) }", backend)));
+      Assert.Equal(6, Assert.IsType<NumberHixValue>(Run("func main { return(readFileLength(<a.txt>)) }", backend).Value).Value);
       Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(copyFile(<a.txt>, <b.txt>)) }", backend).Value).Value);
       Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(renameFile(<b.txt>, <c.txt>)) }", backend).Value).Value);
       Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(existsFile(<c.txt>)) }", backend).Value).Value);

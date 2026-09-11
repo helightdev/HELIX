@@ -40,12 +40,20 @@ public enum HixMetadataKind {
 }
 
 public sealed record FunctionSignature(
-  HixValueKind ResultType, IReadOnlyList<HixValueKind> ArgumentTypes, bool IsVariadic = false
+  HixValueKind ResultType, IReadOnlyList<HixValueKind> ArgumentTypes, bool IsVariadic = false,
+  IReadOnlyList<string> ArgumentNames = null, IReadOnlyList<ExpressionIr> ArgumentDefaults = null
 ) {
+  public int MinimumArgumentCount => IsVariadic ? ArgumentCount : Enumerable.Range(0, ArgumentTypes.Count)
+    .Count(index => GetArgumentDefault(index) == null);
   public int ArgumentCount => ArgumentTypes.Count - (IsVariadic ? 1 : 0);
-  public bool MatchesArgumentCount(int count) => IsVariadic ? count >= ArgumentCount : count == ArgumentCount;
+  public bool MatchesArgumentCount(int count) => count >= MinimumArgumentCount &&
+    (IsVariadic ? count >= ArgumentCount : count <= ArgumentCount);
   public HixValueKind GetArgumentType(int index) => index < ArgumentTypes.Count
     ? ArgumentTypes[index] : IsVariadic ? ArgumentTypes[ArgumentTypes.Count - 1] : HixValueKind.Any;
+  public string GetArgumentName(int index) => ArgumentNames != null && index < ArgumentNames.Count
+    ? ArgumentNames[index] : null;
+  public ExpressionIr GetArgumentDefault(int index) => ArgumentDefaults != null && index < ArgumentDefaults.Count
+    ? ArgumentDefaults[index] : null;
 }
 
 public sealed class FunctionSignatureRegistry {
@@ -69,6 +77,9 @@ public sealed class FunctionSignatureRegistry {
     _definitions.TryGetValue(name, out var definitions)
       ? definitions.Where(definition => definition.MatchesArgumentCount(argumentCount)).ToArray()
       : Array.Empty<FunctionDefinition>();
+
+  public IReadOnlyList<FunctionDefinition> Resolve(string name) =>
+    _definitions.TryGetValue(name, out var definitions) ? definitions : Array.Empty<FunctionDefinition>();
 
   public IEnumerable<FunctionDefinition> Enumerate() => _all;
 }

@@ -79,8 +79,8 @@ public sealed class HixVM {
   }
 
   private static SignatureHixPattern BuiltinSignature(string name, FunctionSignature signature) => new(name,
-    signature.ArgumentTypes.Select((kind, index) => new HixPatternField(index.ToString(),
-      kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind))).ToArray(),
+    signature.ArgumentTypes.Select((kind, index) => new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(),
+      kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind), signature.GetArgumentDefault(index) != null)).ToArray(),
     signature.ResultType == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(signature.ResultType));
 
   private readonly record struct ScopeRange(int Start, int End, LanguageFunctionScope Scope);
