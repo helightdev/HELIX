@@ -46,6 +46,7 @@ public sealed class HelixMixinLanguageHost {
                 request.Prefix).Select(Definition).ToArray())));
         model.GetMixinLanguageCatalog.SetAsync((_, backend) => RdTask.Successful(LanguageCatalog(Analyzer(backend))));
         model.FormatHal.SetAsync((_, source) => RdTask.Successful(Hix.Hal.HalFormatter.Format(source)));
+        model.FormatHix.SetAsync((_, source) => RdTask.Successful(Hix.Compiler.HixFormatter.Format(source)));
         model.ExecuteHix.SetAsync((_, request) => RdTask.Successful(Execute(request)));
     }
 

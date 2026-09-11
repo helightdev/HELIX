@@ -150,6 +150,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
         call("queryMixinDefinitions", definitionQuery, definitionResponse).async
         call("getMixinLanguageCatalog", string, languageCatalog).async
         call("formatHal", string, string).async
+        call("formatHix", string, string).async
         call("executeHix", hixExecutionRequest, hixExecutionResponse).async
         property("isHelixEnabled", bool)
     }

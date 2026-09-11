@@ -47,6 +47,7 @@ namespace HelixRider.Protocol
     [NotNull] public IRdEndpoint<MixinDefinitionQuery, MixinDefinitionResponse> QueryMixinDefinitions => _QueryMixinDefinitions;
     [NotNull] public IRdEndpoint<string, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
     [NotNull] public IRdEndpoint<string, string> FormatHal => _FormatHal;
+    [NotNull] public IRdEndpoint<string, string> FormatHix => _FormatHix;
     [NotNull] public IRdEndpoint<HixExecutionRequest, HixExecutionResponse> ExecuteHix => _ExecuteHix;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
 
@@ -56,6 +57,7 @@ namespace HelixRider.Protocol
     [NotNull] private readonly RdCall<MixinDefinitionQuery, MixinDefinitionResponse> _QueryMixinDefinitions;
     [NotNull] private readonly RdCall<string, MixinLanguageCatalog> _GetMixinLanguageCatalog;
     [NotNull] private readonly RdCall<string, string> _FormatHal;
+    [NotNull] private readonly RdCall<string, string> _FormatHix;
     [NotNull] private readonly RdCall<HixExecutionRequest, HixExecutionResponse> _ExecuteHix;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
 
@@ -66,6 +68,7 @@ namespace HelixRider.Protocol
       [NotNull] RdCall<MixinDefinitionQuery, MixinDefinitionResponse> queryMixinDefinitions,
       [NotNull] RdCall<string, MixinLanguageCatalog> getMixinLanguageCatalog,
       [NotNull] RdCall<string, string> formatHal,
+      [NotNull] RdCall<string, string> formatHix,
       [NotNull] RdCall<HixExecutionRequest, HixExecutionResponse> executeHix,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
@@ -75,6 +78,7 @@ namespace HelixRider.Protocol
       if (queryMixinDefinitions == null) throw new ArgumentNullException("queryMixinDefinitions");
       if (getMixinLanguageCatalog == null) throw new ArgumentNullException("getMixinLanguageCatalog");
       if (formatHal == null) throw new ArgumentNullException("formatHal");
+      if (formatHix == null) throw new ArgumentNullException("formatHix");
       if (executeHix == null) throw new ArgumentNullException("executeHix");
       if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
 
@@ -83,6 +87,7 @@ namespace HelixRider.Protocol
       _QueryMixinDefinitions = queryMixinDefinitions;
       _GetMixinLanguageCatalog = getMixinLanguageCatalog;
       _FormatHal = formatHal;
+      _FormatHix = formatHix;
       _ExecuteHix = executeHix;
       _IsHelixEnabled = isHelixEnabled;
       _IsHelixEnabled.OptimizeNested = true;
@@ -91,12 +96,14 @@ namespace HelixRider.Protocol
       _QueryMixinDefinitions.Async = true;
       _GetMixinLanguageCatalog.Async = true;
       _FormatHal.Async = true;
+      _FormatHix.Async = true;
       _ExecuteHix.Async = true;
       BindableChildren.Add(new KeyValuePair<string, object>("parseMixinFiles", _ParseMixinFiles));
       BindableChildren.Add(new KeyValuePair<string, object>("completeMixin", _CompleteMixin));
       BindableChildren.Add(new KeyValuePair<string, object>("queryMixinDefinitions", _QueryMixinDefinitions));
       BindableChildren.Add(new KeyValuePair<string, object>("getMixinLanguageCatalog", _GetMixinLanguageCatalog));
       BindableChildren.Add(new KeyValuePair<string, object>("formatHal", _FormatHal));
+      BindableChildren.Add(new KeyValuePair<string, object>("formatHix", _FormatHix));
       BindableChildren.Add(new KeyValuePair<string, object>("executeHix", _ExecuteHix));
       BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
@@ -108,6 +115,7 @@ namespace HelixRider.Protocol
       new RdCall<MixinDefinitionQuery, MixinDefinitionResponse>(MixinDefinitionQuery.Read, MixinDefinitionQuery.Write, MixinDefinitionResponse.Read, MixinDefinitionResponse.Write),
       new RdCall<string, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
       new RdCall<string, string>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString),
+      new RdCall<string, string>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString),
       new RdCall<HixExecutionRequest, HixExecutionResponse>(HixExecutionRequest.Read, HixExecutionRequest.Write, HixExecutionResponse.Read, HixExecutionResponse.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
@@ -116,7 +124,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => 7817120854763226832L;
+    protected override long SerializationHash => 4436886768728962561L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -142,6 +150,7 @@ namespace HelixRider.Protocol
         printer.Print("queryMixinDefinitions = "); _QueryMixinDefinitions.PrintEx(printer); printer.Println();
         printer.Print("getMixinLanguageCatalog = "); _GetMixinLanguageCatalog.PrintEx(printer); printer.Println();
         printer.Print("formatHal = "); _FormatHal.PrintEx(printer); printer.Println();
+        printer.Print("formatHix = "); _FormatHix.PrintEx(printer); printer.Println();
         printer.Print("executeHix = "); _ExecuteHix.PrintEx(printer); printer.Println();
         printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }

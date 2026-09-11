@@ -47,6 +47,7 @@
     <lang.quoteHandler language="Hal" implementationClass="dev.helight.helix.hal.HalQuoteHandler" />
     <preFormatProcessor implementation="dev.helight.helix.hal.HalPreFormatProcessor" />
     <lang.formatter language="Hal" implementationClass="dev.helight.helix.hal.HalFormattingModelBuilder" />
+    <langCodeStyleSettingsProvider implementation="dev.helight.helix.hal.HalCodeStyleSettingsProvider" />
     <lang.parserDefinition language="Hix"
                            implementationClass="dev.helight.helix.hix.HixParserDefinition" />
     <lang.syntaxHighlighterFactory language="Hix"
@@ -71,6 +72,8 @@
                        implementationClass="dev.helight.helix.hix.HixBraceMatcher" />
     <lang.quoteHandler language="Hix"
                        implementationClass="dev.helight.helix.hix.HixQuoteHandler" />
+    <preFormatProcessor implementation="dev.helight.helix.hix.HixPreFormatProcessor" />
+    <lang.formatter language="Hix" implementationClass="dev.helight.helix.hix.HixFormattingModelBuilder" />
     <typedHandler implementation="dev.helight.helix.hix.HixDelimiterTypedHandler" />
     <configurationType implementation="dev.helight.helix.hix.run.HixRunConfigurationType" />
     <runConfigurationProducer implementation="dev.helight.helix.hix.run.HixApplicationRunConfigurationProducer" />

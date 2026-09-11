@@ -12,6 +12,7 @@ namespace Hix.Compiler;
 
 /// <summary>ANTLR recognition followed by semantic construction, with no second syntax recognizer.</summary>
 public static class AntlrSyntax {
+  public static string Format(string source, int indentSize = 2) => HixFormatter.Format(source, indentSize);
   public static CompilationUnitIr Parse(string source, HixBackend backend = null,
     bool recoverValidDeclarations = false) {
     source ??= "";

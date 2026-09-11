@@ -24,6 +24,7 @@ class HelixExpressionModel private constructor(
     private val _queryMixinDefinitions: RdCall<MixinDefinitionQuery, MixinDefinitionResponse>,
     private val _getMixinLanguageCatalog: RdCall<String, MixinLanguageCatalog>,
     private val _formatHal: RdCall<String, String>,
+    private val _formatHix: RdCall<String, String>,
     private val _executeHix: RdCall<HixExecutionRequest, HixExecutionResponse>,
     private val _isHelixEnabled: RdOptionalProperty<Boolean>
 ) : RdExtBase() {
@@ -58,7 +59,7 @@ class HelixExpressionModel private constructor(
 
 
 
-        const val serializationHash = 7817120854763226832L
+        const val serializationHash = 4436886768728962561L
 
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -70,6 +71,7 @@ class HelixExpressionModel private constructor(
     val queryMixinDefinitions: IRdCall<MixinDefinitionQuery, MixinDefinitionResponse> get() = _queryMixinDefinitions
     val getMixinLanguageCatalog: IRdCall<String, MixinLanguageCatalog> get() = _getMixinLanguageCatalog
     val formatHal: IRdCall<String, String> get() = _formatHal
+    val formatHix: IRdCall<String, String> get() = _formatHix
     val executeHix: IRdCall<HixExecutionRequest, HixExecutionResponse> get() = _executeHix
     val isHelixEnabled: IOptProperty<Boolean> get() = _isHelixEnabled
     //methods
@@ -84,6 +86,7 @@ class HelixExpressionModel private constructor(
         _queryMixinDefinitions.async = true
         _getMixinLanguageCatalog.async = true
         _formatHal.async = true
+        _formatHix.async = true
         _executeHix.async = true
     }
 
@@ -93,6 +96,7 @@ class HelixExpressionModel private constructor(
         bindableChildren.add("queryMixinDefinitions" to _queryMixinDefinitions)
         bindableChildren.add("getMixinLanguageCatalog" to _getMixinLanguageCatalog)
         bindableChildren.add("formatHal" to _formatHal)
+        bindableChildren.add("formatHix" to _formatHix)
         bindableChildren.add("executeHix" to _executeHix)
         bindableChildren.add("isHelixEnabled" to _isHelixEnabled)
     }
@@ -104,6 +108,7 @@ class HelixExpressionModel private constructor(
         RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest, MixinCompletionResponse),
         RdCall<MixinDefinitionQuery, MixinDefinitionResponse>(MixinDefinitionQuery, MixinDefinitionResponse),
         RdCall<String, MixinLanguageCatalog>(FrameworkMarshallers.String, MixinLanguageCatalog),
+        RdCall<String, String>(FrameworkMarshallers.String, FrameworkMarshallers.String),
         RdCall<String, String>(FrameworkMarshallers.String, FrameworkMarshallers.String),
         RdCall<HixExecutionRequest, HixExecutionResponse>(HixExecutionRequest, HixExecutionResponse),
         RdOptionalProperty<Boolean>(FrameworkMarshallers.Bool)
@@ -120,6 +125,7 @@ class HelixExpressionModel private constructor(
             print("queryMixinDefinitions = "); _queryMixinDefinitions.print(printer); println()
             print("getMixinLanguageCatalog = "); _getMixinLanguageCatalog.print(printer); println()
             print("formatHal = "); _formatHal.print(printer); println()
+            print("formatHix = "); _formatHix.print(printer); println()
             print("executeHix = "); _executeHix.print(printer); println()
             print("isHelixEnabled = "); _isHelixEnabled.print(printer); println()
         }
@@ -133,6 +139,7 @@ class HelixExpressionModel private constructor(
             _queryMixinDefinitions.deepClonePolymorphic(),
             _getMixinLanguageCatalog.deepClonePolymorphic(),
             _formatHal.deepClonePolymorphic(),
+            _formatHix.deepClonePolymorphic(),
             _executeHix.deepClonePolymorphic(),
             _isHelixEnabled.deepClonePolymorphic()
         )

@@ -39,8 +39,11 @@ private class HalPassthroughBlock(node: ASTNode, wrap: Wrap?, alignment: Alignme
         }
         return result
     }
-    override fun getIndent(): Indent = Indent.getNoneIndent()
-    override fun getSpacing(child1: Block?, child2: Block): Spacing? = null
+    override fun getIndent(): Indent? = null
+    override fun getSpacing(child1: Block?, child2: Block): Spacing = Spacing.getReadOnlySpacing()
+    // A concrete result is required even when the PSI block has no children;
+    // DELEGATE_TO_NEXT_CHILD makes Rider index a nonexistent child while it
+    // computes editor indentation.
     override fun getChildAttributes(newChildIndex: Int) = ChildAttributes(Indent.getNoneIndent(), null)
     override fun isLeaf() = myNode.firstChildNode == null
 }
