@@ -1,7 +1,9 @@
 #if RIDER
+extern alias StandaloneRuntime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using JetBrains.Application;
 using JetBrains.Application.Parts;
 using JetBrains.ProjectModel;
@@ -14,7 +16,10 @@ using JetBrains.ReSharper.Resources.Shell;
 using Hix;
 using Hix.Compiler;
 using Hix.Mixins;
+using Hix.Standalone;
 using Hix.Standalone.Analysis;
+using RuntimeProgram = StandaloneRuntime::Hix.Standalone.Program;
+using RuntimeTestRunner = StandaloneRuntime::Hix.Standalone.HixTestRunner;
 using WireRange = HelixRider.Protocol.MixinSourceRange;
 using CoreRange = Hix.Compiler.HixSourceRange;
 
@@ -29,8 +34,8 @@ public sealed class HelixMixinLanguageHost {
         _symbolCache = symbolCache;
         _analyzers = new Dictionary<string, HixAnalyzerService>(StringComparer.OrdinalIgnoreCase) {
             ["Unity"] = NewAnalyzer(new RiderAnalyzerHost(this)),
-            ["Standalone"] = new HixAnalyzerService(),
-            ["Test"] = new HixAnalyzerService(new TestAnalyzerBackend())
+            ["Standalone"] = new HixAnalyzerService(new HixStandaloneBackend(TextWriter.Null)),
+            ["Test"] = new HixAnalyzerService(new HixTestBackend(TextWriter.Null))
         };
         var model = solution.GetProtocolSolution().GetHelixExpressionModel();
         model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(Analyzer(request.Backend), request)));
@@ -40,13 +45,7 @@ public sealed class HelixMixinLanguageHost {
             Analyzer(request.Backend).QueryDefinitions(request.Kind, request.ReceiverType, request.OperandType,
                 request.Prefix).Select(Definition).ToArray())));
         model.GetMixinLanguageCatalog.SetAsync((_, backend) => RdTask.Successful(LanguageCatalog(Analyzer(backend))));
-    }
-
-    private sealed class TestAnalyzerBackend : HixBackend {
-        protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
-            base.RegisterFunctions(functions);
-            Hix.Functions.TestMetadataFunctions.Register(functions);
-        }
+        model.ExecuteHix.SetAsync((_, request) => RdTask.Successful(Execute(request)));
     }
 
     private HixAnalyzerService Analyzer(string name) =>
@@ -56,6 +55,28 @@ public sealed class HelixMixinLanguageHost {
         Parse(NewAnalyzer(), request);
     internal static MixinLanguageCatalog LanguageCatalog() =>
         LanguageCatalog(NewAnalyzer());
+    internal static MixinLanguageCatalog StandaloneLanguageCatalog() =>
+        LanguageCatalog(new HixAnalyzerService(new HixStandaloneBackend(TextWriter.Null)));
+
+    internal static HixExecutionResponse Execute(HixExecutionRequest request) {
+        var output = new StringWriter(); var error = new StringWriter();
+        if (request.Test) {
+            try {
+                var result = RuntimeTestRunner.Run(new[] { request.ManifestPath }, output);
+                return new HixExecutionResponse(result.Success ? 0 : 1, output.ToString(), error.ToString(),
+                    result.Tests.Select(test => new HixTestResult(test.File, test.Name, test.Success,
+                        test.Message ?? string.Empty)).ToArray());
+            } catch (Exception exception) {
+                error.WriteLine(exception.Message);
+                return new HixExecutionResponse(1, output.ToString(), error.ToString(), Array.Empty<HixTestResult>());
+            }
+        }
+        var arguments = new List<string> { request.ManifestPath };
+        if (!string.IsNullOrEmpty(request.Entry)) { arguments.Add("--entry"); arguments.Add(request.Entry); }
+        if (request.Arguments.Length != 0) { arguments.Add("--"); arguments.AddRange(request.Arguments); }
+        var exitCode = RuntimeProgram.Run(arguments.ToArray(), output, error);
+        return new HixExecutionResponse(exitCode, output.ToString(), error.ToString(), Array.Empty<HixTestResult>());
+    }
 
     private static HixAnalyzerService NewAnalyzer(IHixAnalyzerHost host = null) =>
         new(Hix.HixMixinBackend.Instance, host, AdditionalDefinitions());

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using HelixRider.Protocol;
@@ -8,6 +9,38 @@ namespace HelixRider.Tests.MixinLanguage;
 [TestFixture]
 public sealed class HelixMixinProtocolHostTests
 {
+    [Test]
+    public void ExecutesManifestProjectThroughBackendApi()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hix-rider-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "manifest.hal"), "--- Manifest\nname = rider-sample\n");
+            File.WriteAllText(Path.Combine(root, "src", "main.hix"), "func main { print(<hello>) }");
+            var response = HelixMixinLanguageHost.Execute(new HixExecutionRequest(
+                Path.Combine(root, "manifest.hal"), false, string.Empty, Array.Empty<string>()));
+            Assert.That(response.ExitCode, Is.Zero);
+            Assert.That(response.StandardOutput, Does.Contain("hello"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Test]
+    public void StandaloneCatalogUsesTheExecutionBackendDefinitions()
+    {
+        var definitions = HelixMixinLanguageHost.StandaloneLanguageCatalog().Definitions;
+
+        Assert.That(definitions, Has.Some.Matches<MixinLanguageDefinition>(definition =>
+            definition.Kind == "Function" && definition.Name == "print"));
+        Assert.That(definitions, Has.Some.Matches<MixinLanguageDefinition>(definition =>
+            definition.Kind == "Function" && definition.Name == "readFile"));
+        Assert.That(definitions, Has.Some.Matches<MixinLanguageDefinition>(definition =>
+            definition.Kind == "Function" && definition.Name == "parseJson"));
+        Assert.That(definitions, Has.Some.Matches<MixinLanguageDefinition>(definition =>
+            definition.Kind == "Function" && definition.Name == "compile"));
+    }
+
     [Test]
     public void DirectoryPatternsProvideResolutionCompletionAndTypeDiagnostics()
     {

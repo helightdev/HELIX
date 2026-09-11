@@ -126,10 +126,30 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("definitions", array(languageDefinition))
         }
 
+        val hixExecutionRequest = structdef("hixExecutionRequest") {
+            field("manifestPath", string)
+            field("test", bool)
+            field("entry", string)
+            field("arguments", array(string))
+        }
+        val hixTestResult = structdef("hixTestResult") {
+            field("file", string)
+            field("name", string)
+            field("success", bool)
+            field("message", string)
+        }
+        val hixExecutionResponse = structdef("hixExecutionResponse") {
+            field("exitCode", int)
+            field("standardOutput", string)
+            field("standardError", string)
+            field("tests", array(hixTestResult))
+        }
+
         call("parseMixinFiles", parseRequest, parseResponse).async
         call("completeMixin", completionRequest, completionResponse).async
         call("queryMixinDefinitions", definitionQuery, definitionResponse).async
         call("getMixinLanguageCatalog", string, languageCatalog).async
+        call("executeHix", hixExecutionRequest, hixExecutionResponse).async
         property("isHelixEnabled", bool)
     }
 }

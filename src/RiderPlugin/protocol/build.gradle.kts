@@ -15,6 +15,10 @@ tasks.register<JavaExec>("rdgen") {
     description = "Generates the Kotlin and C# Rider protocol when its model or generator changes."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.jetbrains.rd.generator.nova.MainKt")
+    // RD model classes come from the selected Rider SDK and must be loaded by the
+    // same runtime that is running this Gradle build. Do not inherit the project's
+    // Java compilation toolchain here (and do not pin a developer-local JDK).
+    executable(file(System.getProperty("java.home")).resolve("bin/java"))
     workingDir(layout.projectDirectory)
     inputs.file(layout.projectDirectory.file("protocol.generators"))
     // The generator specs target Rider's external IdeRoot. Include its package in discovery

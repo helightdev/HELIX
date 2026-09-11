@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace Hix.Standalone;
 
 /// <summary>Standalone services plus metadata understood by the Hix test runner.</summary>

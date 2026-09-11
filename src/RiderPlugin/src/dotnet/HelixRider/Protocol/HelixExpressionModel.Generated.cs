@@ -46,6 +46,7 @@ namespace HelixRider.Protocol
     [NotNull] public IRdEndpoint<MixinCompletionRequest, MixinCompletionResponse> CompleteMixin => _CompleteMixin;
     [NotNull] public IRdEndpoint<MixinDefinitionQuery, MixinDefinitionResponse> QueryMixinDefinitions => _QueryMixinDefinitions;
     [NotNull] public IRdEndpoint<string, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
+    [NotNull] public IRdEndpoint<HixExecutionRequest, HixExecutionResponse> ExecuteHix => _ExecuteHix;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
 
     //private fields
@@ -53,6 +54,7 @@ namespace HelixRider.Protocol
     [NotNull] private readonly RdCall<MixinCompletionRequest, MixinCompletionResponse> _CompleteMixin;
     [NotNull] private readonly RdCall<MixinDefinitionQuery, MixinDefinitionResponse> _QueryMixinDefinitions;
     [NotNull] private readonly RdCall<string, MixinLanguageCatalog> _GetMixinLanguageCatalog;
+    [NotNull] private readonly RdCall<HixExecutionRequest, HixExecutionResponse> _ExecuteHix;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
 
     //primary constructor
@@ -61,6 +63,7 @@ namespace HelixRider.Protocol
       [NotNull] RdCall<MixinCompletionRequest, MixinCompletionResponse> completeMixin,
       [NotNull] RdCall<MixinDefinitionQuery, MixinDefinitionResponse> queryMixinDefinitions,
       [NotNull] RdCall<string, MixinLanguageCatalog> getMixinLanguageCatalog,
+      [NotNull] RdCall<HixExecutionRequest, HixExecutionResponse> executeHix,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
@@ -68,22 +71,26 @@ namespace HelixRider.Protocol
       if (completeMixin == null) throw new ArgumentNullException("completeMixin");
       if (queryMixinDefinitions == null) throw new ArgumentNullException("queryMixinDefinitions");
       if (getMixinLanguageCatalog == null) throw new ArgumentNullException("getMixinLanguageCatalog");
+      if (executeHix == null) throw new ArgumentNullException("executeHix");
       if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
 
       _ParseMixinFiles = parseMixinFiles;
       _CompleteMixin = completeMixin;
       _QueryMixinDefinitions = queryMixinDefinitions;
       _GetMixinLanguageCatalog = getMixinLanguageCatalog;
+      _ExecuteHix = executeHix;
       _IsHelixEnabled = isHelixEnabled;
       _IsHelixEnabled.OptimizeNested = true;
       _ParseMixinFiles.Async = true;
       _CompleteMixin.Async = true;
       _QueryMixinDefinitions.Async = true;
       _GetMixinLanguageCatalog.Async = true;
+      _ExecuteHix.Async = true;
       BindableChildren.Add(new KeyValuePair<string, object>("parseMixinFiles", _ParseMixinFiles));
       BindableChildren.Add(new KeyValuePair<string, object>("completeMixin", _CompleteMixin));
       BindableChildren.Add(new KeyValuePair<string, object>("queryMixinDefinitions", _QueryMixinDefinitions));
       BindableChildren.Add(new KeyValuePair<string, object>("getMixinLanguageCatalog", _GetMixinLanguageCatalog));
+      BindableChildren.Add(new KeyValuePair<string, object>("executeHix", _ExecuteHix));
       BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
     //secondary constructor
@@ -93,6 +100,7 @@ namespace HelixRider.Protocol
       new RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest.Read, MixinCompletionRequest.Write, MixinCompletionResponse.Read, MixinCompletionResponse.Write),
       new RdCall<MixinDefinitionQuery, MixinDefinitionResponse>(MixinDefinitionQuery.Read, MixinDefinitionQuery.Write, MixinDefinitionResponse.Read, MixinDefinitionResponse.Write),
       new RdCall<string, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
+      new RdCall<HixExecutionRequest, HixExecutionResponse>(HixExecutionRequest.Read, HixExecutionRequest.Write, HixExecutionResponse.Read, HixExecutionResponse.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
     //deconstruct trait
@@ -100,7 +108,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => -2762421869255015286L;
+    protected override long SerializationHash => -3530637924080341787L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -125,6 +133,7 @@ namespace HelixRider.Protocol
         printer.Print("completeMixin = "); _CompleteMixin.PrintEx(printer); printer.Println();
         printer.Print("queryMixinDefinitions = "); _QueryMixinDefinitions.PrintEx(printer); printer.Println();
         printer.Print("getMixinLanguageCatalog = "); _GetMixinLanguageCatalog.PrintEx(printer); printer.Println();
+        printer.Print("executeHix = "); _ExecuteHix.PrintEx(printer); printer.Println();
         printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
@@ -142,6 +151,343 @@ namespace HelixRider.Protocol
     public static HelixExpressionModel GetHelixExpressionModel(this JetBrains.Rider.Model.Solution solution)
     {
       return solution.GetOrCreateExtension("helixExpressionModel", () => new HelixExpressionModel());
+    }
+  }
+
+
+  /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:129</p>
+  /// </summary>
+  public sealed class HixExecutionRequest : IPrintable, IEquatable<HixExecutionRequest>
+  {
+    //fields
+    //public fields
+    [NotNull] public string ManifestPath {get; private set;}
+    public bool Test {get; private set;}
+    [NotNull] public string Entry {get; private set;}
+    [NotNull] public string[] Arguments {get; private set;}
+
+    //private fields
+    //primary constructor
+    public HixExecutionRequest(
+      [NotNull] string manifestPath,
+      bool test,
+      [NotNull] string entry,
+      [NotNull] string[] arguments
+    )
+    {
+      if (manifestPath == null) throw new ArgumentNullException("manifestPath");
+      if (entry == null) throw new ArgumentNullException("entry");
+      if (arguments == null) throw new ArgumentNullException("arguments");
+
+      ManifestPath = manifestPath;
+      Test = test;
+      Entry = entry;
+      Arguments = arguments;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out string manifestPath, out bool test, [NotNull] out string entry, [NotNull] out string[] arguments)
+    {
+      manifestPath = ManifestPath;
+      test = Test;
+      entry = Entry;
+      arguments = Arguments;
+    }
+    //statics
+
+    public static CtxReadDelegate<HixExecutionRequest> Read = (ctx, reader) =>
+    {
+      var manifestPath = reader.ReadString();
+      var test = reader.ReadBool();
+      var entry = reader.ReadString();
+      var arguments = ReadStringArray(ctx, reader);
+      var _result = new HixExecutionRequest(manifestPath, test, entry, arguments);
+      return _result;
+    };
+    public static CtxReadDelegate<string[]> ReadStringArray = JetBrains.Rd.Impl.Serializers.ReadString.Array();
+
+    public static CtxWriteDelegate<HixExecutionRequest> Write = (ctx, writer, value) =>
+    {
+      writer.Write(value.ManifestPath);
+      writer.Write(value.Test);
+      writer.Write(value.Entry);
+      WriteStringArray(ctx, writer, value.Arguments);
+    };
+    public static  CtxWriteDelegate<string[]> WriteStringArray = JetBrains.Rd.Impl.Serializers.WriteString.Array();
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((HixExecutionRequest) obj);
+    }
+    public bool Equals(HixExecutionRequest other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return ManifestPath == other.ManifestPath && Test == other.Test && Entry == other.Entry && Arguments.SequenceEqual(other.Arguments);
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + ManifestPath.GetHashCode();
+        hash = hash * 31 + Test.GetHashCode();
+        hash = hash * 31 + Entry.GetHashCode();
+        hash = hash * 31 + Arguments.ContentHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("HixExecutionRequest (");
+      using (printer.IndentCookie()) {
+        printer.Print("manifestPath = "); ManifestPath.PrintEx(printer); printer.Println();
+        printer.Print("test = "); Test.PrintEx(printer); printer.Println();
+        printer.Print("entry = "); Entry.PrintEx(printer); printer.Println();
+        printer.Print("arguments = "); Arguments.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
+    }
+  }
+
+
+  /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:141</p>
+  /// </summary>
+  public sealed class HixExecutionResponse : IPrintable, IEquatable<HixExecutionResponse>
+  {
+    //fields
+    //public fields
+    public int ExitCode {get; private set;}
+    [NotNull] public string StandardOutput {get; private set;}
+    [NotNull] public string StandardError {get; private set;}
+    [NotNull] public HixTestResult[] Tests {get; private set;}
+
+    //private fields
+    //primary constructor
+    public HixExecutionResponse(
+      int exitCode,
+      [NotNull] string standardOutput,
+      [NotNull] string standardError,
+      [NotNull] HixTestResult[] tests
+    )
+    {
+      if (standardOutput == null) throw new ArgumentNullException("standardOutput");
+      if (standardError == null) throw new ArgumentNullException("standardError");
+      if (tests == null) throw new ArgumentNullException("tests");
+
+      ExitCode = exitCode;
+      StandardOutput = standardOutput;
+      StandardError = standardError;
+      Tests = tests;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct(out int exitCode, [NotNull] out string standardOutput, [NotNull] out string standardError, [NotNull] out HixTestResult[] tests)
+    {
+      exitCode = ExitCode;
+      standardOutput = StandardOutput;
+      standardError = StandardError;
+      tests = Tests;
+    }
+    //statics
+
+    public static CtxReadDelegate<HixExecutionResponse> Read = (ctx, reader) =>
+    {
+      var exitCode = reader.ReadInt();
+      var standardOutput = reader.ReadString();
+      var standardError = reader.ReadString();
+      var tests = ReadHixTestResultArray(ctx, reader);
+      var _result = new HixExecutionResponse(exitCode, standardOutput, standardError, tests);
+      return _result;
+    };
+    public static CtxReadDelegate<HixTestResult[]> ReadHixTestResultArray = HixTestResult.Read.Array();
+
+    public static CtxWriteDelegate<HixExecutionResponse> Write = (ctx, writer, value) =>
+    {
+      writer.Write(value.ExitCode);
+      writer.Write(value.StandardOutput);
+      writer.Write(value.StandardError);
+      WriteHixTestResultArray(ctx, writer, value.Tests);
+    };
+    public static  CtxWriteDelegate<HixTestResult[]> WriteHixTestResultArray = HixTestResult.Write.Array();
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((HixExecutionResponse) obj);
+    }
+    public bool Equals(HixExecutionResponse other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return ExitCode == other.ExitCode && StandardOutput == other.StandardOutput && StandardError == other.StandardError && Tests.SequenceEqual(other.Tests);
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + ExitCode.GetHashCode();
+        hash = hash * 31 + StandardOutput.GetHashCode();
+        hash = hash * 31 + StandardError.GetHashCode();
+        hash = hash * 31 + Tests.ContentHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("HixExecutionResponse (");
+      using (printer.IndentCookie()) {
+        printer.Print("exitCode = "); ExitCode.PrintEx(printer); printer.Println();
+        printer.Print("standardOutput = "); StandardOutput.PrintEx(printer); printer.Println();
+        printer.Print("standardError = "); StandardError.PrintEx(printer); printer.Println();
+        printer.Print("tests = "); Tests.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
+    }
+  }
+
+
+  /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:135</p>
+  /// </summary>
+  public sealed class HixTestResult : IPrintable, IEquatable<HixTestResult>
+  {
+    //fields
+    //public fields
+    [NotNull] public string File {get; private set;}
+    [NotNull] public string Name {get; private set;}
+    public bool Success {get; private set;}
+    [NotNull] public string Message {get; private set;}
+
+    //private fields
+    //primary constructor
+    public HixTestResult(
+      [NotNull] string file,
+      [NotNull] string name,
+      bool success,
+      [NotNull] string message
+    )
+    {
+      if (file == null) throw new ArgumentNullException("file");
+      if (name == null) throw new ArgumentNullException("name");
+      if (message == null) throw new ArgumentNullException("message");
+
+      File = file;
+      Name = name;
+      Success = success;
+      Message = message;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out string file, [NotNull] out string name, out bool success, [NotNull] out string message)
+    {
+      file = File;
+      name = Name;
+      success = Success;
+      message = Message;
+    }
+    //statics
+
+    public static CtxReadDelegate<HixTestResult> Read = (ctx, reader) =>
+    {
+      var file = reader.ReadString();
+      var name = reader.ReadString();
+      var success = reader.ReadBool();
+      var message = reader.ReadString();
+      var _result = new HixTestResult(file, name, success, message);
+      return _result;
+    };
+
+    public static CtxWriteDelegate<HixTestResult> Write = (ctx, writer, value) =>
+    {
+      writer.Write(value.File);
+      writer.Write(value.Name);
+      writer.Write(value.Success);
+      writer.Write(value.Message);
+    };
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((HixTestResult) obj);
+    }
+    public bool Equals(HixTestResult other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return File == other.File && Name == other.Name && Success == other.Success && Message == other.Message;
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + File.GetHashCode();
+        hash = hash * 31 + Name.GetHashCode();
+        hash = hash * 31 + Success.GetHashCode();
+        hash = hash * 31 + Message.GetHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("HixTestResult (");
+      using (printer.IndentCookie()) {
+        printer.Print("file = "); File.PrintEx(printer); printer.Println();
+        printer.Print("name = "); Name.PrintEx(printer); printer.Println();
+        printer.Print("success = "); Success.PrintEx(printer); printer.Println();
+        printer.Print("message = "); Message.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
     }
   }
 

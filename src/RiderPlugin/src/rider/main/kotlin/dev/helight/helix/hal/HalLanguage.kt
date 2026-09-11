@@ -122,7 +122,32 @@ private fun unescapeString(text: String): String = buildString {
 
 internal object HalManifest {
     data class Field(val type: String, val name: String, val required: Boolean, val many: Boolean = false)
-    data class Config(val file: VirtualFile, val backend: String, val imports: List<String>)
+    data class Config(val file: VirtualFile, val mainSources: List<String>)
+    val manifestFields = listOf(
+        Field("string", "name", true),
+        Field("string", "version", false),
+        Field("string", "description", false),
+        Field("string", "repository", false),
+        Field("string", "license", false),
+        Field("string", "author", false),
+        Field("string", "applicationMain", false),
+        Field("table", "sources", false),
+        Field("table", "dependencies", false),
+    )
+    val sourceFields = listOf(
+        Field("string", "main", false, true),
+        Field("string", "test", false, true),
+        Field("string", "modules", false, true),
+    )
+    fun dependencyFields(type: String): List<Field> = when (type) {
+        "ModuleDependency" -> listOf(Field("string", "version", false))
+        "PathDependency" -> listOf(Field("string", "uri", true), Field("string", "version", false))
+        "GitDependency" -> listOf(
+            Field("string", "repository", true), Field("string", "branch", false),
+            Field("string", "rev", false), Field("string", "tag", false), Field("string", "version", false),
+        )
+        else -> emptyList()
+    }
     fun closest(file: VirtualFile?): VirtualFile? {
         var directory = file?.parent
         while (directory != null) { directory.findChild("manifest.hal")?.let { return it }; directory = directory.parent }
@@ -134,21 +159,24 @@ internal object HalManifest {
         val section = runCatching { HalAntlrSyntax.parse(source).tree.sectionBlock().firstOrNull()?.section() }
             .getOrNull() ?: return null
         if (section.IDENTIFIER().text != "Manifest") return null
-        var backend = "Standalone"
-        val imports = arrayListOf<String>()
+        val mainSources = arrayListOf("src/**")
         section.sectionEntry().mapNotNull { it.field() }.forEach { field ->
             val name = fieldName(field.fieldKey())
             val value = field.value()
             when (name) {
-                "backend" -> scalarText(value)?.let { backend = it }
-                "imports" -> {
-                    val list = value?.list() ?: field.collectionValue()?.typedContainer()?.list()
-                    if (list != null) list.value().mapNotNullTo(imports, ::scalarText)
-                    else scalarText(value)?.let(imports::add)
+                "sources" -> {
+                    val table = value?.table() ?: field.collectionValue()?.typedContainer()?.table()
+                    val main = table?.tableEntry()?.firstOrNull { fieldName(it.fieldKey()) == "main" }
+                    if (main != null) {
+                        mainSources.clear()
+                        val list = main.value()?.list() ?: main.collectionValue()?.typedContainer()?.list()
+                        if (list != null) list.value().mapNotNullTo(mainSources, ::scalarText)
+                        else scalarText(main.value())?.let(mainSources::add)
+                    }
                 }
             }
         }
-        return Config(manifest, backend, imports)
+        return Config(manifest, mainSources)
     }
     fun text(file: VirtualFile?): String = hixFiles(file).joinToString("\n", transform = ::read)
     fun hixFiles(file: VirtualFile?): List<VirtualFile> {
@@ -157,7 +185,7 @@ internal object HalManifest {
         fun includeContext(owner: VirtualFile?) {
             val context = config(owner) ?: return
             if (!manifests.add(context.file.path)) return
-            context.imports.flatMap { imported(context.file.parent, it) }.forEach(visit)
+            context.mainSources.flatMap { imported(context.file.parent, it) }.forEach(visit)
         }
         visit = fun(sourceFile: VirtualFile) {
             if (!visited.add(sourceFile.path)) return
@@ -205,6 +233,7 @@ internal object HalManifest {
     fun types(text: String) = Regex("\\btype\\s+([A-Za-z_][\\w.]*)\\s*=").findAll(text)
         .map { it.groupValues[1] }.distinct().toList()
     fun fieldDefinitions(text: String, type: String): List<Field> {
+        dependencyFields(type).takeIf { it.isNotEmpty() }?.let { return it }
         val body = Pattern.compile("(?s)\\btype\\s+" + Pattern.quote(type) + "\\s*=\\s*(?:%[^{\\n]+\\s+)*@?\\{(.*?)\\}")
             .matcher(text).let { if (it.find()) it.group(1) else return emptyList() }
         return body.split(',').mapNotNull { source ->
@@ -299,6 +328,12 @@ internal object HalStructure {
             type?.let {
                 return it to table.tableEntry().map { entry -> fieldName(entry.fieldKey()) }.toSet()
             }
+            val ownerField = generateSequence(table.parent as? ParserRuleContext) { it.parent as? ParserRuleContext }
+                .filterIsInstance<HalParser.FieldContext>().firstOrNull()
+            if (ownerField != null) when (fieldName(ownerField.fieldKey())) {
+                "sources" -> return "ManifestSources" to table.tableEntry().map { fieldName(it.fieldKey()) }.toSet()
+                "dependencies" -> return "ManifestDependencies" to table.tableEntry().map { fieldName(it.fieldKey()) }.toSet()
+            }
         }
         val section = tree.sectionBlock().map { it.section() }.lastOrNull { it.start.startIndex <= offset } ?: return null
         return section.IDENTIFIER().text to section.sectionEntry().mapNotNull { it.field()?.fieldKey() }
@@ -324,11 +359,18 @@ class HalCompletionContributor : CompletionContributor() {
             if (line.trimStart().startsWith("---") || line.substringBeforeLast('{', "").isNotEmpty() && line.trim().isEmpty())
                 types.forEach { result.addElement(LookupElementBuilder.create(it).withTypeText("Hix pattern")) }
             val scope = HalStructure.completionScope(source, offset)
+            if (scope?.first == "ManifestDependencies" && line.contains('=')) {
+                listOf("module", "ModuleDependency {}", "PathDependency { uri =  }",
+                    "GitDependency { repository =  }").forEach {
+                    result.addElement(LookupElementBuilder.create(it).withTypeText("Hix dependency"))
+                }
+            }
             if (line.isBlank() || !line.contains('=')) scope?.let { (type, assigned) ->
-                val fields = if (type == "Manifest" && isManifest) listOf(
-                    HalManifest.Field("Backend", "backend", false),
-                    HalManifest.Field("string", "imports", false, true))
-                else HalManifest.fieldDefinitions(manifest, type)
+                val fields = when {
+                    type == "Manifest" && isManifest -> HalManifest.manifestFields
+                    type == "ManifestSources" && isManifest -> HalManifest.sourceFields
+                    else -> HalManifest.fieldDefinitions(manifest, type)
+                }
                 fields.filter { it.name !in assigned }.forEach {
                     result.addElement(LookupElementBuilder.create("${it.name} = ").withPresentableText(it.name).withTypeText(it.type))
                 }
@@ -367,7 +409,8 @@ class HalAnnotator : Annotator {
         else {
             val manifestText = HalManifest.text(element.virtualFile)
             val known = HalManifest.types(manifestText).toSet() +
-                setOf("any", "null", "bool", "number", "string", "tuple", "table") +
+                setOf("any", "null", "bool", "number", "string", "tuple", "table",
+                    "PathDependency", "GitDependency", "ModuleDependency") +
                 if (element.virtualFile?.name?.equals("manifest.hal", true) == true) setOf("Manifest") else emptySet()
             sections.filter { it.type !in known }.forEach {
                 holder.newAnnotation(HighlightSeverity.ERROR, "Unknown Hix pattern '${it.type}'")
@@ -377,7 +420,8 @@ class HalAnnotator : Annotator {
                 val section = block.section()
                 val type = section.IDENTIFIER().text
                 val fields = section.sectionEntry().mapNotNull { entry -> entry.field()?.let(::fieldSite) }
-                if (type == "Manifest") validateManifest(holder, fields)
+                if (type == "Manifest") validateManifest(holder, fields,
+                    TextRange(section.start.startIndex, section.lineEnd().stop.stopIndex + 1))
                 else if (type in known) validateFields(holder, manifestText, type, fields,
                     TextRange(section.start.startIndex, section.lineEnd().stop.stopIndex + 1), known)
             }
@@ -401,16 +445,78 @@ class HalAnnotator : Annotator {
     private fun fieldSite(field: HalParser.TableEntryContext) = HalFieldSite(field.fieldKey().start, fieldName(field.fieldKey()),
         HalValueSite(field.value(), field.collectionValue()))
 
-    private fun validateManifest(holder: AnnotationHolder, values: List<HalFieldSite>) {
+    private fun validateManifest(holder: AnnotationHolder, values: List<HalFieldSite>, sectionRange: TextRange) {
+        val definitions = HalManifest.manifestFields.associateBy(HalManifest.Field::name)
         values.groupBy(HalFieldSite::name).forEach { (name, occurrences) ->
-            if (name !in setOf("backend", "imports")) occurrences.forEach {
+            if (name !in definitions) occurrences.forEach {
                 error(holder, it.token, "Unknown Manifest field '$name'")
             }
             occurrences.drop(1).forEach { error(holder, it.token, "Duplicate Manifest field '$name'") }
         }
-        values.firstOrNull { it.name == "imports" && it.value.list == null }?.let {
-            error(holder, it.value.context, "Manifest imports must be a list of paths")
+        if (values.none { it.name == "name" }) {
+            holder.newAnnotation(HighlightSeverity.ERROR, "Missing required Manifest field 'name'")
+                .range(sectionRange).create()
         }
+        values.filter { it.name in definitions.keys - setOf("sources", "dependencies") }.forEach {
+            requireString(holder, it.value, "Manifest.${it.name}")
+        }
+        values.firstOrNull { it.name == "sources" }?.let { validateSources(holder, it.value) }
+        values.firstOrNull { it.name == "dependencies" }?.let { validateDependencies(holder, it.value) }
+    }
+
+    private fun validateSources(holder: AnnotationHolder, value: HalValueSite) {
+        val table = value.table ?: return error(holder, value.context, "Manifest.sources must be a table")
+        val sites = table.tableEntry().map(::fieldSite)
+        sites.groupBy(HalFieldSite::name).forEach { (name, occurrences) ->
+            if (name !in setOf("main", "test", "modules")) occurrences.forEach {
+                error(holder, it.token, "Unknown sources field '$name'")
+            }
+            occurrences.drop(1).forEach { error(holder, it.token, "Duplicate sources field '$name'") }
+        }
+        sites.filter { it.name in setOf("main", "test", "modules") }.forEach { site ->
+            val list = site.value.list
+            if (list == null) requireString(holder, site.value, "Manifest.sources.${site.name}")
+            else list.value().forEach { entry -> requireString(holder, HalValueSite(entry, null), "Manifest.sources.${site.name}") }
+        }
+    }
+
+    private fun validateDependencies(holder: AnnotationHolder, value: HalValueSite) {
+        val table = value.table ?: return error(holder, value.context, "Manifest.dependencies must be a table")
+        val sites = table.tableEntry().map(::fieldSite)
+        sites.groupBy(HalFieldSite::name).values.forEach { occurrences ->
+            occurrences.drop(1).forEach { error(holder, it.token, "Duplicate dependency '${it.name}'") }
+        }
+        sites.forEach { dependency ->
+            val type = dependency.value.explicitType
+            if (type == null) {
+                requireString(holder, dependency.value, "Dependency '${dependency.name}'")
+                return@forEach
+            }
+            val definitions = HalManifest.dependencyFields(type)
+            if (definitions.isEmpty()) {
+                error(holder, dependency.value.context, "Unknown dependency type '$type'")
+                return@forEach
+            }
+            val descriptor = dependency.value.table
+                ?: return@forEach error(holder, dependency.value.context, "$type must be a table")
+            val fields = descriptor.tableEntry().map(::fieldSite)
+            val byName = definitions.associateBy(HalManifest.Field::name)
+            fields.groupBy(HalFieldSite::name).forEach { (name, occurrences) ->
+                if (name !in byName) occurrences.forEach {
+                    error(holder, it.token, "Unknown field '$name' for $type")
+                }
+                occurrences.drop(1).forEach { error(holder, it.token, "Duplicate field '$name'") }
+            }
+            definitions.filter { it.required && fields.none { site -> site.name == it.name } }.forEach {
+                error(holder, descriptor, "Missing required field '${it.name}' for $type")
+            }
+            fields.filter { it.name in byName }.forEach { requireString(holder, it.value, "$type.${it.name}") }
+        }
+    }
+
+    private fun requireString(holder: AnnotationHolder, value: HalValueSite, field: String) {
+        if (value.scalar?.scalarAtom()?.isNotEmpty() != true || value.explicitType != null || value.table != null || value.list != null)
+            error(holder, value.context, "$field must be a string")
     }
 
     private fun validateFields(holder: AnnotationHolder, manifest: String, type: String,

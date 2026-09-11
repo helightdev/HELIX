@@ -139,14 +139,14 @@ public class StandaloneTests {
     Directory.CreateDirectory(nested);
     try {
       File.WriteAllText(Path.Combine(directory, "manifest.hal"),
-        "--- Manifest\nbackend = Standalone\nimports = [\"definitions/**\"]\n");
+        "--- Manifest\nname = sample\nsources = { main = [\"definitions/**\", \"assets/**\"] }\n");
       Directory.CreateDirectory(Path.Combine(directory, "definitions"));
       File.WriteAllText(Path.Combine(directory, "definitions", "answer.hix"), "func answer { return(42) }");
       var entry = Path.Combine(nested, "main.hix");
       File.WriteAllText(entry, "func main { print(answer()) }");
 
       var output = new StringWriter(); var error = new StringWriter();
-      Assert.Equal(0, Program.Run([entry], output, error));
+      Assert.Equal(0, Program.Run([directory], output, error));
       Assert.Equal("42" + Environment.NewLine, output.ToString());
     } finally { Directory.Delete(directory, true); }
   }

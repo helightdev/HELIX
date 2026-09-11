@@ -14,29 +14,46 @@ public sealed class HixTestRunResult(IReadOnlyList<HixTestResult> tests) {
 }
 
 public static class HixTestRunner {
-  public static HixTestRunResult Run(IEnumerable<string> paths, TextWriter output = null) {
+  public static HixTestRunResult Run(IEnumerable<string> paths, TextWriter output = null, Action<HixTestResult> onResult = null) {
     output ??= Console.Out;
-    var files = Discover(paths).ToArray();
     var results = new List<HixTestResult>();
-    foreach (var file in files) results.AddRange(RunFile(file, output));
+    foreach (var input in paths.DefaultIfEmpty(Directory.GetCurrentDirectory())) {
+      var path = Path.GetFullPath(input);
+      var manifest = Directory.Exists(path) ? Path.Combine(path, "manifest.hal") : path.EndsWith(".hal", StringComparison.OrdinalIgnoreCase) ? path : null;
+      if (manifest != null && File.Exists(manifest)) results.AddRange(RunProject(HixProject.Load(manifest), output, onResult).Tests);
+      else foreach (var file in Discover([path])) results.AddRange(RunFile(file, output, onResult));
+    }
     output.WriteLine($"{results.Count} tests: {results.Count(result => result.Success)} passed, " +
       $"{results.Count(result => !result.Success)} failed");
     return new HixTestRunResult(results);
   }
 
-  private static IReadOnlyList<HixTestResult> RunFile(string entryFile, TextWriter output) {
+  public static HixTestRunResult RunProject(HixProject project, TextWriter output = null, Action<HixTestResult> onResult = null) {
+    output ??= Console.Out;
     var results = new List<HixTestResult>();
-    var directory = Path.GetDirectoryName(entryFile) ?? Directory.GetCurrentDirectory();
-    var backend = new HixTestBackend(output, directory);
+    var main = project.MainSources();
+    foreach (var testPath in HixProject.MatchFiles(project.Manifest.Directory, project.Manifest.Sources.Test)) {
+      var files = new List<HixSourceFile>(main); var known = new HashSet<string>(main.Select(file => file.Path), PathComparer);
+      foreach (var file in HixFileImports.LoadFiles(testPath)) if (known.Add(file.Path)) files.Add(file);
+      results.AddRange(RunFiles(files, new HashSet<string>([testPath], PathComparer), output, onResult));
+    }
+    return new(results);
+  }
+
+  private static IReadOnlyList<HixTestResult> RunFile(string entryFile, TextWriter output, Action<HixTestResult> onResult = null) {
     IReadOnlyList<HixSourceFile> files;
-    CompilationUnitIr entry;
     try {
       files = HixFileImports.LoadFiles(entryFile);
-      entry = AntlrSyntax.Parse(files.Single(file => PathEquals(file.Path, entryFile)).Source, backend);
     } catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException) {
-      results.Add(Report(new(entryFile, "compile", false, exception.Message), output));
-      return results;
+      return [Report(new(entryFile, "compile", false, exception.Message), output, onResult)];
     }
+    return RunFiles(files, new HashSet<string>([entryFile], PathComparer), output, onResult);
+  }
+
+  private static IReadOnlyList<HixTestResult> RunFiles(IReadOnlyList<HixSourceFile> files, ISet<string> testPaths, TextWriter output, Action<HixTestResult> onResult = null) {
+    var results = new List<HixTestResult>();
+    var directory = files.Count == 0 ? Directory.GetCurrentDirectory() : Path.GetDirectoryName(files[0].Path);
+    var backend = new HixTestBackend(output, directory);
 
     HixProgramImage program;
     CompilationUnitIr[] units;
@@ -49,22 +66,23 @@ public static class HixTestRunner {
       backend.SetCompilationSources(sources);
       program = HixCompiler.CompileFunctions(sources, backend);
     } catch (Exception exception) when (exception is ArgumentException) {
-      results.Add(Report(new(entryFile, "compile", false, exception.Message), output));
+      results.Add(Report(new(files.FirstOrDefault()?.Path ?? "manifest.hal", "compile", false, exception.Message), output, onResult));
       return results;
     }
 
     var vm = new HixVM([program]);
     for (var fileIndex = 0; fileIndex < files.Count; fileIndex++) {
+      if (!testPaths.Contains(files[fileIndex].Path)) continue;
       foreach (var function in units[fileIndex].Declarations.OfType<FunctionDeclarationIr>()) {
         if (!function.Metadata.Any(metadata => metadata.Name == "test")) continue;
         var cases = function.Metadata.Where(metadata => metadata.Name == "testcase").ToArray();
         if (cases.Length == 0) {
-          results.Add(Report(Invoke(vm, program, backend, files[fileIndex].Path, function.Name, null, 0), output));
+          results.Add(Report(Invoke(vm, program, backend, files[fileIndex].Path, function.Name, null, 0), output, onResult));
           continue;
         }
         for (var caseIndex = 0; caseIndex < cases.Length; caseIndex++)
           results.Add(Report(Invoke(vm, program, backend, files[fileIndex].Path, function.Name,
-            cases[caseIndex], caseIndex + 1), output));
+            cases[caseIndex], caseIndex + 1), output, onResult));
       }
     }
     return results;
@@ -98,10 +116,10 @@ public static class HixTestRunner {
     _ => throw new ArgumentException("test metadata values must be constant")
   };
 
-  private static HixTestResult Report(HixTestResult result, TextWriter output) {
+  private static HixTestResult Report(HixTestResult result, TextWriter output, Action<HixTestResult> onResult) {
     output.WriteLine((result.Success ? "PASS " : "FAIL ") + result.File.Replace('\\', '/') + "::" + result.Name +
       (string.IsNullOrEmpty(result.Message) ? "" : ": " + result.Message));
-    return result;
+    onResult?.Invoke(result); return result;
   }
 
   private static IEnumerable<string> Discover(IEnumerable<string> paths) {
@@ -115,15 +133,14 @@ public static class HixTestRunner {
         var declaredTestBackend = unit.Metadata.Any(metadata => metadata.Name == "backend" &&
           metadata.Values.FirstOrDefault() is StringExpressionIr value &&
           string.Equals(value.Value, "Test", StringComparison.OrdinalIgnoreCase));
-        var testBackend = declaredTestBackend || string.Equals(HixManifest.Find(file)?.Backend, "Test",
-          StringComparison.OrdinalIgnoreCase);
         var containsTests = unit.Declarations.OfType<FunctionDeclarationIr>().Any(function =>
             function.Metadata.Any(metadata => metadata.Name == "test"));
-        if (testBackend && containsTests) yield return Path.GetFullPath(file);
+        if (declaredTestBackend && containsTests) yield return Path.GetFullPath(file);
       }
     }
   }
 
   private static bool PathEquals(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right),
     RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+  private static StringComparer PathComparer => RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 }

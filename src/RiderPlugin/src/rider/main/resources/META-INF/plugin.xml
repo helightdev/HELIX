@@ -8,6 +8,9 @@
     <module name="intellij.rd.client" />
     <module name="intellij.rider.languages" />
     <module name="intellij.rider.rdclient.dotnet" />
+    <module name="intellij.platform.smRunner" />
+    <module name="intellij.platform.testRunner" />
+    <module name="intellij.platform.testIntegration" />
   </dependencies>
   <depends>com.intellij.modules.rider</depends>
   <depends>com.intellij.resharper.unity</depends>
@@ -67,6 +70,12 @@
     <lang.quoteHandler language="Hix"
                        implementationClass="dev.helight.helix.hix.HixQuoteHandler" />
     <typedHandler implementation="dev.helight.helix.hix.HixDelimiterTypedHandler" />
+    <configurationType implementation="dev.helight.helix.hix.run.HixRunConfigurationType" />
+    <runConfigurationProducer implementation="dev.helight.helix.hix.run.HixApplicationRunConfigurationProducer" />
+    <runConfigurationProducer implementation="dev.helight.helix.hix.run.HixTestRunConfigurationProducer" />
+    <newProjectWizard.generator implementation="dev.helight.helix.hix.project.HixProjectWizard" />
+    <projectOpenProcessor implementation="dev.helight.helix.hix.project.HixProjectOpenProcessor"
+                          order="first" />
     <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
     <projectViewPane implementation="dev.helight.helix.workspace.UnityWorkspaceProjectViewPane"
                      id="HelixUnityWorkspace"

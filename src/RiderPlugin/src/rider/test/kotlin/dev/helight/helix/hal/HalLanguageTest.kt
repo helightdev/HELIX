@@ -7,6 +7,23 @@ import kotlin.test.assertTrue
 
 class HalLanguageTest {
     @Test
+    fun `rider exposes the manifest project schema`() {
+        assertEquals(
+            listOf("name", "version", "description", "repository", "license", "author",
+                "applicationMain", "sources", "dependencies"),
+            HalManifest.manifestFields.map { it.name },
+        )
+        assertTrue(HalManifest.manifestFields.single { it.name == "name" }.required)
+        assertEquals(listOf("main", "test", "modules"), HalManifest.sourceFields.map { it.name })
+        assertEquals(listOf("uri", "version"), HalManifest.dependencyFields("PathDependency").map { it.name })
+        assertEquals(
+            listOf("repository", "branch", "rev", "tag", "version"),
+            HalManifest.dependencyFields("GitDependency").map { it.name },
+        )
+        assertEquals(listOf("version"), HalManifest.dependencyFields("ModuleDependency").map { it.name })
+    }
+
+    @Test
     fun `lexer recognizes sections typed containers references and comments`() {
         val source = """
             %uid<example>

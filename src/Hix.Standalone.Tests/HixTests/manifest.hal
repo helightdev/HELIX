@@ -1,2 +1,14 @@
 --- Manifest
-backend = Test
+name = standalone-tests
+sources = {
+  main = []
+  test = ["*", "imports/**", "syntax/tests.hix", "syntax/language-features.hix"]
+  modules = []
+}
+
+dependencies {
+  "test" GitDependency { 
+    repository = "test"
+    branch = "main"
+  }
+}

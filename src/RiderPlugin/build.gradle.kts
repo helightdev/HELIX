@@ -178,6 +178,9 @@ dependencies {
         bundledModule("intellij.rd.client")
         bundledModule("intellij.rider.languages")
         bundledModule("intellij.rider.rdclient.dotnet")
+        bundledModule("intellij.platform.smRunner")
+        bundledModule("intellij.platform.testRunner")
+        bundledModule("intellij.platform.testIntegration")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
@@ -222,6 +225,14 @@ tasks.prepareSandbox {
             outputFolder.file("${DotnetPluginId.get()}.pdb"),
             outputFolder.file("HelixSourceGenerator.dll"),
             outputFolder.file("HelixSourceGenerator.pdb"),
+            // Hix.Toolchain remains an optional external executable. These assemblies are
+            // the reusable manifest/runtime API used by the bundled Rider backend itself.
+            outputFolder.file("Hix.Standalone.dll"),
+            outputFolder.file("Hix.Standalone.pdb"),
+            outputFolder.file("Hix.dll"),
+            outputFolder.file("Hix.pdb"),
+            outputFolder.file("antlr.runtime.dll"),
+            outputFolder.file("Newtonsoft.Json.dll"),
     )
 
     dllFiles.forEach { pluginFile ->

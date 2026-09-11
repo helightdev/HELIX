@@ -153,7 +153,7 @@ class HixSnapshotService(private val project: Project) {
     }
 
     private fun effectiveBackend(source: CharSequence, file: VirtualFile?): String =
-        backendFor(source, HalManifest.config(file)?.backend)
+        backendFor(source)
 
     fun updateOpenBuffer(filePath: String, source: String) {
         openBuffers[normalise(filePath)] = source

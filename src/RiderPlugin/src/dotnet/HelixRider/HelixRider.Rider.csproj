@@ -11,8 +11,22 @@
   <ItemGroup>
     <PackageReference Include="JetBrains.Rider.SDK" Version="$(SdkVersion)" />
     <ProjectReference Include="..\..\..\..\Hix.MixinGenerator\Hix.MixinGenerator.csproj" />
+    <ProjectReference Include="..\..\..\..\Hix.Standalone\Hix.Standalone.csproj" Aliases="StandaloneRuntime" />
+    <ProjectReference Include="..\..\..\..\Hix\Hix.csproj" Aliases="StandaloneRuntime" />
     <Compile Include="..\..\..\..\Hix.Standalone\Analysis\*.cs"
              Link="HixStandaloneAnalysis\%(Filename)%(Extension)" />
+    <Compile Include="..\..\..\..\Hix.Standalone\HixStandaloneBackend.cs"
+             Link="HixStandaloneAnalysis\HixStandaloneBackend.cs" />
+    <Compile Include="..\..\..\..\Hix.Standalone\HixTestBackend.cs"
+             Link="HixStandaloneAnalysis\HixTestBackend.cs" />
+    <Compile Include="..\..\..\..\Hix.Standalone\JsonFunctions.cs"
+             Link="HixStandaloneAnalysis\JsonFunctions.cs" />
+    <Compile Include="..\..\..\..\Hix.Standalone\HalFunctions.cs"
+             Link="HixStandaloneAnalysis\HalFunctions.cs" />
+    <Compile Include="..\..\..\..\Hix.Standalone\IoFunctions.cs"
+             Link="HixStandaloneAnalysis\IoFunctions.cs" />
+    <Compile Include="..\..\..\..\Hix.Standalone\CompilationFunctions.cs"
+             Link="HixStandaloneAnalysis\CompilationFunctions.cs" />
     <Compile Include="..\..\..\..\Hix\IsExternalInit.cs"
              Link="Compatibility\IsExternalInit.cs" />
   </ItemGroup>

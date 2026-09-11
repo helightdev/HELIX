@@ -23,6 +23,7 @@ class HelixExpressionModel private constructor(
     private val _completeMixin: RdCall<MixinCompletionRequest, MixinCompletionResponse>,
     private val _queryMixinDefinitions: RdCall<MixinDefinitionQuery, MixinDefinitionResponse>,
     private val _getMixinLanguageCatalog: RdCall<String, MixinLanguageCatalog>,
+    private val _executeHix: RdCall<HixExecutionRequest, HixExecutionResponse>,
     private val _isHelixEnabled: RdOptionalProperty<Boolean>
 ) : RdExtBase() {
     //companion
@@ -47,13 +48,16 @@ class HelixExpressionModel private constructor(
             serializers.register(LazyCompanionMarshaller(RdId(3757912040769169282), classLoader, "dev.helight.helix.protocol.MixinDefinitionResponse"))
             serializers.register(LazyCompanionMarshaller(RdId(-5642695876888106362), classLoader, "dev.helight.helix.protocol.MixinParseResponse"))
             serializers.register(LazyCompanionMarshaller(RdId(-5239733744395790445), classLoader, "dev.helight.helix.protocol.MixinLanguageCatalog"))
+            serializers.register(LazyCompanionMarshaller(RdId(7639943946241625851), classLoader, "dev.helight.helix.protocol.HixExecutionRequest"))
+            serializers.register(LazyCompanionMarshaller(RdId(6904821828525885683), classLoader, "dev.helight.helix.protocol.HixTestResult"))
+            serializers.register(LazyCompanionMarshaller(RdId(-2969410624680835755), classLoader, "dev.helight.helix.protocol.HixExecutionResponse"))
         }
 
 
 
 
 
-        const val serializationHash = -2762421869255015286L
+        const val serializationHash = -3530637924080341787L
 
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -64,6 +68,7 @@ class HelixExpressionModel private constructor(
     val completeMixin: IRdCall<MixinCompletionRequest, MixinCompletionResponse> get() = _completeMixin
     val queryMixinDefinitions: IRdCall<MixinDefinitionQuery, MixinDefinitionResponse> get() = _queryMixinDefinitions
     val getMixinLanguageCatalog: IRdCall<String, MixinLanguageCatalog> get() = _getMixinLanguageCatalog
+    val executeHix: IRdCall<HixExecutionRequest, HixExecutionResponse> get() = _executeHix
     val isHelixEnabled: IOptProperty<Boolean> get() = _isHelixEnabled
     //methods
     //initializer
@@ -76,6 +81,7 @@ class HelixExpressionModel private constructor(
         _completeMixin.async = true
         _queryMixinDefinitions.async = true
         _getMixinLanguageCatalog.async = true
+        _executeHix.async = true
     }
 
     init {
@@ -83,6 +89,7 @@ class HelixExpressionModel private constructor(
         bindableChildren.add("completeMixin" to _completeMixin)
         bindableChildren.add("queryMixinDefinitions" to _queryMixinDefinitions)
         bindableChildren.add("getMixinLanguageCatalog" to _getMixinLanguageCatalog)
+        bindableChildren.add("executeHix" to _executeHix)
         bindableChildren.add("isHelixEnabled" to _isHelixEnabled)
     }
 
@@ -93,6 +100,7 @@ class HelixExpressionModel private constructor(
         RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest, MixinCompletionResponse),
         RdCall<MixinDefinitionQuery, MixinDefinitionResponse>(MixinDefinitionQuery, MixinDefinitionResponse),
         RdCall<String, MixinLanguageCatalog>(FrameworkMarshallers.String, MixinLanguageCatalog),
+        RdCall<HixExecutionRequest, HixExecutionResponse>(HixExecutionRequest, HixExecutionResponse),
         RdOptionalProperty<Boolean>(FrameworkMarshallers.Bool)
     )
 
@@ -106,6 +114,7 @@ class HelixExpressionModel private constructor(
             print("completeMixin = "); _completeMixin.print(printer); println()
             print("queryMixinDefinitions = "); _queryMixinDefinitions.print(printer); println()
             print("getMixinLanguageCatalog = "); _getMixinLanguageCatalog.print(printer); println()
+            print("executeHix = "); _executeHix.print(printer); println()
             print("isHelixEnabled = "); _isHelixEnabled.print(printer); println()
         }
         printer.print(")")
@@ -117,6 +126,7 @@ class HelixExpressionModel private constructor(
             _completeMixin.deepClonePolymorphic(),
             _queryMixinDefinitions.deepClonePolymorphic(),
             _getMixinLanguageCatalog.deepClonePolymorphic(),
+            _executeHix.deepClonePolymorphic(),
             _isHelixEnabled.deepClonePolymorphic()
         )
     }
@@ -126,6 +136,249 @@ class HelixExpressionModel private constructor(
 }
 val com.jetbrains.rd.ide.model.Solution.helixExpressionModel get() = getOrCreateExtension("helixExpressionModel", ::HelixExpressionModel)
 
+
+
+/**
+ * #### Generated from [HelixExpressionModel.kt:129]
+ */
+data class HixExecutionRequest (
+    val manifestPath: String,
+    val test: Boolean,
+    val entry: String,
+    val arguments: Array<String>
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeString(manifestPath)
+        buffer.writeBool(test)
+        buffer.writeString(entry)
+        buffer.writeArray(arguments) { buffer.writeString(it) }
+    }
+    //companion
+
+    companion object : IMarshaller<HixExecutionRequest> {
+        override val _type: KClass<HixExecutionRequest> = HixExecutionRequest::class
+        override val id: RdId get() = RdId(7639943946241625851)
+
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): HixExecutionRequest  {
+            val manifestPath = buffer.readString()
+            val test = buffer.readBool()
+            val entry = buffer.readString()
+            val arguments = buffer.readArray {buffer.readString()}
+            return HixExecutionRequest(manifestPath, test, entry, arguments)
+        }
+
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: HixExecutionRequest)  {
+            value.write(ctx, buffer)
+        }
+
+
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+
+        other as HixExecutionRequest
+
+        if (manifestPath != other.manifestPath) return false
+        if (test != other.test) return false
+        if (entry != other.entry) return false
+        if (!(arguments contentDeepEquals other.arguments)) return false
+
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + manifestPath.hashCode()
+        __r = __r*31 + test.hashCode()
+        __r = __r*31 + entry.hashCode()
+        __r = __r*31 + arguments.contentDeepHashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("HixExecutionRequest (")
+        printer.indent {
+            print("manifestPath = "); manifestPath.print(printer); println()
+            print("test = "); test.print(printer); println()
+            print("entry = "); entry.print(printer); println()
+            print("arguments = "); arguments.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
+
+
+/**
+ * #### Generated from [HelixExpressionModel.kt:141]
+ */
+data class HixExecutionResponse (
+    val exitCode: Int,
+    val standardOutput: String,
+    val standardError: String,
+    val tests: Array<HixTestResult>
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeInt(exitCode)
+        buffer.writeString(standardOutput)
+        buffer.writeString(standardError)
+        buffer.writeArray(tests) { HixTestResult.write(ctx, buffer, it) }
+    }
+    //companion
+
+    companion object : IMarshaller<HixExecutionResponse> {
+        override val _type: KClass<HixExecutionResponse> = HixExecutionResponse::class
+        override val id: RdId get() = RdId(-2969410624680835755)
+
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): HixExecutionResponse  {
+            val exitCode = buffer.readInt()
+            val standardOutput = buffer.readString()
+            val standardError = buffer.readString()
+            val tests = buffer.readArray {HixTestResult.read(ctx, buffer)}
+            return HixExecutionResponse(exitCode, standardOutput, standardError, tests)
+        }
+
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: HixExecutionResponse)  {
+            value.write(ctx, buffer)
+        }
+
+
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+
+        other as HixExecutionResponse
+
+        if (exitCode != other.exitCode) return false
+        if (standardOutput != other.standardOutput) return false
+        if (standardError != other.standardError) return false
+        if (!(tests contentDeepEquals other.tests)) return false
+
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + exitCode.hashCode()
+        __r = __r*31 + standardOutput.hashCode()
+        __r = __r*31 + standardError.hashCode()
+        __r = __r*31 + tests.contentDeepHashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("HixExecutionResponse (")
+        printer.indent {
+            print("exitCode = "); exitCode.print(printer); println()
+            print("standardOutput = "); standardOutput.print(printer); println()
+            print("standardError = "); standardError.print(printer); println()
+            print("tests = "); tests.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
+
+
+/**
+ * #### Generated from [HelixExpressionModel.kt:135]
+ */
+data class HixTestResult (
+    val `file`: String,
+    val name: String,
+    val success: Boolean,
+    val message: String
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeString(`file`)
+        buffer.writeString(name)
+        buffer.writeBool(success)
+        buffer.writeString(message)
+    }
+    //companion
+
+    companion object : IMarshaller<HixTestResult> {
+        override val _type: KClass<HixTestResult> = HixTestResult::class
+        override val id: RdId get() = RdId(6904821828525885683)
+
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): HixTestResult  {
+            val `file` = buffer.readString()
+            val name = buffer.readString()
+            val success = buffer.readBool()
+            val message = buffer.readString()
+            return HixTestResult(`file`, name, success, message)
+        }
+
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: HixTestResult)  {
+            value.write(ctx, buffer)
+        }
+
+
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+
+        other as HixTestResult
+
+        if (`file` != other.`file`) return false
+        if (name != other.name) return false
+        if (success != other.success) return false
+        if (message != other.message) return false
+
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + `file`.hashCode()
+        __r = __r*31 + name.hashCode()
+        __r = __r*31 + success.hashCode()
+        __r = __r*31 + message.hashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("HixTestResult (")
+        printer.indent {
+            print("file = "); `file`.print(printer); println()
+            print("name = "); name.print(printer); println()
+            print("success = "); success.print(printer); println()
+            print("message = "); message.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
 
 
 /**

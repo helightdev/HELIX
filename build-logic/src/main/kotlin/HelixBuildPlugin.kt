@@ -487,6 +487,12 @@ private fun registerHixBuildTasks(project: Project) {
         workingDir(project.layout.projectDirectory)
         commandLine("dotnet", "build", "src/Hix/Hix.sln", "--configuration", configuration.get())
     }
+    val toolchain = project.tasks.register("buildHixToolchain", Exec::class.java) {
+        group = "hix"
+        description = "Builds the standalone Hix command-line toolchain."
+        commandLine("dotnet", "build", "src/Hix.Toolchain/Hix.Toolchain.csproj", "--configuration", configuration.get())
+    }
+    build.configure { dependsOn(toolchain) }
     project.tasks.register("testHix", Exec::class.java) {
         group = "hix"
         description = "Runs the core, Roslyn, standalone, and mixin generator test suites."
