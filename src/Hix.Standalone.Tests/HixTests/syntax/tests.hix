@@ -1,10 +1,9 @@
 func assertCompilationFails(string file, string diagnostic) -> null {
   local compilation = compile(readFile($file))
-  assert(not(success($compilation)))
-  assert(compare(length(diagnostics($compilation)), <gt>, 0))
-  when(not(eq($diagnostic, <>))) {
-    assert(contains(get(diagnostics($compilation), 0), $diagnostic))
-  }
+  assert(!$compilation:success, <Compilation Failed>)
+  assert(compare($compilation:diagnostics:length, <gt>, 0), <More than one diagnostic is present>)
+  // This should be probably handled using a any match
+  assert($compilation:diagnostics:get(0):contains($diagnostic), <Contains the correct diagnostic as first diagnostic>)
 }
 
 %test

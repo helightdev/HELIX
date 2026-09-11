@@ -5,10 +5,3 @@ sources = {
   test = ["*", "imports/**", "syntax/tests.hix", "syntax/language-features.hix"]
   modules = []
 }
-
-dependencies {
-  "test" GitDependency { 
-    repository = "test"
-    branch = "main"
-  }
-}

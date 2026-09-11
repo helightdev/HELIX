@@ -141,6 +141,30 @@ public sealed class PatternBindingStep : HixCompilerStep {
       var arguments = call.Arguments;
       var argumentPatterns = arguments.Select(argument => argument.InferredPattern).ToArray();
       var selected = patterns.ContainsKey(call.Name) ? HixCallBinding.Pattern : HixCallBinding.Dynamic;
+      if (patterns.TryGetValue(call.Name, out var declaredPattern)) {
+        if (call.ArgumentNames.All(name => name == null) && call.Arguments.Count == 1 &&
+            HixPatternRelations.Relate(argumentPatterns[0], declaredPattern, patterns) != HixPatternRelation.Never) {
+          call.Binding = selected;
+          return;
+        }
+        if (HixPatterns.TryStructural(declaredPattern, patterns, out var structural) &&
+            TryArrangePattern(call, structural is TableHixPattern table ? table.Fields :
+              ((TupleHixPattern)structural).Fields, out var arranged)) {
+          call.BoundArguments = arranged;
+          call.Binding = selected;
+          return;
+        }
+        if (call.ArgumentNames.Any(name => name != null) || call.Arguments.Count != 1) {
+          if (HixPatterns.TryStructural(declaredPattern, patterns, out var mismatch))
+            diagnostics.Add(new(call.Line, PatternConstructorDiagnostics.Describe(call.Name, call.ArgumentNames,
+              argumentPatterns, mismatch is TableHixPattern mismatchTable ? mismatchTable.Fields :
+                ((TupleHixPattern)mismatch).Fields, patterns)));
+          else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' only accepts " + call.Name + "(value: " +
+            call.Name + ")"));
+        }
+        call.Binding = selected;
+        return;
+      }
       if (functions.TryGetValue(call.Name, out var declarations)) {
         var hasDynamicFallback = declarations.Any(function => function.Signatures.Count == 0);
         var candidates = declarations.SelectMany(function => function.Signatures.Select(signature => (function, signature)))
@@ -180,6 +204,36 @@ public sealed class PatternBindingStep : HixCompilerStep {
           diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts the supplied named arguments"));
       }
       call.Binding = selected;
+    }
+
+    private static bool TryArrangePattern(CallExpressionIr call, IReadOnlyList<HixPatternField> fields,
+      out ExpressionIr[] arranged) {
+      arranged = null;
+      if (call.Arguments.Count > fields.Count) return false;
+      var values = new ExpressionIr[fields.Count];
+      var positional = 0;
+      var sawNamed = false;
+      for (var index = 0; index < call.Arguments.Count; index++) {
+        var name = call.ArgumentNames[index];
+        int target;
+        if (name == null) {
+          if (sawNamed || positional >= fields.Count) return false;
+          target = positional++;
+        } else {
+          sawNamed = true;
+          target = fields.ToList().FindIndex(field => field.Name == name);
+          if (target < 0) return false;
+        }
+        if (values[target] != null) return false;
+        values[target] = call.Arguments[index];
+      }
+      for (var index = 0; index < fields.Count; index++) {
+        if (values[index] != null) continue;
+        if (!fields[index].AllowsMissing) return false;
+        values[index] = new MissingExpressionIr {InferredPattern = new KindHixPattern(HixValueKind.Missing)};
+      }
+      arranged = values;
+      return true;
     }
 
     private static bool TryArrange(CallExpressionIr call, global::Hix.FunctionSignature signature,

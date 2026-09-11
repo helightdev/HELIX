@@ -76,4 +76,15 @@ public sealed class HixAnalyzerServiceTests {
 
     Assert.Contains(snapshot.Declarations, item => item is {Name: "A", Kind: "Pattern"});
   }
+
+  [Fact]
+  public void SemanticDiagnosticsPreferTheOffendingSymbolOverLeadingWhitespace() {
+    const string source = "func main {\n  local value = eq()\n}";
+    var snapshot = Assert.Single(new HixAnalyzerService().Synchronize([
+      new HixDocument("/workspace/A.hix", source, 1)
+    ]));
+
+    var diagnostic = Assert.Single(snapshot.Diagnostics.Where(item => item.Message.Contains("'eq'")));
+    Assert.Equal("eq", source.Substring(diagnostic.Range.Start, diagnostic.Range.Length));
+  }
 }

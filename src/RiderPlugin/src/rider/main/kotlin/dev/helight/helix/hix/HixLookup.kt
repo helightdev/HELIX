@@ -11,6 +11,46 @@ internal object HixLookup {
     enum class SemanticRole { Pattern, PatternMetadata, TypeMetadata, DeclarationMetadata, FileMetadata, Metadata }
     data class MetadataArgument(val name: String, val index: Int)
     data class Site(val chained: Boolean, val member: Boolean, val receiverEnd: Int)
+    data class ConstructorField(val name: String, val type: String, val optional: Boolean, val defaulted: Boolean)
+    data class Constructor(val name: String, val fields: List<ConstructorField>, val tuple: Boolean)
+    data class ConstructorCall(val name: String, val assigned: Set<String>)
+
+    fun constructors(parsed: HelixAntlrParse): List<Constructor> {
+        val declarations = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
+            .associateBy { it.IDENTIFIER().text }
+        fun resolve(name: String, active: MutableSet<String>): Pair<List<HixParser.PatternFieldContext>, Boolean>? {
+            if (!active.add(name)) return null
+            val primary = declarations[name]?.patternExpression()?.patternUnion()?.patternTerm()?.singleOrNull()
+                ?.patternPrimary() ?: return null
+            primary.tablePattern()?.let { return it.patternField() to false }
+            primary.tuplePattern()?.let { return it.patternField() to true }
+            val alias = primary.patternIdentifier()?.text ?: return null
+            return resolve(alias, active)
+        }
+        return declarations.keys.mapNotNull { name ->
+            val (fields, tuple) = resolve(name, mutableSetOf()) ?: return@mapNotNull null
+            Constructor(name, fields.mapIndexed { index, field ->
+                val fieldName = field.ROOT_IDENTIFIER()?.text ?: if (tuple) index.toString()
+                    else field.patternUnion()?.text ?: index.toString()
+                ConstructorField(fieldName, field.patternUnion()?.text ?: "any",
+                    field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "optional" } == true,
+                    field.value() != null || field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "default" } == true)
+            }, tuple)
+        }
+    }
+
+    fun constructorCallAt(parsed: HelixAntlrParse, offset: Int): ConstructorCall? {
+        val list = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.CallValueListContext>()
+            .filter { offset >= it.start.startIndex && offset <= it.stop.stopIndex + 1 }
+            .minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return null
+        val name = when (val owner = list.parent) {
+            is HixParser.ValueStatementContext -> owner.functionIdentifier().text
+            is HixParser.TransformationPartContext -> owner.functionIdentifier()?.text
+            is HixParser.InvocationStatementContext -> owner.invocationIdentifier().text
+            else -> null
+        } ?: return null
+        return ConstructorCall(name, list.callArgument().mapNotNull { it.ROOT_IDENTIFIER()?.text }.toSet())
+    }
 
     fun semanticRoleAt(parsed: HelixAntlrParse, offset: Int): SemanticRole? {
         val sourceOffset = offset.coerceIn(0, parsed.source.length)

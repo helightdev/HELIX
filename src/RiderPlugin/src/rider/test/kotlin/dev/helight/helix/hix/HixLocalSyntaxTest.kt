@@ -9,6 +9,35 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `table and tuple declarations expose constructor fields`() {
+        val parsed = HixAntlrSyntax.parse(
+            "type Person = @{string name, %optional number age, string title = <friend>}\n" +
+                "type Pair = @[string, number]\ntype Alias = Person"
+        )
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        val constructors = HixLookup.constructors(parsed).associateBy { it.name }
+        assertEquals(listOf("name", "age", "title"), constructors.getValue("Person").fields.map { it.name })
+        assertTrue(constructors.getValue("Person").fields[1].optional)
+        assertTrue(constructors.getValue("Person").fields[2].defaulted)
+        assertEquals(listOf("0", "1"), constructors.getValue("Pair").fields.map { it.name })
+        assertTrue(constructors.getValue("Pair").tuple)
+        assertEquals(constructors.getValue("Person").fields, constructors.getValue("Alias").fields)
+    }
+
+    @Test
+    fun `constructor call lookup reports assigned named fields`() {
+        val source = "type Person = @{string name, number age}\n" +
+            "pure func build => Person(age = 4, name = <Ada>);"
+        val parsed = HixAntlrSyntax.parse(source)
+        val offset = source.indexOf("name =")
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(HixLookup.ConstructorCall("Person", setOf("age", "name")),
+            HixLookup.constructorCallAt(parsed, offset))
+    }
+
+    @Test
     fun `hal edits do not invalidate hix analysis`() {
         assertTrue(HixSnapshotService.affectsHixAnalysis("/project/manifest.hal"))
         assertTrue(!HixSnapshotService.affectsHixAnalysis("/project/assets/person.hal"))
@@ -336,6 +365,7 @@ class HixLocalSyntaxTest {
     @Test
     fun `analysis backend defaults to standalone and can be selected in file metadata`() {
         assertEquals("Standalone", HixSnapshotService.backendFor("mixin Example {}"))
+        assertEquals("Test", HixSnapshotService.backendFor("%test\nfunc example {}", "Test"))
         assertEquals("Unity", HixSnapshotService.backendFor("%backend<Unity>\n---\nmixin Example {}"))
         assertEquals("Standalone", HixSnapshotService.backendFor("---\n%backend<Unity>\nmixin Example {}"),
             "backend metadata is only read from the file header")

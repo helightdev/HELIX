@@ -70,7 +70,7 @@ class HalParserDefinition : ParserDefinition {
     override fun createLexer(project: Project?) = HalLexer()
     override fun createParser(project: Project): PsiParser = HalPsiParser(project)
     override fun getFileNodeType() = FILE
-    override fun getWhitespaceTokens() = TokenSet.create(HalAntlrTypes.tokens[0])
+    override fun getWhitespaceTokens() = TokenSet.create(HalAntlrTypes.tokens[GeneratedHalLexer.SPACE])
     override fun getCommentTokens() = TokenSet.create(HalAntlrTypes.tokens[GeneratedHalLexer.LINE_COMMENT])
     override fun getStringLiteralElements() = TokenSet.create(HalAntlrTypes.tokens[GeneratedHalLexer.STRING])
     override fun createElement(node: ASTNode): PsiElement = ASTWrapperPsiElement(node)
@@ -122,7 +122,7 @@ private fun unescapeString(text: String): String = buildString {
 
 internal object HalManifest {
     data class Field(val type: String, val name: String, val required: Boolean, val many: Boolean = false)
-    data class Config(val file: VirtualFile, val mainSources: List<String>)
+    data class Config(val file: VirtualFile, val mainSources: List<String>, val testSources: List<String>)
     val manifestFields = listOf(
         Field("string", "name", true),
         Field("string", "version", false),
@@ -160,6 +160,7 @@ internal object HalManifest {
             .getOrNull() ?: return null
         if (section.IDENTIFIER().text != "Manifest") return null
         val mainSources = arrayListOf("src/**")
+        val testSources = arrayListOf("test/**")
         section.sectionEntry().mapNotNull { it.field() }.forEach { field ->
             val name = fieldName(field.fieldKey())
             val value = field.value()
@@ -173,10 +174,23 @@ internal object HalManifest {
                         if (list != null) list.value().mapNotNullTo(mainSources, ::scalarText)
                         else scalarText(main.value())?.let(mainSources::add)
                     }
+                    val test = table?.tableEntry()?.firstOrNull { fieldName(it.fieldKey()) == "test" }
+                    if (test != null) {
+                        testSources.clear()
+                        val list = test.value()?.list() ?: test.collectionValue()?.typedContainer()?.list()
+                        if (list != null) list.value().mapNotNullTo(testSources, ::scalarText)
+                        else scalarText(test.value())?.let(testSources::add)
+                    }
                 }
             }
         }
-        return Config(manifest, mainSources)
+        return Config(manifest, mainSources, testSources)
+    }
+    fun isTestSource(file: VirtualFile?): Boolean {
+        val source = file ?: return false
+        val context = config(source) ?: return false
+        return context.testSources.asSequence().flatMap { imported(context.file.parent, it).asSequence() }
+            .any { it.path == source.path }
     }
     fun text(file: VirtualFile?): String = hixFiles(file).joinToString("\n", transform = ::read)
     fun hixFiles(file: VirtualFile?): List<VirtualFile> {

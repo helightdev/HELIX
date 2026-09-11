@@ -152,8 +152,15 @@ class HixSnapshotService(private val project: Project) {
             .mapNotNull { byPath[normalise(it.path)] }.sortedBy { it.filePath.lowercase() }
     }
 
+    fun sourcesInContext(file: VirtualFile): List<String> {
+        val siblings = file.parent?.children.orEmpty().filter { !it.isDirectory && HixFileType.isCanonical(it.name) }
+        return (HalManifest.hixFiles(file) + siblings).distinctBy { normalise(it.path) }
+            .sortedBy { it.path.lowercase() }
+            .map { source -> openBuffers[normalise(source.path)] ?: read(source) }
+    }
+
     private fun effectiveBackend(source: CharSequence, file: VirtualFile?): String =
-        backendFor(source)
+        backendFor(source, if (HalManifest.isTestSource(file)) TEST_BACKEND else null)
 
     fun updateOpenBuffer(filePath: String, source: String) {
         openBuffers[normalise(filePath)] = source
@@ -190,6 +197,8 @@ class HixSnapshotService(private val project: Project) {
             ?.sortedBy { it.path.lowercase() }
             ?: listOf(origin)
         val files = (HalManifest.hixFiles(origin) + siblings).distinctBy { normalise(it.path) }
+        val originSource = sourceOverride ?: openBuffers[normalise(origin.path)] ?: read(origin)
+        val inheritedBackend = effectiveBackend(originSource, origin)
         val sources = files.map { file ->
             val path = normalise(file.path)
             knownFiles[path] = file
@@ -197,7 +206,7 @@ class HixSnapshotService(private val project: Project) {
                 file == origin && sourceOverride != null -> sourceOverride
                 else -> openBuffers[path] ?: read(file)
             }
-            Triple(path, source, effectiveBackend(source, file))
+            Triple(path, source, backendFor(source, inheritedBackend))
         }
         sources.groupBy { it.third }.forEach { (backend, backendSources) ->
             requestBatch(normalise(origin.parent?.path ?: origin.path),
@@ -394,6 +403,7 @@ class HixSnapshotService(private val project: Project) {
         private const val MAX_SEMANTIC_RETRIES = 80
         private const val CATALOG_RETRY_DELAY_MS = 500L
         const val DEFAULT_BACKEND = "Standalone"
+        const val TEST_BACKEND = "Test"
         private val BACKEND_METADATA = Regex("(?m)^[ \\t]*%backend[ \\t]*<([^>\\r\\n]+)>")
         val SEMANTIC_SNAPSHOT: Key<MixinFileSnapshot> = Key.create("helix.mixin.semantic.snapshot")
         fun getInstance(project: Project): HixSnapshotService = project.service()

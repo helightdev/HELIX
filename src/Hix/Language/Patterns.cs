@@ -28,6 +28,25 @@ public static class HixPatterns {
   }
 
   public static HixPattern Nullable(HixPattern value) => Union([value, new KindHixPattern(HixValueKind.Null)]);
+
+  public static bool TryStructural(HixPattern pattern, IReadOnlyDictionary<string, HixPattern> definitions,
+    out HixPattern structural) {
+    var active = new HashSet<string>(StringComparer.Ordinal);
+    while (true) switch (pattern) {
+      case TableHixPattern or TupleHixPattern:
+        structural = pattern; return true;
+      case NamedHixPattern named when active.Add(named.Name) && definitions != null &&
+          definitions.TryGetValue(named.Name, out var resolved):
+        pattern = resolved; continue;
+      case DocumentedHixPattern documented: pattern = documented.Underlying; continue;
+      case ConstrainedHixPattern constrained: pattern = constrained.Underlying; continue;
+      case TaggedHixPattern tagged: pattern = tagged.Underlying; continue;
+      case DefinedHixPattern defined:
+        definitions = defined.Definitions; pattern = defined.Root; active.Clear(); continue;
+      default:
+        structural = null; return false;
+    }
+  }
 }
 
 public sealed record AnyHixPattern : HixPattern {

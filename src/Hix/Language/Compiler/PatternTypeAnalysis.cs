@@ -153,9 +153,17 @@ public static class PatternTypeAnalysis {
       case CallExpressionIr call:
         var supplied = call.Arguments.Select(value => Infer(value, locals, parameters, functions, patterns, diagnostics, backend)).ToArray();
         if (patterns.TryGetValue(call.Name, out var checkedPattern)) {
-          if (supplied.Length != 1) diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' expects one value"));
-          else if (HixPatternRelations.Relate(supplied[0], checkedPattern, patterns) == HixPatternRelation.Never)
-            diagnostics.Add(new(call.Line, "pattern '" + supplied[0].Display + "' can never match '" + call.Name + "'"));
+          var identity = supplied.Length == 1 && call.ArgumentNames.All(name => name == null) &&
+            HixPatternRelations.Relate(supplied[0], checkedPattern, patterns) != HixPatternRelation.Never;
+          if (!identity && (!HixPatterns.TryStructural(checkedPattern, patterns, out var structural) ||
+              !AcceptsConstructor(call, supplied, structural is TableHixPattern table ? table.Fields :
+                ((TupleHixPattern)structural).Fields, patterns))) {
+            if (structural != null) diagnostics.Add(new(call.Line, PatternConstructorDiagnostics.Describe(call.Name,
+              call.ArgumentNames, supplied, structural is TableHixPattern mismatchTable ? mismatchTable.Fields :
+                ((TupleHixPattern)structural).Fields, patterns)));
+            else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' only accepts " + call.Name +
+              "(value: " + call.Name + ")"));
+          }
           return new NamedHixPattern(call.Name);
         }
         if (!functions.TryGetValue(call.Name, out var overloads)) {
@@ -189,6 +197,30 @@ public static class PatternTypeAnalysis {
         return Union(distinct);
       default: return HixPattern.Any;
     }
+  }
+
+  private static bool AcceptsConstructor(CallExpressionIr call, IReadOnlyList<HixPattern> supplied,
+    IReadOnlyList<HixPatternField> fields, IReadOnlyDictionary<string, HixPattern> patterns) {
+    if (supplied.Count > fields.Count) return false;
+    var assigned = new bool[fields.Count];
+    var positional = 0;
+    var sawNamed = false;
+    for (var index = 0; index < supplied.Count; index++) {
+      var name = call.ArgumentNames[index];
+      int target;
+      if (name == null) {
+        if (sawNamed || positional >= fields.Count) return false;
+        target = positional++;
+      } else {
+        sawNamed = true;
+        target = fields.ToList().FindIndex(field => field.Name == name);
+        if (target < 0) return false;
+      }
+      if (assigned[target] || HixPatternRelations.Relate(supplied[index], fields[target].Pattern, patterns) ==
+          HixPatternRelation.Never) return false;
+      assigned[target] = true;
+    }
+    return fields.Select((field, index) => assigned[index] || field.AllowsMissing).All(value => value);
   }
 
   private static HixPattern InferResult(HixIrNode node, IDictionary<string, HixPattern> locals,

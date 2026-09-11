@@ -619,8 +619,33 @@ public sealed class HixThread {
   private IHixValue Call(string name, IHixValue[] arguments, int line) {
     if (name is "var" or "tar" or "local") return ModifyStorage(name, arguments);
     if (program.Patterns.TryGetValue(name, out var pattern)) {
-      if (arguments.Length != 1) return Error("pattern '" + name + "' expects one value");
-      var value = arguments[0];
+      IHixValue value = null;
+      if (arguments.Length == 1 && pattern is TaggedHixPattern identityTag && arguments[0] is HixTableValue identityTable) {
+        value = identityTable.TryGetValue(this, HixString.Dynamic(TaggedHixPattern.FieldName), out _)
+          ? identityTable
+          : identityTable.Put(this, HixString.Dynamic(TaggedHixPattern.FieldName), String(identityTag.Discriminator));
+      } else if (arguments.Length == 1 && HixPatternMatcher.Matches(pattern, arguments[0], this,
+          program.Patterns, out _)) value = arguments[0];
+      else if (HixPatterns.TryStructural(pattern, program.Patterns, out var structural)) {
+        var fields = structural is TableHixPattern tablePattern ? tablePattern.Fields
+          : ((TupleHixPattern)structural).Fields;
+        var required = fields.Count(field => !field.AllowsMissing);
+        if (arguments.Length < required || arguments.Length > fields.Count)
+          return Error("pattern '" + name + "' constructor expects " + required + ".." + fields.Count + " arguments");
+        var values = new IHixValue[fields.Count];
+        for (var i = 0; i < fields.Count; i++) values[i] = i < arguments.Length && arguments[i] is not MissingHixValue
+          ? arguments[i] : fields[i].HasDefault ? Import(fields[i].DefaultValue) : MissingHixValue.Instance;
+        if (structural is TableHixPattern)
+          value = new HixTableValue(fields.Select((field, index) => (field, index))
+            .Where(item => values[item.index] is not MissingHixValue)
+            .Select(item => new KeyValuePair<HixString, IHixValue>(ResolveString(item.field.Name), values[item.index])));
+        else {
+          var length = values.Length;
+          while (length != 0 && values[length - 1] is MissingHixValue) length--;
+          value = new TupleHixValue(values.Take(length).ToArray());
+        }
+      } else if (arguments.Length != 1) return Error("pattern '" + name + "' expects one value");
+      else value = arguments[0];
       if (pattern is TaggedHixPattern tagged && value is HixTableValue table &&
           !table.TryGetValue(this, HixString.Dynamic(TaggedHixPattern.FieldName), out _))
         value = table.Put(this, HixString.Dynamic(TaggedHixPattern.FieldName), String(tagged.Discriminator));

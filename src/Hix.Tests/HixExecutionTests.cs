@@ -537,6 +537,51 @@ public sealed class HixExecutionTests {
   }
 
   [Fact]
+  public void TableAndTuplePatternsProvideOrderedAndNamedConstructors() {
+    var source = """
+      type Person = @{string name, number age = [18], %optional string note}
+      type Pair = @[string left, number right]
+      %tagged type Pet = @{string name}
+      mixin Example { expression {
+        local named = Person(note = <ready>, name = <Ada>)
+        local positional = Person(<Grace>, 21)
+        local pair = Pair(<left>, 2)
+        local namedPair = Pair(right = 4, left = <named>)
+        local identity = Person(@{name=<Existing>, age=30})
+        local pet = Pet(name = <Milo>)
+        emit(local#named#name)
+        emit(local#named#age)
+        emit(local#named#note)
+        emit(local#positional#age)
+        emit(local#pair#0)
+        emit(local#namedPair#1)
+        emit(local#identity#name)
+        emit(get(local#pet, <$type>))
+      } }
+      """;
+    var unit = AntlrSyntax.Parse(source);
+    Assert.Empty(unit.Diagnostics);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"Ada", "18", "ready", "21", "left", "4", "Existing", "Pet"},
+      result.Outputs.Select(output => output.ReadText()));
+  }
+
+  [Fact]
+  public void PatternConstructorDiagnosticsDescribeTheClosestSignatureAndMissingFields() {
+    var unit = AntlrSyntax.Parse("""
+      type Person = @{string name, %optional number age}
+      mixin Example { expression { local person = Person(age = 3) } }
+      """);
+
+    Assert.Throws<ArgumentException>(() => TestCompiler.Compile(unit, "Example", TestBackend.Instance));
+    var diagnostic = Assert.Single(unit.Diagnostics.Where(item => item.Message.Contains("no constructor of 'Person'")));
+    Assert.Contains("missing required argument 'name'", diagnostic.Message);
+    Assert.Contains("Person(name: string, age: number?)", diagnostic.Message);
+    Assert.Contains("Person(value: Person)", diagnostic.Message);
+  }
+
+  [Fact]
   public void InferredCallsUseStaticSignaturesWhileVariablesRemainDynamic() {
     var unit = AntlrSyntax.Parse("""
       pure func choose(string value) -> string { return(<string>) }

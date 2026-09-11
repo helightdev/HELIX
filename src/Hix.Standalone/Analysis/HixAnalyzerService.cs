@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Antlr4.Runtime;
 using Hix.Compiler;
 
 namespace Hix.Standalone.Analysis;
@@ -90,9 +91,7 @@ public sealed class HixAnalyzerService {
     }).ToArray();
     var diagnostics = file.Analysis.Program.Diagnostics.Where(item => !ResolvedPatternDiagnostic(
       item.Message, siblingPatterns)).Select(item => {
-        var token = file.Analysis.Program.Tokens.FirstOrDefault(token => token.Line >= item.Line);
-        var range = token == null ? new HixSourceRange(file.Document.Text.Length, file.Document.Text.Length) :
-          HixSourceRange.FromToken(token);
+        var range = DiagnosticRange(file, item);
         return new HixDiagnostic(item.Message, "Error", range);
       }).ToArray();
     return new HixDocumentSnapshot(file.Document.Path, file.Document.Revision, file.Hash,
@@ -142,6 +141,25 @@ public sealed class HixAnalyzerService {
     return message != null && message.StartsWith(prefix, StringComparison.Ordinal) &&
       message.EndsWith("'", StringComparison.Ordinal) &&
       patterns.Contains(message.Substring(prefix.Length, message.Length - prefix.Length - 1));
+  }
+  private static HixSourceRange DiagnosticRange(CachedDocument file, HixParseDiagnostic diagnostic) {
+    var visible = file.Analysis.Program.Tokens.Where(token => token.Channel == TokenConstants.DefaultChannel &&
+      token.Type >= 0 && token.Line >= diagnostic.Line).ToArray();
+    var line = visible.Where(token => token.Line == diagnostic.Line).ToArray();
+    var quoted = new HashSet<string>(QuotedNames(diagnostic.Message), StringComparer.Ordinal);
+    var token = line.FirstOrDefault(candidate => quoted.Contains(candidate.Text)) ?? line.FirstOrDefault() ??
+      visible.FirstOrDefault();
+    return token == null ? new HixSourceRange(file.Document.Text.Length, file.Document.Text.Length) :
+      HixSourceRange.FromToken(token);
+  }
+  private static IEnumerable<string> QuotedNames(string message) {
+    if (string.IsNullOrEmpty(message)) yield break;
+    for (var start = message.IndexOf('\''); start >= 0;) {
+      var end = message.IndexOf('\'', start + 1);
+      if (end < 0) yield break;
+      if (end > start + 1) yield return message.Substring(start + 1, end - start - 1);
+      start = message.IndexOf('\'', end + 1);
+    }
   }
   private static bool SameDirectory(string left, string right) => string.Equals(DirectoryOf(left),
     DirectoryOf(right), StringComparison.OrdinalIgnoreCase);

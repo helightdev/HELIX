@@ -14,6 +14,7 @@ public sealed record HalMetadataSyntax(string Name, string Text);
 public sealed record HalDocumentSyntax(IReadOnlyList<HalMetadataSyntax> Metadata,
   IReadOnlyList<HalSectionSyntax> Sections, IReadOnlyList<HalDiagnostic> Diagnostics) {
   public static HalDocumentSyntax Parse(string source) => HalSyntax.Parse(source ?? string.Empty);
+  public static string Format(string source, int indentSize = 2) => HalFormatter.Format(source, indentSize);
 }
 public sealed record HalSectionSyntax(string Type, string Id, IReadOnlyList<HalFieldSyntax> Fields,
   IReadOnlyList<HalMetadataSyntax> Metadata);
@@ -26,6 +27,58 @@ public sealed record HalTypedSyntax(string Type, HalValueSyntax Value) : HalValu
 public sealed record HalCallSyntax(string Name, IReadOnlyList<HalArgumentSyntax> Arguments) : HalValueSyntax;
 public sealed record HalArgumentSyntax(string Name, HalValueSyntax Value);
 public sealed record HalSelectionSyntax(HalValueSyntax Receiver, IReadOnlyList<string> Members) : HalValueSyntax;
+
+public static class HalFormatter {
+  public static string Format(string source, int indentSize = 2) {
+    source ??= string.Empty;
+    if (indentSize < 0) throw new ArgumentOutOfRangeException(nameof(indentSize));
+    var lexer = new HalLexer(new AntlrInputStream(source));
+    var tokens = lexer.GetAllTokens();
+    var result = new StringBuilder();
+    var depth = 0; var pendingLines = 0; IToken previous = null;
+    foreach (var token in tokens) {
+      if (token.Type == HalLexer.SPACE) continue;
+      if (token.Type == HalLexer.NEWLINE) { pendingLines = Math.Min(2, pendingLines + 1); continue; }
+      var closing = token.Type is HalLexer.RBRACE or HalLexer.RBRACKET or HalLexer.RPAREN;
+      if (closing) depth = Math.Max(0, depth - 1);
+      if (token.Type == HalLexer.SECTION) depth = 0;
+      if (pendingLines != 0) {
+        while (result.Length != 0 && result[result.Length - 1] == ' ') result.Length--;
+        var lines = token.Type == HalLexer.SECTION && result.Length != 0 ? Math.Max(2, pendingLines) : pendingLines;
+        result.Append('\n', lines);
+        result.Append(' ', depth * indentSize);
+        pendingLines = 0; previous = null;
+      } else if (result.Length == 0 || result[result.Length - 1] == '\n') {
+        result.Append(' ', depth * indentSize);
+      }
+      if (token.Type == HalLexer.LINE_COMMENT) {
+        if (result.Length != 0 && result[result.Length - 1] is not (' ' or '\n')) result.Append(' ');
+        result.Append(token.Text.TrimEnd()); pendingLines = 1; previous = token; continue;
+      }
+      if (NeedsSpace(previous, token, result)) result.Append(' ');
+      if (token.Type == HalLexer.COMMA && result.Length != 0 && result[result.Length - 1] == ' ') result.Length--;
+      result.Append(token.Text);
+      if (token.Type is HalLexer.LBRACE or HalLexer.LBRACKET or HalLexer.LPAREN) depth++;
+      previous = token;
+    }
+    while (result.Length != 0 && char.IsWhiteSpace(result[result.Length - 1])) result.Length--;
+    return result.Length == 0 ? string.Empty : result.Append('\n').ToString();
+  }
+
+  private static bool NeedsSpace(IToken previous, IToken current, StringBuilder result) {
+    if (previous == null || result.Length == 0 || result[result.Length - 1] is ' ' or '\n') return false;
+    if (current.Type is HalLexer.COMMA or HalLexer.RBRACE or HalLexer.RBRACKET or HalLexer.RPAREN or
+        HalLexer.RANGLE or HalLexer.HASH) return false;
+    if (previous.Type is HalLexer.PERCENT or HalLexer.HASH or HalLexer.LANGLE or HalLexer.LBRACE or
+        HalLexer.LBRACKET or HalLexer.LPAREN) return false;
+    if (current.Type == HalLexer.LPAREN && previous.Type == HalLexer.IDENTIFIER) return false;
+    if (current.Type == HalLexer.LANGLE && previous.Type == HalLexer.IDENTIFIER) return false;
+    if (current.Type == HalLexer.EQUALS || previous.Type == HalLexer.EQUALS) return true;
+    if (current.Type == HalLexer.AMP || previous.Type == HalLexer.AMP) return true;
+    if (previous.Type == HalLexer.SECTION || previous.Type == HalLexer.COMMA) return true;
+    return true;
+  }
+}
 
 internal static class HalSyntax {
   public static HalDocumentSyntax Parse(string source) {

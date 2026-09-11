@@ -45,7 +45,7 @@ private class HixProjectFilesStep(parent: NewProjectWizardStep) : AbstractNewPro
         )
         Files.writeString(
             root.resolve("test/main_test.hix"),
-            "%backend<Test>\n---\n%test\nfunc mainWorks { assert(true) }\n",
+            "%test\nfunc mainWorks { assert(true) }\n",
         )
         runWriteAction { VfsUtil.markDirtyAndRefresh(false, true, true, root.toFile()) }
     }
