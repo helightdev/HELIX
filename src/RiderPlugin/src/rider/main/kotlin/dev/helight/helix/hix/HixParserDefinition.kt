@@ -22,7 +22,8 @@ class HixParserDefinition : ParserDefinition {
         HelixAntlrTypes.tokens[HixLexer.METADATA_WHITESPACE])
     override fun getCommentTokens(): TokenSet = TokenSet.create(
         HelixAntlrTypes.tokens[HixLexer.COMMENT], HelixAntlrTypes.tokens[HixLexer.SLASH_COMMENT])
-    override fun getStringLiteralElements(): TokenSet = TokenSet.create(HelixAntlrTypes.tokens[HixLexer.ARGUMENT_TEXT])
+    override fun getStringLiteralElements(): TokenSet = TokenSet.create(
+        HelixAntlrTypes.tokens[HixLexer.ARGUMENT_TEXT], HelixAntlrTypes.tokens[HixLexer.STRING])
     override fun createFile(viewProvider: FileViewProvider): PsiFile = HixFile(viewProvider)
 
     override fun createElement(node: ASTNode): PsiElement = when (node.elementType) {

@@ -3,6 +3,7 @@ package dev.helight.helix.hal
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.codeInsight.editorActions.SimpleTokenSetQuoteHandler
+import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.extapi.psi.ASTWrapperPsiElement
 import com.intellij.extapi.psi.PsiFileBase
@@ -16,6 +17,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -99,7 +101,31 @@ class HalBraceMatcher : PairedBraceMatcher {
     override fun isPairedBracesAllowedBeforeType(lbraceType: IElementType, contextType: IElementType?) = true
     override fun getCodeConstructStart(file: PsiFile, openingBraceOffset: Int) = openingBraceOffset
 }
-class HalQuoteHandler : SimpleTokenSetQuoteHandler(HalAntlrTypes.tokens[GeneratedHalLexer.STRING])
+class HalQuoteHandler : SimpleTokenSetQuoteHandler(
+    HalAntlrTypes.tokens[GeneratedHalLexer.STRING],
+    // A single opening quote is necessarily incomplete and lexes as an error
+    // until Rider inserts its mate.
+    HalAntlrTypes.tokens[GeneratedHalLexer.ERROR_TOKEN])
+
+/** Keeps quote insertion reliable while the incomplete string is still an ERROR_TOKEN. */
+class HalQuoteTypedHandler : TypedHandlerDelegate() {
+    override fun beforeCharTyped(c: Char, project: Project, editor: Editor, file: PsiFile,
+                                 fileType: com.intellij.openapi.fileTypes.FileType): Result {
+        if (file.language != HalLanguage || c != '"') return Result.CONTINUE
+        val offset = editor.caretModel.offset
+        if (editor.document.charsSequence.getOrNull(offset) != '"') return Result.CONTINUE
+        editor.caretModel.moveToOffset(offset + 1)
+        return Result.STOP
+    }
+
+    override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
+        if (file.language != HalLanguage || c != '"') return Result.CONTINUE
+        val offset = editor.caretModel.offset
+        if (editor.document.charsSequence.getOrNull(offset) != '"')
+            editor.document.insertString(offset, "\"")
+        return Result.STOP
+    }
+}
 
 private object HalColors {
     val SECTION_ANCHOR: TextAttributesKey = TextAttributesKey.createTextAttributesKey(

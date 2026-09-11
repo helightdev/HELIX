@@ -1,4 +1,5 @@
 using Hix.Compiler;
+using System.Linq;
 using Xunit;
 
 namespace Hix.Standalone.Tests;
@@ -88,5 +89,26 @@ public sealed class HixFormatterTests {
     Assert.Contains("writeFile<house.schema.json><pretty>", formatted);
     Assert.DoesNotContain("writeFile <", formatted);
     Assert.Equal(formatted, HixFormatter.Format(formatted));
+  }
+
+  [Fact]
+  public void FileMetadataStaysAttachedToItsSectionDelimiter() {
+    const string source = "%uid<houses/myhouse>\n\n\n---\nmixin House {}\n";
+
+    var formatted = HixFormatter.Format(source);
+
+    Assert.StartsWith("%uid<houses/myhouse>\n---\n", formatted);
+    Assert.Equal(formatted, HixFormatter.Format(formatted));
+  }
+
+  [Fact]
+  public void QuotedStringsAreAtomicDecodedValues() {
+    var unit = AntlrSyntax.Parse("pure func value => \"line\\n\\\"quoted\\\" \\x41 {{not interpolation}}\";");
+
+    Assert.Empty(unit.Diagnostics);
+    var function = Assert.Single(unit.Declarations.OfType<FunctionDeclarationIr>());
+    var returned = Assert.IsType<ControlFlowStatementIr>(Assert.Single(function.Body.Statements));
+    var literal = Assert.IsType<StringExpressionIr>(Assert.Single(returned.Values));
+    Assert.Equal("line\n\"quoted\" A {{not interpolation}}", literal.Value);
   }
 }

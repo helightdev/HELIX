@@ -24,6 +24,7 @@ public static class HixFormatter {
       }
       if (IsClosing(token.Type)) depth = Math.Max(0, depth - 1);
       if (token.Type == HixLexer.SECTION_DELIMITER) depth = 0;
+      if (token.Type == HixLexer.SECTION_DELIMITER && pendingLines > 0) pendingLines = 1;
       if (pendingLines != 0) {
         TrimEnd(result);
         result.Append('\n', pendingLines);

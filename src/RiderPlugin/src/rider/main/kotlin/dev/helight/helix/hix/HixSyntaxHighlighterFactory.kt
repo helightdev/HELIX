@@ -119,6 +119,7 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
             type == HixLexer.BEGIN_LAMBDA_BLOCK || type == HixLexer.BEGIN_LAMBDA_ARROW -> HixColors.KEYWORD
             type in metadataTokens -> HixColors.METADATA
             type == HixLexer.NUMBER -> HixColors.NUMBER
+            type == HixLexer.STRING -> HixColors.ARGUMENT
             type == HixLexer.BOOLEAN -> HixColors.BOOLEAN
             type == HixLexer.NULL || type == HixLexer.MISSING -> HixColors.NULL
             type == HixLexer.ROOT_IDENTIFIER || type == HixLexer.VALUE_SMART_ROOT ||

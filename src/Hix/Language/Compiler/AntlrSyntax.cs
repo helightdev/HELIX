@@ -457,6 +457,8 @@ public static class AntlrSyntax {
         ? At(new NumberExpressionIr(double.Parse(number.GetText(),
           NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
           CultureInfo.InvariantCulture)), context)
+        : context.STRING() is { } text
+          ? At(new StringExpressionIr(DecodeQuotedString(text.GetText())), context)
         : context.BOOLEAN() is { } boolean
           ? At(new BooleanExpressionIr(boolean.GetText() == "true"), context)
         : context.NULL() is not null
@@ -464,6 +466,26 @@ public static class AntlrSyntax {
         : context.MISSING() is not null
           ? At(new MissingExpressionIr(), context)
         : Visit(context.children.OfType<ParserRuleContext>().Single());
+
+    private static string DecodeQuotedString(string source) {
+      var result = new System.Text.StringBuilder();
+      for (var index = 1; index < source.Length - 1; index++) {
+        var character = source[index];
+        if (character != '\\') { result.Append(character); continue; }
+        character = source[++index];
+        if (character == 'x') {
+          result.Append((char)int.Parse(source.Substring(index + 1, 2), NumberStyles.HexNumber,
+            CultureInfo.InvariantCulture));
+          index += 2;
+          continue;
+        }
+        result.Append(character switch {
+          'a' => '\a', 'b' => '\b', 'f' => '\f', 'n' => '\n', 'r' => '\r',
+          't' => '\t', 'v' => '\v', _ => character
+        });
+      }
+      return result.ToString();
+    }
     public override HixIrNode VisitTailValue(Parser.TailValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
     public override HixIrNode VisitInlineValue(Parser.InlineValueContext context) => Visit(context.value());

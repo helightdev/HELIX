@@ -182,6 +182,7 @@ primaryValue
     | valueExpression
     | valueStatement
     | NUMBER
+    | STRING
     | BOOLEAN
     | NULL
     | MISSING

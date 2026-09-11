@@ -36,15 +36,23 @@ public static class HalFormatter {
     var tokens = lexer.GetAllTokens();
     var result = new StringBuilder();
     var depth = 0; var pendingLines = 0; IToken previous = null;
+    var lineHasMetadata = false; var pendingAfterMetadata = false;
     foreach (var token in tokens) {
       if (token.Type == HalLexer.SPACE) continue;
-      if (token.Type == HalLexer.NEWLINE) { pendingLines = Math.Min(2, pendingLines + 1); continue; }
+      if (token.Type == HalLexer.NEWLINE) {
+        if (pendingLines == 0) pendingAfterMetadata = lineHasMetadata;
+        lineHasMetadata = false;
+        pendingLines = Math.Min(2, pendingLines + 1);
+        continue;
+      }
       var closing = token.Type is HalLexer.RBRACE or HalLexer.RBRACKET or HalLexer.RPAREN;
       if (closing) depth = Math.Max(0, depth - 1);
       if (token.Type == HalLexer.SECTION) depth = 0;
       if (pendingLines != 0) {
         while (result.Length != 0 && result[result.Length - 1] == ' ') result.Length--;
-        var lines = token.Type == HalLexer.SECTION && result.Length != 0 ? Math.Max(2, pendingLines) : pendingLines;
+        var lines = token.Type == HalLexer.SECTION && result.Length != 0
+          ? pendingAfterMetadata ? 1 : Math.Max(2, pendingLines)
+          : pendingLines;
         result.Append('\n', lines);
         result.Append(' ', depth * indentSize);
         pendingLines = 0; previous = null;
@@ -55,6 +63,7 @@ public static class HalFormatter {
         if (result.Length != 0 && result[result.Length - 1] is not (' ' or '\n')) result.Append(' ');
         result.Append(token.Text.TrimEnd()); pendingLines = 1; previous = token; continue;
       }
+      if (token.Type == HalLexer.PERCENT) lineHasMetadata = true;
       if (NeedsSpace(previous, token, result)) result.Append(' ');
       if (token.Type == HalLexer.COMMA && result.Length != 0 && result[result.Length - 1] == ' ') result.Length--;
       result.Append(token.Text);
@@ -74,7 +83,8 @@ public static class HalFormatter {
     if (current.Type == HalLexer.LPAREN && previous.Type == HalLexer.IDENTIFIER) return false;
     if (current.Type == HalLexer.LANGLE && previous.Type == HalLexer.IDENTIFIER) return false;
     if (current.Type == HalLexer.EQUALS || previous.Type == HalLexer.EQUALS) return true;
-    if (current.Type == HalLexer.AMP || previous.Type == HalLexer.AMP) return true;
+    if (current.Type == HalLexer.AMP) return true;
+    if (previous.Type == HalLexer.AMP) return false;
     if (previous.Type == HalLexer.SECTION || previous.Type == HalLexer.COMMA) return true;
     return true;
   }

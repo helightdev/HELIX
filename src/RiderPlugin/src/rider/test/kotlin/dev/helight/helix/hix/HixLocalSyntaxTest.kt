@@ -180,6 +180,25 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `quoted strings are atomic value literals in both lexer modes`() {
+        val source = "pure func values => @[\"top\\nlevel\", identity(\"value \\\"literal\\\"\")] ;"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(2, parsed.tokens.count { it.type == HixLexer.STRING })
+        assertTrue(parsed.tokens.none { it.type == HixLexer.BEGIN_VALUE_INTERPOLATE })
+        assertTrue(HixSyntaxHighlighter(null)
+            .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.STRING]).isNotEmpty())
+    }
+
+    @Test
+    fun `quoted strings cannot form argument chains`() {
+        val parsed = HixAntlrSyntax.parse("pure func invalid => \"literal\"<argument>;")
+
+        assertTrue(parsed.diagnostics.isNotEmpty())
+    }
+
+    @Test
     fun `boolean literals have their own token and highlighting`() {
         val source = "mixin E { expression { emit(true); emit(false) } }"
         val parsed = HixAntlrSyntax.parse(source)

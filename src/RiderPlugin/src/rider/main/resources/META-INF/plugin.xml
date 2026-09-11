@@ -44,7 +44,8 @@
     <completion.contributor language="Hal" implementationClass="dev.helight.helix.hal.HalCompletionContributor" />
     <annotator language="Hal" implementationClass="dev.helight.helix.hal.HalAnnotator" />
     <lang.braceMatcher language="Hal" implementationClass="dev.helight.helix.hal.HalBraceMatcher" />
-    <lang.quoteHandler language="Hal" implementationClass="dev.helight.helix.hal.HalQuoteHandler" />
+    <quoteHandler fileType="Hal" className="dev.helight.helix.hal.HalQuoteHandler" />
+    <typedHandler implementation="dev.helight.helix.hal.HalQuoteTypedHandler" />
     <preFormatProcessor implementation="dev.helight.helix.hal.HalPreFormatProcessor" />
     <lang.formatter language="Hal" implementationClass="dev.helight.helix.hal.HalFormattingModelBuilder" />
     <lineIndentProvider implementation="dev.helight.helix.hal.HalLineIndentProvider" />
@@ -71,8 +72,7 @@
                              implementationClass="dev.helight.helix.hix.HixFindUsagesProvider" />
     <lang.braceMatcher language="Hix"
                        implementationClass="dev.helight.helix.hix.HixBraceMatcher" />
-    <lang.quoteHandler language="Hix"
-                       implementationClass="dev.helight.helix.hix.HixQuoteHandler" />
+    <quoteHandler fileType="Hix" className="dev.helight.helix.hix.HixQuoteHandler" />
     <preFormatProcessor implementation="dev.helight.helix.hix.HixPreFormatProcessor" />
     <lang.formatter language="Hix" implementationClass="dev.helight.helix.hix.HixFormattingModelBuilder" />
     <lineIndentProvider implementation="dev.helight.helix.hix.HixLineIndentProvider" />

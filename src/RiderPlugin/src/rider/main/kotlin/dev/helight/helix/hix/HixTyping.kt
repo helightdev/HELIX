@@ -31,21 +31,26 @@ class HixBraceMatcher : PairedBraceMatcher {
 class HixQuoteHandler : MultiCharQuoteHandler {
     private val begin = HelixAntlrTypes.tokens[HixLexer.BEGIN_ARGUMENT]
     private val end = HelixAntlrTypes.tokens[HixLexer.ARGUMENT_END]
-    private val literal = setOf(begin, end, HelixAntlrTypes.tokens[HixLexer.ARGUMENT_TEXT])
+    private val string = HelixAntlrTypes.tokens[HixLexer.STRING]
+    private val error = HelixAntlrTypes.tokens[HixLexer.ERROR_TOKEN]
+    private val literal = setOf(begin, end, string, HelixAntlrTypes.tokens[HixLexer.ARGUMENT_TEXT])
 
     override fun isOpeningQuote(iterator: HighlighterIterator, offset: Int): Boolean =
-        !iterator.atEnd() && iterator.tokenType == begin && iterator.start == offset
+        !iterator.atEnd() && iterator.start == offset && iterator.tokenType in setOf(begin, string, error)
 
     override fun isClosingQuote(iterator: HighlighterIterator, offset: Int): Boolean =
-        !iterator.atEnd() && iterator.tokenType == end && iterator.start == offset
+        !iterator.atEnd() && (iterator.tokenType == end && iterator.start == offset ||
+            iterator.tokenType == string && iterator.end - 1 == offset)
 
     override fun hasNonClosedLiteral(editor: Editor, iterator: HighlighterIterator, offset: Int): Boolean {
         val text = editor.document.charsSequence
         val lineEnd = editor.document.getLineEndOffset(editor.document.getLineNumber(offset))
+        val quote = if (text.getOrNull(offset - 1) == '"' ||
+            (!iterator.atEnd() && iterator.tokenType == string)) '"' else '>'
         var escaped = false
         for (index in offset.coerceAtLeast(0) until lineEnd) {
             val character = text[index]
-            if (!escaped && character == '>') return false
+            if (!escaped && character == quote) return false
             escaped = !escaped && character == '\\'
             if (character != '\\') escaped = false
         }
@@ -58,7 +63,12 @@ class HixQuoteHandler : MultiCharQuoteHandler {
     override fun getClosingQuote(iterator: HighlighterIterator, offset: Int): CharSequence? {
         if (offset == 0) return null
         if (iterator.atEnd() || iterator.start == offset) iterator.retreat()
-        return if (!iterator.atEnd() && iterator.tokenType == begin && iterator.start + 1 == offset) ">" else null
+        if (iterator.atEnd() || iterator.start + 1 != offset) return null
+        return when (iterator.tokenType) {
+            begin -> ">"
+            string, error -> "\""
+            else -> null
+        }
     }
 }
 
@@ -89,7 +99,7 @@ class HixDelimiterTypedHandler : TypedHandlerDelegate() {
     }
 
     private companion object {
-        val pairs = mapOf('(' to ')', '[' to ']', '{' to '}', '<' to '>')
+        val pairs = mapOf('(' to ')', '[' to ']', '{' to '}', '<' to '>', '"' to '"')
         val closingCharacters = pairs.values.toSet()
     }
 }

@@ -33,6 +33,19 @@ public sealed class HalFormatterTests {
   public void SectionHeadersAlwaysReturnToColumnZeroAndBlankLinesAreCapped() {
     var formatted = HalDocumentSyntax.Format("--- First\nvalue={ x=1 }\n\n\n   --- Second &id\nother=2\n\n");
 
-    Assert.Equal("--- First\nvalue = {x = 1}\n\n--- Second & id\nother = 2\n", formatted);
+    Assert.Equal("--- First\nvalue = {x = 1}\n\n--- Second &id\nother = 2\n", formatted);
+  }
+
+  [Fact]
+  public void SectionMetadataStaysAttachedToItsHeader() {
+    var formatted = HalFormatter.Format("%uid<houses/myhouse>\n\n\n--- House & test\naddress=\"somewhere\"\n");
+
+    Assert.StartsWith("%uid<houses/myhouse>\n--- House &test\n", formatted);
+    Assert.Equal(formatted, HalFormatter.Format(formatted));
+  }
+
+  [Fact]
+  public void SectionAnchorAmpersandStaysAttachedToItsIdentifier() {
+    Assert.Equal("--- House &test\n", HalFormatter.Format("--- House & test\n"));
   }
 }
