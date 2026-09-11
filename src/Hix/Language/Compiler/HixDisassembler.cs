@@ -121,7 +121,7 @@ public static class HixDisassembler {
       case HixOpcode.Check: return (Label(a), "begin checked; on error push(checked(error)), goto " + Label(a));
       case HixOpcode.EndCheck: return ("", "end checked");
       case HixOpcode.Jump: return (Label(a), "goto " + Label(a));
-      case HixOpcode.JumpNotNull: return (Label(a), "if (peek() != null) goto " + Label(a));
+      case HixOpcode.JumpNotNull: return (Label(a), "if (peek() != null && peek() != missing) goto " + Label(a));
       case HixOpcode.JumpFalse: return (Label(a), "if (!truthy(pop())) goto " + Label(a));
       case HixOpcode.Block: return (Label(a), "execute_block(" + Label(a) + ")");
       case HixOpcode.Return: return ("", "return pop()");
@@ -136,6 +136,7 @@ public static class HixDisassembler {
   private static string Constant(IHixValue value) => value switch {
     NumberHixValue number => number.Value.ToString("R", CultureInfo.InvariantCulture),
     BooleanHixValue boolean => boolean.Value ? "true" : "false",
+    MissingHixValue => "missing",
     NullHixValue => "null",
     KindHixValue kind => kind.Name.Resolve(null),
     FunctionReferenceHixValue function => function.Signature.Display,

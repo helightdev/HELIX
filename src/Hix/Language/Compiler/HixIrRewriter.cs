@@ -25,6 +25,7 @@ public class HixIrRewriter {
       NumberExpressionIr value => new NumberExpressionIr(value.Value),
       BooleanExpressionIr value => new BooleanExpressionIr(value.Value),
       NullExpressionIr => new NullExpressionIr(),
+      MissingExpressionIr => new MissingExpressionIr(),
       RootExpressionIr value => RewriteRoot(value),
       SelectorExpressionIr => new SelectorExpressionIr(),
       MemberExpressionIr value => new MemberExpressionIr(Rewrite(value.Receiver), value.Member),

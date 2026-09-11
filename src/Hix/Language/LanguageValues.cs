@@ -61,7 +61,7 @@ public sealed record TupleHixValue(IReadOnlyList<IHixValue> Values) : IHixValue 
   }
   public IHixValue Select(HixThread context, HixString member) =>
     int.TryParse(member.Resolve(context.Strings), NumberStyles.None, CultureInfo.InvariantCulture, out var index) &&
-    index >= 0 && index < Values.Count ? Values[index] : NullHixValue.Instance;
+    index >= 0 && index < Values.Count ? Values[index] : MissingHixValue.Instance;
   public object Unlink(HixThread context) => Values.Select(value => value.Unlink(context)).ToArray();
   public bool Equals(IHixValue other) => other is TupleHixValue tuple && Values.SequenceEqual(tuple.Values);
 }

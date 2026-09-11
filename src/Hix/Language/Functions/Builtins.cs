@@ -55,8 +55,8 @@ public static class Builtins {
         documentation: "Keeps the value when it does not have the specified kind; otherwise returns the fallback."),
       new SimpleFunction(
         "exists", [new FunctionSignature(K.Bool, [K.Any])],
-        (_, a) => Bool(a[0] is not (NullHixValue or ErrorHixValue)), acceptsErrors: true,
-        documentation: "Returns true for values other than null and errors."),
+        (_, a) => Bool(a[0] is not (MissingHixValue or NullHixValue or ErrorHixValue)), acceptsErrors: true,
+        documentation: "Returns true for values other than missing, null, and errors."),
       new SimpleFunction(
         "not", [new FunctionSignature(K.Bool, [K.Any])],
         (e, a) => Bool(!a[0].IsTruthy(e)), acceptsErrors: true,

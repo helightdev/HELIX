@@ -123,6 +123,18 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitPatternExpression([NotNull] HixParser.PatternExpressionContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.patternUnion"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitPatternUnion([NotNull] HixParser.PatternUnionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.patternTerm"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitPatternTerm([NotNull] HixParser.PatternTermContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.patternPrimary"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

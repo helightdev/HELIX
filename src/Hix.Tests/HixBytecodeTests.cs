@@ -315,7 +315,7 @@ public sealed class HixBytecodeTests {
     var key = HixString.Dynamic("name");
     Assert.Equal(new NumberHixValue(1), value.Select(context, key));
     Assert.Equal(new NumberHixValue(3), value.Select(context, HixString.Dynamic("carried")));
-    Assert.Same(NullHixValue.Instance, value.Select(context, HixString.Dynamic("missing")));
+    Assert.Same(MissingHixValue.Instance, value.Select(context, HixString.Dynamic("missing")));
     var before = GC.GetAllocatedBytesForCurrentThread();
     for (var i = 0; i < 1000; i++) value.Select(context, key);
     Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 65536, "Member reads must not copy storage entries");

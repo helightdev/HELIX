@@ -9,7 +9,7 @@ using Hix.Runtime;
 namespace Hix;
 
 /// <summary>Flat runtime kinds. Any is a signature wildcard, not a parent kind.</summary>
-public enum HixValueKind { Any, Null, String, Bool, Number, Tuple, Table, Symbol, Function, Error, Kind, Pattern }
+public enum HixValueKind { Any, Null, String, Bool, Number, Tuple, Table, Symbol, Function, Error, Kind, Pattern, Missing }
 
 public enum HixExpressionRoot {
   Target,

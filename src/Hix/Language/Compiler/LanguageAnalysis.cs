@@ -86,6 +86,7 @@ public sealed class LanguageAnalysis {
         case NumberExpressionIr: result = new KindHixPattern(HixValueKind.Number); break;
         case BooleanExpressionIr: result = new KindHixPattern(HixValueKind.Bool); break;
         case NullExpressionIr: result = new KindHixPattern(HixValueKind.Null); break;
+        case MissingExpressionIr: result = new KindHixPattern(HixValueKind.Missing); break;
         case TupleExpressionIr tuple: result = new TupleHixPattern(tuple.Values.Select((value, index) =>
           new HixPatternField(index.ToString(), Infer(value, locals, parameters))).ToArray()); break;
         case TableExpressionIr table: result = new TableHixPattern(table.Entries.Select(entry =>

@@ -176,7 +176,9 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
 public sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false,
   IHixValue DefaultValue = null) {
   public string Kind => Pattern.Display;
-  public HixPatternField AsPatternField() => new(Name, Pattern, Optional);
+  public bool HasDefault => DefaultValue != null;
+  public bool AllowsMissing => Optional || HasDefault;
+  public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault);
 }
 
 public sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<BytecodeField> Inputs,
@@ -336,6 +338,7 @@ public sealed class HixProgramImage {
           constants[i] switch {
             NumberHixValue number => number.Value.ToString("R", CultureInfo.InvariantCulture),
             BooleanHixValue boolean => boolean == BooleanHixValue.True ? "true" : "false",
+            MissingHixValue => "missing",
             NullHixValue => "null",
             FunctionReferenceHixValue function => function.Signature.Display,
             PatternHixValue pattern => pattern.Pattern.Display,

@@ -92,6 +92,7 @@ public sealed class HixBytecodeCompiler {
     NumberExpressionIr number => new NumberHixValue(number.Value),
     BooleanExpressionIr boolean => BooleanHixValue.From(boolean.Value),
     NullExpressionIr => NullHixValue.Instance,
+    MissingExpressionIr => MissingHixValue.Instance,
     TupleExpressionIr tuple => new TupleHixValue(tuple.Values.Select(DefaultValue).ToArray()),
     TableExpressionIr table => new HixTableValue(table.Entries.Select(entry =>
       new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(entry.Key), DefaultValue(entry.Value)))),
@@ -186,6 +187,7 @@ public sealed class HixBytecodeCompiler {
       case NumberExpressionIr number: Constant(new NumberHixValue(number.Value)); break;
       case BooleanExpressionIr boolean: Constant(boolean.Value ? BooleanHixValue.True : BooleanHixValue.False); break;
       case NullExpressionIr: Constant(NullHixValue.Instance); break;
+      case MissingExpressionIr: Constant(MissingHixValue.Instance); break;
       case RootExpressionIr root:
         switch (root.Binding.Kind) {
           case HixReferenceKind.Local: LoadMember("local", root.Binding.Variable.Name); break;

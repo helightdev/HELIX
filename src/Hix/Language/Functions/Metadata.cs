@@ -9,7 +9,8 @@ public static class MetadataFunctions {
     HixMetadataKind.FunctionDefinition | HixMetadataKind.MixinDefinition;
   public static void Register(FunctionSignatureRegistryBuilder definitions) {
     definitions.Add(
-      Meta("optional", Pattern, [Signature()], "Makes a pattern field optional."),
+      Meta("optional", Pattern, [Signature()],
+        "Allows a pattern field to be absent, producing missing without making null a valid value."),
       Meta("many", Pattern, [Signature(), Signature(K.Pattern)], "Matches repeated tuple elements."),
       Meta("map", Pattern, [Signature(K.String), Signature(K.Pattern, K.Pattern)], "Matches table keys and values."),
       Meta("union", Pattern, [new FunctionSignature(K.Pattern, [K.Pattern, K.Pattern], true)], "Matches any supplied pattern."),

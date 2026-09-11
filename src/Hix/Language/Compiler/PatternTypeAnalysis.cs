@@ -53,7 +53,8 @@ public static class PatternTypeAnalysis {
       var fields = function.Signatures.Where(value => value.Inputs != null && index < value.Inputs.Count)
         .Select(value => value.Inputs[index]).ToArray();
       if (fields.Length == 0) continue;
-      result.Add(new(fields[0].Name, Union(fields.Select(value => value.Pattern)), fields.All(value => value.Optional)));
+      result.Add(new(fields[0].Name, Union(fields.Select(value => value.Pattern)),
+        fields.All(value => value.AllowsMissing)));
     }
     return result;
   }
@@ -116,6 +117,7 @@ public static class PatternTypeAnalysis {
       case NumberExpressionIr: return new KindHixPattern(HixValueKind.Number);
       case BooleanExpressionIr: return new KindHixPattern(HixValueKind.Bool);
       case NullExpressionIr: return new KindHixPattern(HixValueKind.Null);
+      case MissingExpressionIr: return new KindHixPattern(HixValueKind.Missing);
       case TupleExpressionIr tuple: return new TupleHixPattern(tuple.Values.Select((value, index) =>
         new HixPatternField(index.ToString(), Infer(value, locals, parameters, functions, patterns, diagnostics, backend))).ToArray());
       case TableExpressionIr table: return new TableHixPattern(table.Entries.Select(entry =>
@@ -235,7 +237,7 @@ public static class PatternTypeAnalysis {
           HixPatternRelation.Never) return false;
       assigned[target] = true;
     }
-    return fields.Select((field, index) => assigned[index] || field.Optional || field.HasDefault).All(value => value);
+    return fields.Select((field, index) => assigned[index] || field.AllowsMissing).All(value => value);
   }
 
   private static HixPattern Member(HixPattern receiver, string name, IReadOnlyDictionary<string, HixPattern> patterns) {

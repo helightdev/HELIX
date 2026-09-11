@@ -84,6 +84,22 @@ public sealed class NullHixValue : IHixValue {
   }
 }
 
+/// <summary>Value used for an absent field or presence-optional argument.</summary>
+public sealed class MissingHixValue : IHixValue {
+  public static readonly MissingHixValue Instance = new();
+  private MissingHixValue() { }
+  public HixValueKind Kind => HixValueKind.Missing;
+  public bool IsTruthy(HixThread context) => false;
+  public HixString Render(HixThread context) => HixString.Dynamic("missing");
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) => builder.Append(nameof(MissingHixValue));
+  public IHixValue Select(HixThread context, HixString member) => this;
+  public object Unlink(HixThread context) => this;
+  public bool Equals(IHixValue other) => other is MissingHixValue;
+  public override bool Equals(object obj) => obj is MissingHixValue;
+  public override int GetHashCode() => 0;
+  public override string ToString() => "missing";
+}
+
 public sealed record BooleanHixValue(bool Value) : IHixValue {
   public static readonly BooleanHixValue True = new(true), False = new(false);
   public static BooleanHixValue From(bool value) => value ? True : False;
@@ -214,7 +230,7 @@ public class HixTableValue : IHixValue {
     ImmutableMap().TryGetValue(HixString.Dynamic(key.Resolve(context.Strings)), out value);
 
   public virtual IHixValue Select(HixThread context, HixString member) =>
-    TryGetValue(context, member, out var value) ? value : NullHixValue.Instance;
+    TryGetValue(context, member, out var value) ? value : MissingHixValue.Instance;
 
   public object Unlink(HixThread context) {
     return Entries.ToDictionary(

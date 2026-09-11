@@ -16,7 +16,7 @@ derivation mixin HELIX.Boot.NamedArgAttribute {
   }
 }
 
-mixin HELIX.Boot.CommandAttribute(string name = [null], string description = [null], string parent = [null]) {
+mixin HELIX.Boot.CommandAttribute(string? name = [null], string? description = [null], string? parent = [null]) {
   prelude expression {
     local StructName @> {{target:name}}_Args
     local StructHandle @= target:DeriveParameters;
@@ -48,7 +48,7 @@ mixin HELIX.Boot.RegisterCommandAttribute {
   }
 }
 
-mixin HELIX.Boot.RegisterOptionAttribute(string path = [null]) {
+mixin HELIX.Boot.RegisterOptionAttribute(string? path = [null]) {
   prelude expression {
     when(![$path:eq(null)]) {
       local Path @= $path:csharpLiteral;

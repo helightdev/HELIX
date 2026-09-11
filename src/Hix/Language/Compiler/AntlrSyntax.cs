@@ -136,7 +136,8 @@ public static class AntlrSyntax {
         return (values, new string[values.Length]);
       }
       return (context.callArgument().Select(argument => Value(argument.value())).ToArray(),
-        context.callArgument().Select(argument => argument.ROOT_IDENTIFIER()?.GetText()).ToArray());
+        context.callArgument().Select(argument =>
+          argument.ROOT_IDENTIFIER()?.GetText() ?? argument.MISSING()?.GetText()).ToArray());
     }
     private BlockStatementIr Block(Parser.StatementBlockContext context, string label = null) =>
       At(new BlockStatementIr(context.statement().Select(Statement).ToArray(), label), context);
@@ -174,14 +175,19 @@ public static class AntlrSyntax {
       At(new MetadataIr(null, [Value(context.value())]), context);
 
     private HixPattern Pattern(Parser.PatternExpressionContext context) {
-      var pattern = context.patternPrimary() == null ? HixPattern.Any : Pattern(context.patternPrimary());
-      if (context.inlineMetadataList() == null) return pattern;
-      pattern = ApplyPatternMetadata(pattern, context.inlineMetadataList().metadata().Select(item => (MetadataIr)Visit(item)),
-        HixMetadataKind.Pattern, out _, out _, out var hasDefault, out _);
-      if (hasDefault) diagnostics.Add(new HixParseDiagnostic(context.Start.Line,
-        "defaults are only allowed on table pattern fields"));
+      var pattern = context.patternUnion() == null ? HixPattern.Any : Pattern(context.patternUnion());
+      if (context.inlineMetadataList() != null) {
+        pattern = ApplyPatternMetadata(pattern, context.inlineMetadataList().metadata().Select(item => (MetadataIr)Visit(item)),
+          HixMetadataKind.Pattern, out _, out _, out var hasDefault, out _);
+        if (hasDefault) diagnostics.Add(new HixParseDiagnostic(context.Start.Line,
+          "defaults are only allowed on table pattern fields"));
+      }
       return pattern;
     }
+
+    private HixPattern Pattern(Parser.PatternUnionContext context) => HixPatterns.Union(
+      context.patternTerm().Select(term => term.QUESTION() == null
+        ? Pattern(term.patternPrimary()) : HixPatterns.Nullable(Pattern(term.patternPrimary()))));
 
     private HixPattern Pattern(Parser.PatternPrimaryContext context) {
       if (context.patternIdentifier() != null) return HixPatterns.Named(context.patternIdentifier().GetText());
@@ -196,8 +202,8 @@ public static class AntlrSyntax {
 
     private HixPatternField PatternField(Parser.PatternFieldContext context, bool signature = false) {
       var explicitName = context.ROOT_IDENTIFIER()?.GetText();
-      var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternPrimary());
-      var name = explicitName ?? context.patternPrimary().GetText();
+      var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternUnion());
+      var name = explicitName ?? context.patternUnion().GetText();
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)) ?? [];
       pattern = ApplyPatternMetadata(pattern, metadata, HixMetadataKind.PatternField,
         out var optional, out var metadataDefault, out var hasMetadataDefault, out var graph);
@@ -208,7 +214,7 @@ public static class AntlrSyntax {
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "a pattern field cannot have two defaults"));
       var defaultValue = hasAssignedDefault ? ConstantValue((ExpressionIr)Visit(context.value())) : metadataDefault;
       return new HixPatternField(name, pattern, optional, defaultValue,
-        hasAssignedDefault || hasMetadataDefault || optional, graph);
+        hasAssignedDefault || hasMetadataDefault, graph);
     }
 
     private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values,
@@ -220,7 +226,8 @@ public static class AntlrSyntax {
       foreach (var metadata in values.Reverse()) {
         object Argument(int index) => index >= metadata.Values.Count ? null : metadata.Values[index] switch {
           StringExpressionIr text => text.Value, NumberExpressionIr number => number.Value,
-          BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null, _ => null
+          BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null,
+          MissingExpressionIr => MissingHixValue.Instance, _ => null
         };
         HixPattern PatternArgument(int index) => Argument(index) is string name ? HixPatterns.Named(name) : HixPattern.Any;
         var definitions = backend.Functions.ResolveMetadata(metadata.Name, target);
@@ -270,6 +277,7 @@ public static class AntlrSyntax {
     private object ConstantValue(ExpressionIr expression) => expression switch {
       StringExpressionIr text => text.Value, NumberExpressionIr number => number.Value,
       BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null,
+      MissingExpressionIr => MissingHixValue.Instance,
       TupleExpressionIr tuple => tuple.Values.Select(ConstantValue).ToArray(),
       TableExpressionIr table => table.Entries.ToDictionary(item => item.Key, item => ConstantValue(item.Value), StringComparer.Ordinal),
       _ => InvalidConstant(expression)
@@ -419,6 +427,8 @@ public static class AntlrSyntax {
           ? At(new BooleanExpressionIr(boolean.GetText() == "true"), context)
         : context.NULL() is not null
           ? At(new NullExpressionIr(), context)
+        : context.MISSING() is not null
+          ? At(new MissingExpressionIr(), context)
         : Visit(context.children.OfType<ParserRuleContext>().Single());
     public override HixIrNode VisitTailValue(Parser.TailValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
@@ -446,14 +456,15 @@ public static class AntlrSyntax {
     public override HixIrNode VisitTableValue(Parser.TableValueContext context) {
       var entries = context.tableKeyedEntry();
       return At(new TableExpressionIr(entries.Select(entry =>
-          new KeyValuePair<string, ExpressionIr>(entry.ROOT_IDENTIFIER().GetText(), Value(entry.value()))).ToArray(),
+          new KeyValuePair<string, ExpressionIr>(entry.ROOT_IDENTIFIER()?.GetText() ?? entry.MISSING().GetText(),
+            Value(entry.value()))).ToArray(),
         entries.Select(entry => new KeyValuePair<string, IReadOnlyList<MetadataIr>>(
-          entry.ROOT_IDENTIFIER().GetText(), entry.metadata().Select(metadata =>
+          entry.ROOT_IDENTIFIER()?.GetText() ?? entry.MISSING().GetText(), entry.metadata().Select(metadata =>
             (MetadataIr)Visit(metadata)).ToArray())).ToArray()), context);
     }
 
     public override HixIrNode VisitDerivationRoot(Parser.DerivationRootContext context) => At(
-      new RootExpressionIr((context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER().GetText()),
+      new RootExpressionIr(context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER()?.GetText() ?? context.MISSING().GetText(),
         context.VALUE_SMART_ROOT() != null), context);
     public override HixIrNode VisitDerivation(Parser.DerivationContext context) =>
       Transform(Value(context.derivationRoot()), context.transformationPart());

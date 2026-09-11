@@ -26,6 +26,8 @@ public static class HixPatterns {
     if (members.Any(value => value is AnyHixPattern)) return HixPattern.Any;
     return members.Length switch {0 => HixPattern.Any, 1 => members[0], _ => new UnionHixPattern(members)};
   }
+
+  public static HixPattern Nullable(HixPattern value) => Union([value, new KindHixPattern(HixValueKind.Null)]);
 }
 
 public sealed record AnyHixPattern : HixPattern {
@@ -103,15 +105,10 @@ public enum HixGraphFieldKind { Value, Flow }
 
 public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optional = false,
   object DefaultValue = null, bool HasDefault = false, HixGraphFieldKind? Graph = null) {
+  public bool AllowsMissing => Optional || HasDefault;
   public string Display => (Optional ? "%optional " : "") +
     (Graph == null ? "" : "%graph<" + Graph.Value.ToString().ToLowerInvariant() + "> ") + Pattern.Display +
-    (string.IsNullOrEmpty(Name) ? "" : " " + Name) + (HasDefault ? " = [" + DisplayValue(DefaultValue) + "]" : "");
-  private static string DisplayValue(object value) => value switch {
-    null => "null", bool flag => flag ? "true" : "false", string text => "<" + text + ">",
-    IEnumerable<object> items => "@[" + string.Join(", ", items.Select(DisplayValue)) + "]",
-    IDictionary<string, object> table => "@{" + string.Join(", ", table.Select(item => item.Key + "=" + DisplayValue(item.Value))) + "}",
-    _ => Convert.ToString(value, CultureInfo.InvariantCulture)
-  };
+    (string.IsNullOrEmpty(Name) ? "" : " " + Name) + (HasDefault ? " = [...]" : "");
 }
 
 /// <summary>A signature is a constant callable pattern and is stored in the bytecode constant pool.</summary>
@@ -194,22 +191,22 @@ public static class HixPatternMatcher {
         }
         return true;
       case TupleHixPattern expected when value is TupleHixValue tuple:
-        var required = expected.Fields.Count(field => !field.Optional);
+        var required = expected.Fields.Count(field => !field.AllowsMissing);
         if (tuple.Values.Count < required || tuple.Values.Count > expected.Fields.Count) {
           failure = new(path, expected.Display, "tuple", "expected " + required + ".." + expected.Fields.Count + " elements"); return false;
         }
         for (var i = 0; i < tuple.Values.Count; i++) {
-          if (expected.Fields[i].Optional && tuple.Values[i].Kind == HixValueKind.Null) continue;
+          if (tuple.Values[i] is MissingHixValue && expected.Fields[i].AllowsMissing) continue;
           if (!Matches(expected.Fields[i].Pattern, tuple.Values[i], context, definitions, path + "[" + i + "]", active, out failure)) return false;
         }
         return true;
       case TableHixPattern expected when value is HixTableValue table:
         foreach (var field in expected.Fields) {
           if (!table.TryGetValue(context, context.ResolveString(field.Name), out var member)) {
-            if (field.Optional) continue;
+            if (field.AllowsMissing) continue;
             failure = new(path + "." + field.Name, field.Pattern.Display, "missing"); return false;
           }
-          if (field.Optional && member.Kind == HixValueKind.Null) continue;
+          if (member is MissingHixValue && field.AllowsMissing) continue;
           if (!Matches(field.Pattern, member, context, definitions, path + "." + field.Name, active, out failure)) return false;
         }
         return true;
@@ -335,7 +332,7 @@ public static class HixPatternRelations {
     if (actual is TableHixPattern actualTable && expected is MapHixPattern expectedMapEntries)
       return Merge(actualTable.Fields.Select(field => Relate(field.Pattern, expectedMapEntries.Value, definitions)));
     if (actual is TupleHixPattern tuple && expected is TupleHixPattern expectedTuple) {
-      if (tuple.Fields.Count < expectedTuple.Fields.Count(field => !field.Optional) || tuple.Fields.Count > expectedTuple.Fields.Count)
+      if (tuple.Fields.Count < expectedTuple.Fields.Count(field => !field.AllowsMissing) || tuple.Fields.Count > expectedTuple.Fields.Count)
         return HixPatternRelation.Never;
       return Merge(tuple.Fields.Select((field, index) => Relate(field.Pattern, expectedTuple.Fields[index].Pattern, definitions)));
     }
@@ -344,7 +341,7 @@ public static class HixPatternRelations {
       var relations = new List<HixPatternRelation>();
       foreach (var field in expectedTable.Fields) {
         if (!fields.TryGetValue(field.Name, out var supplied)) {
-          if (!field.Optional) return HixPatternRelation.Never;
+          if (!field.AllowsMissing) return HixPatternRelation.Never;
           continue;
         }
         relations.Add(Relate(supplied.Pattern, field.Pattern, definitions));

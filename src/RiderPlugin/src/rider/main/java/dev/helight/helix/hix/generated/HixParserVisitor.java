@@ -101,6 +101,18 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitPatternExpression(HixParser.PatternExpressionContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#patternUnion}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternUnion(HixParser.PatternUnionContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#patternTerm}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternTerm(HixParser.PatternTermContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#patternPrimary}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

@@ -61,7 +61,8 @@ public sealed class InlineExpansionStep : HixLoweringStep {
         new AssignmentStatementIr(StorageSpace.Local, resultLocal, new NullExpressionIr())
       };
       for (var index = 0; index < arguments.Count; index++)
-        statements.Add(new AssignmentStatementIr(StorageSpace.Local, argumentLocals[index], arguments[index]));
+        statements.Add(new AssignmentStatementIr(StorageSpace.Local, argumentLocals[index],
+          arguments[index]));
       statements.AddRange(function.Body.Statements.Select(bodyRewriter.Rewrite));
       statements.Add(new BlockStatementIr([], endLabel));
       ExpressionIr expanded = new InlineExpressionIr(new BlockStatementIr(statements), resultLocal);

@@ -83,7 +83,7 @@ public sealed record LanguageFunctionCandidate(BytecodeFunction Function, Byteco
   public string SignatureDisplay { get; } = Signature?.Constant(Function.Name).Display;
   public bool Variadic { get; } = Signature?.Inputs is {Count: > 0} fields && fields[fields.Count - 1].Variadic;
   public int FixedCount { get; } = Signature?.Inputs is { } fields
-    ? fields.Count(field => !field.Optional && !field.Variadic) : 0;
+    ? fields.Count(field => !field.AllowsMissing && !field.Variadic) : 0;
   public int BaseScore { get; } = Signature == null ? -10000 : Signature.Inputs == null
     ? Signature.InputPattern == null ? -9999 : Signature.InputKind == "any" ? 1000 : 1001
     : (Signature.Inputs.Count > 0 && Signature.Inputs[Signature.Inputs.Count - 1].Variadic ? 0 : 1000)

@@ -253,7 +253,7 @@ public sealed class HixExecutionTests {
   public void CarriesCrossPhasesButPreludeLocalsDoNot() {
     var result = Run("emit(local#value)\nemit(local#hidden)", prelude: "local hidden = <private>\ncarry local value = <durable>");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"durable", ""}, result.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"durable", "missing"}, result.Outputs.Select(output => output.ReadText()));
     Assert.True(Run("emit(this:name)").Success);
     var updated = Run("emit(local#value)", prelude: "carry local value = <ok>\n$value = <updated>");
     Assert.True(updated.Success, updated.Error.Resolve(updated.Strings));
@@ -265,7 +265,7 @@ public sealed class HixExecutionTests {
     var result = Run("emit(read())\nemit(local#value)",
       "pure func read { return(local#value) }", "carry local value = <unit>");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"", "unit"}, result.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"missing", "unit"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
@@ -350,6 +350,12 @@ public sealed class HixExecutionTests {
     var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"local string", "global number"}, result.Outputs.Select(output => output.ReadText()));
+  }
+
+  private static IEnumerable<HixIrNode> DescendantsAndSelf(HixIrNode node) {
+    yield return node;
+    foreach (var child in node.Children)
+      foreach (var descendant in DescendantsAndSelf(child)) yield return descendant;
   }
 
   [Fact]
@@ -571,15 +577,33 @@ public sealed class HixExecutionTests {
   }
 
   [Fact]
-  public void OptionalTypedFunctionParametersPreserveExplicitNull() {
+  public void OptionalPresenceAndNullableValuesAreDistinct() {
     var unit = AntlrSyntax.Parse("""
-      pure func missing(%optional string value) -> bool { return($value:eq(null)) }
-      mixin Example { expression { emit(missing(null)) } }
+      pure func absentIsMissing(%optional string value) -> bool { return($value:eq(missing)) }
+      pure func absentExists(%optional string value) -> bool { return($value:exists) }
+      pure func nullable(string? value) -> bool { return($value:eq(null)) }
+      pure func acceptsNull(null value) -> bool { return($value:eq(null)) }
+      mixin Example { expression {
+        emit(absentIsMissing())
+        emit(absentExists())
+        emit(nullable(null))
+        emit(acceptsNull(missing))
+      } }
       """);
     Assert.Empty(unit.Diagnostics);
+    Assert.Equal(2, unit.Declarations.SelectMany(DescendantsAndSelf).Count(node => node is MissingExpressionIr));
     var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal("true", Assert.Single(result.Outputs).ReadText());
+    Assert.Equal(new[] {"true", "false", "true", "true"}, result.Outputs.Select(output => output.ReadText()));
+
+    var rejected = AntlrSyntax.Parse("""
+      pure func absent(%optional string value) -> null { return }
+      mixin Example { expression { absent(null) } }
+      """);
+    Assert.Empty(rejected.Diagnostics);
+    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.False(failure.Success);
+    Assert.Contains("no matching signature", failure.Error.Resolve(failure.Strings));
   }
 
   [Fact]

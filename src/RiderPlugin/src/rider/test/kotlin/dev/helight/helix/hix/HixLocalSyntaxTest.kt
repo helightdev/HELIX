@@ -49,6 +49,20 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `nullable patterns parse as structural question suffixes`() {
+        val source = "type Contact = @{string? name, %optional number? age}\n" +
+            "pure func describe(Contact? contact) -> string | null? { return(null) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(4, parsed.tokens.count { it.type == HixLexer.QUESTION })
+        assertEquals(1, parsed.tokens.count { it.type == HixLexer.PIPE })
+        assertEquals(4, HixAntlrSyntax.rules(parsed.tree).sumOf {
+            if (it is HixParser.PatternTermContext && it.QUESTION() != null) 1 else 0
+        })
+    }
+
+    @Test
     fun `generated parser accepts nested declarations and typed values`() {
         val source = "pure func describe(string name) -> string { return(<Hello [\$name]>) }\n" +
             "mixin Example { prelude expression { carry local name @= target:name; } expression { emit(describe(local#name)) } }" +
@@ -156,6 +170,17 @@ class HixLocalSyntaxTest {
         assertTrue(parsed.tokens.count { it.type == HixLexer.NULL } == 3)
         assertTrue(HixSyntaxHighlighter(null)
             .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.NULL]).isNotEmpty())
+    }
+
+    @Test
+    fun `missing is a literal and pattern kind`() {
+        val source = "pure func absent (missing value) -> bool { return(\$value:eq(missing)) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(2, parsed.tokens.count { it.type == HixLexer.MISSING })
+        assertTrue(HixSyntaxHighlighter(null)
+            .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.MISSING]).isNotEmpty())
     }
 
     @Test

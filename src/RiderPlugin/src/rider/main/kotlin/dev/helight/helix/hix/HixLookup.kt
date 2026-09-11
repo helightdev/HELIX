@@ -123,10 +123,12 @@ internal object HixLookup {
         val entry = HixAntlrSyntax.rules(local).filterIsInstance<HixParser.TableKeyedEntryContext>()
             .filter(::contains).minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return emptyList()
         val fieldName = entry.ROOT_IDENTIFIER()?.text ?: return emptyList()
-        val typeName = local.patternExpression()?.patternPrimary()?.patternIdentifier()?.text ?: return emptyList()
+        val typeName = local.patternExpression()?.patternUnion()?.patternTerm()?.firstOrNull()
+            ?.patternPrimary()?.patternIdentifier()?.text ?: return emptyList()
         val declaration = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
             .firstOrNull { it.IDENTIFIER()?.text == typeName } ?: return emptyList()
-        val field = declaration.patternExpression()?.patternPrimary()?.tablePattern()?.patternField()
+        val field = declaration.patternExpression()?.patternUnion()?.patternTerm()?.firstOrNull()
+            ?.patternPrimary()?.tablePattern()?.patternField()
             ?.firstOrNull { it.ROOT_IDENTIFIER()?.text == fieldName }
         return values(field?.metadataList()?.metadata()?.asIterable())
     }

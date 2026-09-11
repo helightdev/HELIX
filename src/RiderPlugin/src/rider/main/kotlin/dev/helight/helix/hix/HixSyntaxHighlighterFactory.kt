@@ -120,7 +120,7 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
             type in metadataTokens -> HixColors.METADATA
             type == HixLexer.NUMBER -> HixColors.NUMBER
             type == HixLexer.BOOLEAN -> HixColors.BOOLEAN
-            type == HixLexer.NULL -> HixColors.NULL
+            type == HixLexer.NULL || type == HixLexer.MISSING -> HixColors.NULL
             type == HixLexer.ROOT_IDENTIFIER || type == HixLexer.VALUE_SMART_ROOT ||
                 type == HixLexer.TOPLEVEL_DERIVATION -> HixColors.VALUE
             type == HixLexer.FUNCTION_IDENTIFIER -> HixColors.FUNCTION
@@ -144,7 +144,7 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
         val operatorTokens = setOf(
             HixLexer.ASSIGN, HixLexer.ARROW, HixLexer.FAT_ARROW, HixLexer.VALUE_ASSIGN,
             HixLexer.VALUE_EXPAND, HixLexer.VALUE_FUNCTION, HixLexer.VALUE_PREDICATE,
-            HixLexer.NOT_VALUE, HixLexer.VALUE_CHECK, HixLexer.VALUE_ELVIS
+            HixLexer.NOT_VALUE, HixLexer.QUESTION, HixLexer.VALUE_ELVIS
         )
         val separatorTokens = setOf(
             HixLexer.SECTION_DELIMITER, HixLexer.SEMICOLON, HixLexer.COMMA, HixLexer.VALUE_DELIMITER

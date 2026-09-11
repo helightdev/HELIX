@@ -53,9 +53,19 @@ public partial class HixRoslynContext : HixContext {
     object value = SelectMember(_attribute, parameter.Name);
     if (value == null) return base.ResolveMixinParameter(thread, parameter, index);
     var hosted = new RoslynHixValue(value, HixExpressionRoot.Attribute);
-    return parameter.Pattern is KindHixPattern {ValueKind: HixValueKind.Symbol}
+    return ContainsKind(parameter.Pattern, HixValueKind.Symbol)
       ? hosted : thread.Unwrap(hosted);
   }
+
+  private static bool ContainsKind(HixPattern pattern, HixValueKind kind) => pattern switch {
+    KindHixPattern value => value.ValueKind == kind,
+    UnionHixPattern union => union.Patterns.Any(value => ContainsKind(value, kind)),
+    DocumentedHixPattern documented => ContainsKind(documented.Underlying, kind),
+    ConstrainedHixPattern constrained => ContainsKind(constrained.Underlying, kind),
+    ConstantHixPattern constant => ContainsKind(constant.Underlying, kind),
+    EnumHixPattern enumeration => ContainsKind(enumeration.Underlying, kind),
+    _ => false
+  };
 
 
   public bool TryGetDerived(RoslynHixValue source, string key, out IHixValue value) {

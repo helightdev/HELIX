@@ -250,7 +250,8 @@ public sealed class PatternBindingStep : HixCompilerStep {
         if (values[index] != null) continue;
         if (fields[index].DefaultValue != null)
           values[index] = new HixIrRewriter().Rewrite(fields[index].DefaultValue);
-        else if (fields[index].Optional) values[index] = new NullExpressionIr();
+        else if (fields[index].Optional)
+          values[index] = new MissingExpressionIr {InferredPattern = new KindHixPattern(HixValueKind.Missing)};
         else return false;
       }
       arranged = values;
@@ -266,15 +267,13 @@ public sealed class PatternBindingStep : HixCompilerStep {
       }
       for (var index = 0; index < supplied.Count; index++) {
         var field = signature.Inputs[Math.Min(index, signature.Inputs.Count - 1)];
-        yield return field.Optional && supplied[index] is KindHixPattern {ValueKind: HixValueKind.Null}
-          ? HixPatternRelation.Always
-          : HixPatternRelations.Relate(supplied[index], field.Pattern, patterns);
+        yield return HixPatternRelations.Relate(supplied[index], field.Pattern, patterns);
       }
     }
 
     private static bool AcceptsCount(FunctionSignature signature, int count) {
       if (signature.Inputs == null) return signature.InputPattern == null || count == 1;
-      var required = signature.Inputs.Count(field => !field.Optional && !field.Variadic);
+      var required = signature.Inputs.Count(field => !field.AllowsMissing && !field.Variadic);
       return count >= required && (signature.Inputs.Any(field => field.Variadic) || count <= signature.Inputs.Count);
     }
 
@@ -283,13 +282,15 @@ public sealed class PatternBindingStep : HixCompilerStep {
     private static SignatureHixPattern BuiltinSignature(string name, global::Hix.FunctionSignature signature) =>
       new(name, signature.ArgumentTypes.Select((kind, index) =>
         new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(), KindPattern(kind),
-          signature.GetArgumentDefault(index) != null)).ToArray(), KindPattern(signature.ResultType));
+          DefaultValue: signature.GetArgumentDefault(index),
+          HasDefault: signature.GetArgumentDefault(index) != null)).ToArray(), KindPattern(signature.ResultType));
 
     private HixPattern Infer(ExpressionIr expression) => expression switch {
       StringExpressionIr or InterpolationExpressionIr => new KindHixPattern(HixValueKind.String),
       NumberExpressionIr => new KindHixPattern(HixValueKind.Number),
       BooleanExpressionIr => new KindHixPattern(HixValueKind.Bool),
       NullExpressionIr => new KindHixPattern(HixValueKind.Null),
+      MissingExpressionIr => new KindHixPattern(HixValueKind.Missing),
       TupleExpressionIr tuple => new TupleHixPattern(tuple.Values.Select((value, index) =>
         new HixPatternField(index.ToString(), value.InferredPattern)).ToArray()),
       TableExpressionIr table => new TableHixPattern(table.Entries.Select(entry =>

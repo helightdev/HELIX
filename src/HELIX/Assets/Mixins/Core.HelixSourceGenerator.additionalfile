@@ -298,7 +298,7 @@ mixin HELIX.StructureAttribute(bool datatype = [false]) {
   }
 }
 
-mixin HELIX.HookAttribute(string target = [null], number order = [0]) {
+mixin HELIX.HookAttribute(string? target = [null], number order = [0]) {
   prelude expression {
     local Name @= $target;
     when($Name:eq(null)) {

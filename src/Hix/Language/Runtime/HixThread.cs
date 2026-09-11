@@ -281,12 +281,24 @@ public sealed class HixThread {
   private bool MatchesPattern(IHixValue value, HixPattern pattern) =>
     HixPatternMatcher.Matches(pattern, value, this, program.Patterns, out _);
   private bool TryConvert(IHixValue value, HixPattern pattern, out IHixValue converted, out int conversions) {
+    if (value is MissingHixValue && AcceptsKind(pattern, HixValueKind.Null)) {
+      converted = NullHixValue.Instance;
+      conversions = 1;
+      return true;
+    }
     if (MatchesPattern(value, pattern)) {
       converted = value;
       conversions = 0;
       return true;
     }
-    if (pattern is not KindHixPattern kind ||
+    if (pattern is UnionHixPattern union) {
+      foreach (var member in union.Patterns)
+        if (TryConvert(value, member, out converted, out conversions)) return true;
+      converted = null;
+      conversions = 0;
+      return false;
+    }
+    if (value is NullHixValue || pattern is not KindHixPattern kind ||
       !KindHixValue.TryGet(kind.Display, out var target) ||
       !KindDefinitions.TryImplicitConvert(this, value, target.ValueKind, out converted)) {
       converted = null;
@@ -296,6 +308,13 @@ public sealed class HixThread {
     conversions = 1;
     return true;
   }
+  private static bool AcceptsKind(HixPattern pattern, HixValueKind kind) => pattern switch {
+    KindHixPattern value => value.ValueKind == kind,
+    UnionHixPattern union => union.Patterns.Any(member => AcceptsKind(member, kind)),
+    DocumentedHixPattern documented => AcceptsKind(documented.Underlying, kind),
+    ConstrainedHixPattern constrained => AcceptsKind(constrained.Underlying, kind),
+    _ => false
+  };
   public IHixValue Coerce(IHixValue value, HixPattern pattern) =>
     TryConvert(value, pattern, out var converted, out _) ? converted :
       Error("value does not match parameter pattern '" + pattern.Display + "'");
@@ -367,18 +386,18 @@ public sealed class HixThread {
       case HixExpressionRoot.Local:
         return locals != null && locals.TryGetValue(member, out var local)
           ? local
-          : NullHixValue.Instance;
+          : MissingHixValue.Instance;
       case HixExpressionRoot.Variable:
         return variables.TryGetValue(member, out var variable)
           ? variable
-          : NullHixValue.Instance;
+          : MissingHixValue.Instance;
       case HixExpressionRoot.TargetVariable:
         var targetName = member.Resolve(Strings);
         foreach (var item in targetVariables) {
           if (string.Equals(item.Key.Resolve(Strings), targetName, StringComparison.Ordinal))
             return item.Value;
         }
-        return NullHixValue.Instance;
+        return MissingHixValue.Instance;
       case HixExpressionRoot.Parameter:
         return string.IsNullOrEmpty(member.Resolve(Strings))
           ? parameter
@@ -566,7 +585,9 @@ public sealed class HixThread {
               stack[stack.Count - 1] = checkedError with {IsChecked = true};
             break;
           case HixOpcode.Jump: pc = instructionAddress + a; break;
-          case HixOpcode.JumpNotNull: if (stack[stack.Count - 1] is not NullHixValue) pc = instructionAddress + a; break;
+          case HixOpcode.JumpNotNull:
+            if (stack[stack.Count - 1] is not (MissingHixValue or NullHixValue)) pc = instructionAddress + a;
+            break;
           case HixOpcode.JumpFalse: if (!Pop().IsTruthy(execution)) pc = instructionAddress + a; break;
           case HixOpcode.Block: completion = execution.Run(instructionAddress + a); break;
           case HixOpcode.Return: completion = new(BytecodeFlow.Return, HixStorageValue.Capture(Pop()), Line: line); break;
@@ -693,14 +714,18 @@ public sealed class HixThread {
           Array.Copy(arguments, convertedArguments, arguments.Length);
           for (var i = arguments.Length; i < fields.Count; i++)
             convertedArguments[i] = fields[i].DefaultValue ??
-              (fields[i].Optional ? NullHixValue.Instance : null);
+              (fields[i].Optional ? MissingHixValue.Instance : null);
           if (convertedArguments.Any(value => value == null)) continue;
         }
         score = candidate.BaseScore;
         var valid = true;
         for (var i = 0; i < convertedArguments.Length; i++) {
           var field = fields[Math.Min(i, fields.Count - 1)];
-          if (field.Optional && convertedArguments[i].Kind == HixValueKind.Null) continue;
+          if (convertedArguments[i] is MissingHixValue && field.AllowsMissing && !field.Variadic) {
+            if (ReferenceEquals(convertedArguments, arguments)) convertedArguments = (IHixValue[])arguments.Clone();
+            convertedArguments[i] = field.DefaultValue ?? MissingHixValue.Instance;
+            if (field.DefaultValue == null) continue;
+          }
           if (!TryConvert(convertedArguments[i], field.Pattern, out var converted, out var count)) {
             valid = false; break;
           }
@@ -832,14 +857,14 @@ internal sealed class LazyMixinParametersHixValue(IReadOnlyList<BytecodeField> f
   private IHixValue Get(HixThread thread, int index) {
     if (values[index] != null) return values[index];
     var value = thread.Context.ResolveMixinParameter(thread, fields[index], index);
-    return values[index] = fields[index].Optional && value.Kind == HixValueKind.Null
-      ? value : thread.Coerce(value, fields[index].Pattern);
+    if (value is MissingHixValue) return values[index] = value;
+    return values[index] = thread.Coerce(value, fields[index].Pattern);
   }
   public IHixValue Select(HixThread context, HixString member) {
     var name = member.Resolve(context.Strings);
     var index = int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out var position) ? position :
       fields.ToList().FindIndex(field => field.Name == name);
-    return index >= 0 && index < fields.Count ? Get(context, index) : NullHixValue.Instance;
+    return index >= 0 && index < fields.Count ? Get(context, index) : MissingHixValue.Instance;
   }
   public bool IsTruthy(HixThread context) => fields.Count != 0;
   public HixString Render(HixThread context) => Materialize(context).Render(context);

@@ -25,7 +25,7 @@ func RequireInputState() -> null {
   }
 }
 
-func GenerateBoundaryElement(%optional string name, bool extension) -> null {
+func GenerateBoundaryElement(string? name, bool extension) -> null {
   local ComposeCalls = <>
   local ComposeArgs = <>
   RequireCompositionTypeId()
@@ -90,7 +90,7 @@ func GenerateBoundaryElement(%optional string name, bool extension) -> null {
 }
 
 mixin HELIX.Compose.ComposableMethodAttribute(bool requiresTracking = [false], bool scope = [false],
-  bool extension = [false], string name = [null], string scopeCallback = [<cell.TrimChildren\(\)>]) {
+  bool extension = [false], string? name = [null], string scopeCallback = [<cell.TrimChildren\(\)>]) {
   prelude expression {
     using @> HELIX.Compose;
     local StructName @> {{target:name}}Props
@@ -143,7 +143,7 @@ mixin HELIX.Compose.ComposableMethodAttribute(bool requiresTracking = [false], b
   }
 }
 
-mixin HELIX.Compose.ComposableDelegateAttribute(string name = [null]) {
+mixin HELIX.Compose.ComposableDelegateAttribute(string? name = [null]) {
   prelude expression {
     using @> HELIX.Compose;
     local Name @= target:name:regexReplaceFirst<^_><>;
@@ -189,7 +189,7 @@ mixin HELIX.Compose.ComposableDelegateAttribute(string name = [null]) {
 }
 
 mixin HELIX.Compose.CustomBoundaryElementAttribute(bool constructor = [true], bool composable = [true],
-  bool extension = [false], bool cacheLookups = [false], bool trimChildren = [true], string name = [null]) {
+  bool extension = [false], bool cacheLookups = [false], bool trimChildren = [true], string? name = [null]) {
   prelude expression {
     defineTarget<$Compose> @> PerformCompose:HELIX.Compose.Composable
     defineTarget<$Recompose> @> ^Recompose
@@ -291,7 +291,7 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute(bool constructor = [true], bo
 }
 
 mixin HELIX.Compose.BoundaryElementMixinAttribute(bool composable = [true], bool extension = [false],
-  bool cacheLookups = [false], bool trimChildren = [true], string name = [null]) {
+  bool cacheLookups = [false], bool trimChildren = [true], string? name = [null]) {
   prelude expression {
     defineTarget<$Init> @> ^MixinInit
     defineTarget<$Compose> @> ^MixinCompose:HELIX.Compose.Composable

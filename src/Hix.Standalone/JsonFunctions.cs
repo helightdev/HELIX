@@ -71,6 +71,7 @@ internal static class JsonFunctions {
   };
 
   private static JToken ToJson(IHixValue value, HixThread thread) => value switch {
+    MissingHixValue => JValue.CreateNull(),
     NullHixValue => JValue.CreateNull(),
     BooleanHixValue boolean => new JValue(boolean.Value),
     NumberHixValue number when !double.IsNaN(number.Value) && !double.IsInfinity(number.Value) &&
@@ -80,7 +81,7 @@ internal static class JsonFunctions {
     NumberHixValue => throw new InvalidOperationException("cannot write a non-finite number as JSON"),
     LiteralHixValue text => new JValue(text.Value.Resolve(thread.Strings)),
     TupleHixValue tuple => new JArray(tuple.Values.Select(item => ToJson(item, thread))),
-    HixTableValue table => new JObject(table.Entries.Select(item =>
+    HixTableValue table => new JObject(table.Entries.Where(item => item.Value is not MissingHixValue).Select(item =>
       new JProperty(item.Key.Resolve(thread.Strings), ToJson(item.Value, thread)))),
     ErrorHixValue error => throw new InvalidOperationException("cannot write an error as JSON: " + error.Message.Resolve(thread.Strings)),
     _ => throw new InvalidOperationException("cannot write Hix " + value.Kind.ToString().ToLowerInvariant() + " values as JSON")
@@ -119,21 +120,32 @@ internal static class JsonFunctions {
       case ManyHixPattern many: return new JObject { ["type"] = "array", ["items"] = SchemaFor(many.Element, known, definitions, visiting) };
       case MapHixPattern map: return new JObject { ["type"] = "object", ["propertyNames"] = SchemaFor(map.Key, known, definitions, visiting), ["additionalProperties"] = SchemaFor(map.Value, known, definitions, visiting) };
       case TupleHixPattern tuple: {
-        var required = tuple.Fields.Count(field => !field.Optional);
+        var required = tuple.Fields.Count(field => !field.AllowsMissing);
         return new JObject { ["type"] = "array",
           ["prefixItems"] = new JArray(tuple.Fields.Select(field => SchemaFor(field.Pattern, known, definitions, visiting))),
           ["minItems"] = required, ["maxItems"] = tuple.Fields.Count };
       }
       case TableHixPattern table: {
-        var properties = new JObject(table.Fields.Select(field => new JProperty(field.Name,
-          SchemaFor(field.Pattern, known, definitions, visiting))));
+        var properties = new JObject();
+        var patterns = new Dictionary<string, (HixPattern Pattern, bool AllowsMissing)>(StringComparer.Ordinal);
+        foreach (var field in table.Fields) {
+          var propertyPattern = WithoutMissing(field.Pattern, known, new HashSet<string>(StringComparer.Ordinal),
+            out var allowsMissing);
+          patterns[field.Name] = (propertyPattern, allowsMissing);
+          properties[field.Name] = propertyPattern == null
+            ? new JObject { ["not"] = new JObject() }
+            : SchemaFor(propertyPattern, known, definitions, visiting);
+        }
         var schema = new JObject { ["type"] = "object", ["properties"] = properties };
-        foreach (var field in table.Fields.Where(field => field.HasDefault))
-          ((JObject)schema["properties"])[field.Name]["default"] = field.DefaultValue == null
-            ? JValue.CreateNull() : JToken.FromObject(field.DefaultValue);
+        foreach (var field in table.Fields.Where(field => field.HasDefault)) {
+          var property = ((JObject)schema["properties"])[field.Name];
+          if (field.DefaultValue is MissingHixValue) property["x-hix-default-missing"] = true;
+          else property["default"] = field.DefaultValue == null ? JValue.CreateNull() : JToken.FromObject(field.DefaultValue);
+        }
         foreach (var field in table.Fields.Where(field => field.Graph != null))
           ((JObject)schema["properties"])[field.Name]["x-hix-graph"] = field.Graph.Value.ToString().ToLowerInvariant();
-        var required = table.Fields.Where(field => !field.Optional).Select(field => field.Name).ToArray();
+        var required = table.Fields.Where(field => !field.AllowsMissing && !patterns[field.Name].AllowsMissing)
+          .Select(field => field.Name).ToArray();
         if (required.Length != 0) schema["required"] = new JArray(required);
         return schema;
       }
@@ -186,12 +198,60 @@ internal static class JsonFunctions {
   }
 
   private static JObject KindSchema(K kind) => kind switch {
-    K.Any => new JObject(), K.Null => new JObject { ["type"] = "null" },
+    K.Any => new JObject(), K.Missing => new JObject { ["type"] = "null" },
+    K.Null => new JObject { ["type"] = "null" },
     K.String => new JObject { ["type"] = "string" }, K.Bool => new JObject { ["type"] = "boolean" },
     K.Number => new JObject { ["type"] = "number" }, K.Tuple => new JObject { ["type"] = "array" },
     K.Table => new JObject { ["type"] = "object" },
     _ => throw new InvalidOperationException("Hix " + kind.ToString().ToLowerInvariant() + " values have no JSON representation")
   };
+
+  private static HixPattern WithoutMissing(HixPattern pattern, IReadOnlyDictionary<string, HixPattern> known,
+    ISet<string> active, out bool allowsMissing) {
+    if (pattern is DefinedHixPattern defined) {
+      var merged = known.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      foreach (var item in defined.Definitions) merged[item.Key] = item.Value;
+      return WithoutMissing(defined.Root, merged, active, out allowsMissing);
+    }
+    if (pattern is NamedHixPattern named && known.TryGetValue(named.Name, out var body) && active.Add(named.Name)) {
+      var remaining = WithoutMissing(body, known, active, out allowsMissing);
+      active.Remove(named.Name);
+      return allowsMissing ? remaining : pattern;
+    }
+    if (pattern is KindHixPattern {ValueKind: K.Missing}) {
+      allowsMissing = true;
+      return null;
+    }
+    if (pattern is UnionHixPattern union) {
+      var found = false;
+      var members = union.Patterns.Select(member => {
+        var remaining = WithoutMissing(member, known, active, out var memberAllowsMissing);
+        found |= memberAllowsMissing;
+        return remaining;
+      }).Where(member => member != null).ToArray();
+      allowsMissing = found;
+      return members.Length == 0 ? null : HixPatterns.Union(members);
+    }
+    if (pattern is DocumentedHixPattern documented) {
+      var underlying = WithoutMissing(documented.Underlying, known, active, out allowsMissing);
+      return underlying == null ? null : new DocumentedHixPattern(underlying, documented.Title, documented.Description);
+    }
+    if (pattern is ConstrainedHixPattern constrained) {
+      var underlying = WithoutMissing(constrained.Underlying, known, active, out allowsMissing);
+      return underlying == null ? null : new ConstrainedHixPattern(underlying, constrained.Constraint,
+        constrained.Argument, constrained.Exclusive);
+    }
+    if (pattern is EnumHixPattern enumeration) {
+      var underlying = WithoutMissing(enumeration.Underlying, known, active, out allowsMissing);
+      return underlying == null ? null : new EnumHixPattern(enumeration.Values, underlying);
+    }
+    if (pattern is ConstantHixPattern constant) {
+      var underlying = WithoutMissing(constant.Underlying, known, active, out allowsMissing);
+      return underlying == null ? null : new ConstantHixPattern(constant.Value, underlying);
+    }
+    allowsMissing = false;
+    return pattern;
+  }
 
   private static void ApplyLength(JObject schema, JToken value) {
     var type = (string)schema["type"];
@@ -222,15 +282,19 @@ internal static class JsonFunctions {
 
   private static HixPattern PatternFor(JObject schema) {
     HixPattern pattern;
-    if (schema["$ref"] is JValue reference) {
+    if (schema["not"] is JObject {HasValues: false}) {
+      pattern = new KindHixPattern(K.Missing);
+    } else if (schema["$ref"] is JValue reference) {
       var path = reference.Value<string>();
       const string prefix = "#/$defs/"; const string oldPrefix = "#/definitions/";
       var encoded = path.StartsWith(prefix, StringComparison.Ordinal) ? path.Substring(prefix.Length) :
         path.StartsWith(oldPrefix, StringComparison.Ordinal) ? path.Substring(oldPrefix.Length) : null;
       if (encoded == null) throw new InvalidOperationException("only local $defs references are supported");
       pattern = new NamedHixPattern(UnescapePointer(encoded));
-    } else if (schema["anyOf"] is JArray alternatives) {
+    } else if ((schema["anyOf"] ?? schema["oneOf"]) is JArray alternatives) {
       pattern = HixPatterns.Union(alternatives.Cast<JObject>().Select(PatternFor));
+    } else if (schema["type"] is JArray types) {
+      pattern = HixPatterns.Union(types.Values<string>().Select(type => PatternFor(new JObject { ["type"] = type })));
     } else if (schema["const"] is { } constant) {
       pattern = new ConstantHixPattern(ConstantValue(constant), PatternWithout(schema, "const"));
     } else {
@@ -273,11 +337,16 @@ internal static class JsonFunctions {
   private static HixPattern ObjectPattern(JObject schema) {
     if (schema["properties"] is JObject properties) {
       var required = new HashSet<string>((schema["required"] as JArray)?.Values<string>() ?? [], StringComparer.Ordinal);
-      var fields = properties.Properties().Select(property =>
-        new HixPatternField(property.Name, PatternFor((JObject)property.Value), !required.Contains(property.Name),
-          property.Value["default"] is { } value ? ConstantValue(value) : null, property.Value["default"] != null,
+      var fields = properties.Properties().Select(property => {
+        var missingDefault = property.Value.Value<bool?>("x-hix-default-missing") == true;
+        var hasDefault = property.Value["default"] != null || missingDefault;
+        return new HixPatternField(property.Name, PatternFor((JObject)property.Value),
+          !required.Contains(property.Name) && !hasDefault,
+          missingDefault ? MissingHixValue.Instance : property.Value["default"] is { } value ? ConstantValue(value) : null,
+          hasDefault,
           Enum.TryParse<HixGraphFieldKind>(property.Value.Value<string>("x-hix-graph"), true, out var graph)
-            ? graph : null)).ToArray();
+            ? graph : null);
+      }).ToArray();
       if (required.Contains(TaggedHixPattern.FieldName) && properties[TaggedHixPattern.FieldName]?["const"] is JValue tag &&
           tag.Type == JTokenType.String)
         return new TaggedHixPattern(new TableHixPattern(fields.Where(field =>
@@ -362,7 +431,7 @@ internal static class JsonFunctions {
   }
 
   private static IHixValue FromHost(object value) => value switch {
-    null => NullHixValue.Instance, bool flag => BooleanHixValue.From(flag),
+    null => NullHixValue.Instance, IHixValue hix => hix, bool flag => BooleanHixValue.From(flag),
     string text => new LiteralHixValue(HixString.Dynamic(text)),
     byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
       new NumberHixValue(Convert.ToDouble(value, CultureInfo.InvariantCulture)),

@@ -115,7 +115,7 @@ public sealed record SignatureField {
   public SignatureField(string name, HixPattern pattern, bool variadic = false,
     IReadOnlyList<MetadataIr> metadata = null, bool optional = false, ExpressionIr defaultValue = null) {
     Name = name; Pattern = pattern ?? HixPattern.Any; Variadic = variadic; Metadata = metadata ?? [];
-    DefaultValue = defaultValue; Optional = optional || defaultValue != null;
+    DefaultValue = defaultValue; Optional = optional;
   }
   public SignatureField(string name, string kind, bool variadic,
     IReadOnlyList<MetadataIr> metadata = null) : this(name, HixPatterns.Named(kind), variadic, metadata) { }
@@ -126,8 +126,9 @@ public sealed record SignatureField {
   public bool Optional { get; }
   public ExpressionIr DefaultValue { get; }
   public bool HasDefault => DefaultValue != null;
+  public bool AllowsMissing => Optional || HasDefault;
   public IReadOnlyList<MetadataIr> Metadata { get; }
-  public HixPatternField AsPatternField() => new(Name, Pattern, Optional);
+  public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault);
 }
 
 public sealed record FunctionSignature {
@@ -226,6 +227,8 @@ public sealed class BooleanExpressionIr(bool value) : ExpressionIr {
 }
 
 public sealed class NullExpressionIr : ExpressionIr;
+
+public sealed class MissingExpressionIr : ExpressionIr;
 
 /// <summary>The current selection value used by a when transformation condition.</summary>
 public sealed class SelectorExpressionIr : ExpressionIr;

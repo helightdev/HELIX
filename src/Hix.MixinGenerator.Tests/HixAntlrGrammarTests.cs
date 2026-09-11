@@ -146,8 +146,24 @@ public sealed class HixAntlrGrammarTests {
     Assert.False(fields[0].HasDefault);
     Assert.Equal(18d, fields[1].DefaultValue);
     Assert.Equal("draft", fields[2].DefaultValue);
-    Assert.True(fields[3].HasDefault);
+    Assert.True(fields[3].Optional);
+    Assert.False(fields[3].HasDefault);
     Assert.Null(fields[3].DefaultValue);
+  }
+
+  [Fact]
+  public void NullablePatternsAreFlattenedUnionsIndependentOfOptionalPresence() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse(
+      "type Values = @{%optional string present, string? nullable, %optional string | null? both}");
+
+    Assert.Empty(semantic.Diagnostics);
+    var fields = Assert.IsType<Hix.TableHixPattern>(semantic.Declarations.OfType<Hix.Compiler.TypeDeclarationIr>()
+      .Single().Pattern).Fields;
+    Assert.True(fields[0].Optional);
+    Assert.IsType<Hix.KindHixPattern>(fields[0].Pattern);
+    Assert.False(fields[1].Optional);
+    Assert.Equal(2, Assert.IsType<Hix.UnionHixPattern>(fields[1].Pattern).Patterns.Count);
+    Assert.Equal(2, Assert.IsType<Hix.UnionHixPattern>(fields[2].Pattern).Patterns.Count);
   }
 
   [Theory]

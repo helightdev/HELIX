@@ -18,7 +18,7 @@ public abstract class KindDefinition(HixValueKind valueKind, params HixValueKind
 
 public static class KindDefinitions {
   private static readonly KindDefinition[] All = [
-    new NullKind(), new StringKind(), new BoolKind(), new NumberKind(), new TupleKind(), new TableKind(),
+    new MissingKind(), new NullKind(), new StringKind(), new BoolKind(), new NumberKind(), new TupleKind(), new TableKind(),
     new SymbolKind(), new FunctionKind(), new ErrorKind(), new KindKind()
   ];
   private static readonly IReadOnlyDictionary<HixValueKind, KindDefinition> ByKind =
@@ -38,7 +38,12 @@ public static class KindDefinitions {
     return converted is not ErrorHixValue && converted.Kind == target;
   }
 
-  private sealed class NullKind() : KindDefinition(HixValueKind.Null, HixValueKind.String) {
+  private sealed class MissingKind() : KindDefinition(HixValueKind.Missing) {
+    public override IHixValue New(HixThread _) => MissingHixValue.Instance;
+    public override IHixValue Convert(HixThread execution, IHixValue value) =>
+      value is MissingHixValue ? value : execution.Error("cannot convert value to missing");
+  }
+  private sealed class NullKind() : KindDefinition(HixValueKind.Null, HixValueKind.String, HixValueKind.Missing) {
     public override IHixValue New(HixThread _) => NullHixValue.Instance;
     public override IHixValue Convert(HixThread _, IHixValue value) => NullHixValue.Instance;
   }

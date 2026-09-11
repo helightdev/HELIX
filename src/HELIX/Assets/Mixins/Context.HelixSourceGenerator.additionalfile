@@ -43,8 +43,8 @@ mixin HELIX.Context.Tests.Fixtures.AlwaysEnabledAttribute {
   }
 }
 
-mixin HELIX.Context.InjectAttribute(string qualifier = [null], bool required = [true]) {
-  func InjectList(%optional string qualifier) -> null do {
+mixin HELIX.Context.InjectAttribute(string? qualifier = [null], bool required = [true]) {
+  func InjectList(string? qualifier) -> null do {
     using @> System.Collections.Generic;
     assert(target:type#0:class)
     inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new TypeKey(typeof({{target:type#0}}), {{$qualifier:csharpLiteral}}), false, true));
@@ -66,7 +66,7 @@ mixin HELIX.Context.InjectAttribute(string qualifier = [null], bool required = [
   }
 }
 
-mixin HELIX.Context.BindAttribute(symbol type = [null], string qualifier = [null], bool required = [true], bool proxied = [false]) {
+mixin HELIX.Context.BindAttribute(symbol? type = [null], string? qualifier = [null], bool required = [true], bool proxied = [false]) {
   prelude expression {
     using @> HELIX.Context;
     local Value @= target:name;
@@ -88,8 +88,8 @@ mixin HELIX.Context.BindAttribute(symbol type = [null], string qualifier = [null
   }
 }
 
-mixin HELIX.Context.ResourceAttribute(number source, string qualifier = [null], bool required = [true]) {
-  func ResourceSingle(number source, %optional string qualifier, bool required) -> null
+mixin HELIX.Context.ResourceAttribute(number source, string? qualifier = [null], bool required = [true]) {
+  func ResourceSingle(number source, string? qualifier, bool required) -> null
   do {
     local WireKey @> {{string:new<@>}}"{{target:type:unwrap}}|{{$source}}|{{$qualifier}}"
     assert(target:type:class)
@@ -111,7 +111,7 @@ mixin HELIX.Context.ResourceAttribute(number source, string qualifier = [null], 
     fail @> No valid injection source found for the target type.
   }
 
-  func ResourceList(number source, %optional string qualifier) -> null
+  func ResourceList(number source, string? qualifier) -> null
   do {
     using @> System.Collections.Generic
     using @> System.Collections
@@ -152,7 +152,7 @@ mixin HELIX.Context.AutoDisposeAttribute {
   }
 }
 
-mixin HELIX.Context.ManagedAttribute(symbol scope = [null], bool optional = [false], number order = [0], number phase = [0]) {
+mixin HELIX.Context.ManagedAttribute(symbol? scope = [null], bool optional = [false], number order = [0], number phase = [0]) {
   prelude expression {
     defineTarget<$ConfigureManaged> @> ^*~HELIX.Context.RegistrationConfigurator
     defineTarget<$LoadManaged> @> ^LoadManaged:HELIX.Context.ManagedLoadMethod
@@ -190,7 +190,7 @@ mixin HELIX.Context.ManagedAttribute(symbol scope = [null], bool optional = [fal
 }
 
 mixin HELIX.Context.TickerAttribute(any time = [<tick>], string target = [<Update>],
-  string condition = [null], number order = [10]) {
+  string? condition = [null], number order = [10]) {
   prelude expression {
     using @> HELIX.Context;
     local Time = <-0f>
@@ -246,7 +246,7 @@ pure func ModuleImportRegistration -> string {
   return($code)
 }
 
-func ConfigureModule(%optional string filter, any importedModules) -> null do {
+func ConfigureModule(string? filter, any importedModules) -> null do {
   when(generic(this)) { return }
   var<ModuleFilter> @= $filter;
   local resolvedImports @= $importedModules;
@@ -262,11 +262,11 @@ func ConfigureModule(%optional string filter, any importedModules) -> null do {
     @> }
 }
 
-mixin HELIX.Context.HelixModuleAttribute(string name = [null], string filter = [null], any import = [null]) {
+mixin HELIX.Context.HelixModuleAttribute(string? name = [null], string? filter = [null], any import = [null]) {
   prelude expression { ConfigureModule($filter, $import) }
 }
 
-mixin HELIX.Context.HelixApplicationAttribute(string name = [null], string filter = [null], any import = [null]) {
+mixin HELIX.Context.HelixApplicationAttribute(string? name = [null], string? filter = [null], any import = [null]) {
   prelude expression {
     ConfigureModule($filter, $import)
     when(generic(this)) { return }

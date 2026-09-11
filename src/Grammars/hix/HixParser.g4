@@ -42,9 +42,12 @@ functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
 
 // Patterns
 patternExpression
-    : inlineMetadataList patternPrimary?
-    | patternPrimary
+    : inlineMetadataList patternUnion?
+    | patternUnion
     ;
+
+patternUnion: patternTerm (PIPE patternTerm)*;
+patternTerm: patternPrimary QUESTION?;
 
 patternPrimary
     : patternIdentifier
@@ -71,8 +74,8 @@ patternParameterList
     | EMPTY_PARAMETERS
     ;
 
-patternField: metadataList? patternPrimary ROOT_IDENTIFIER? (VALUE_ASSIGN value)?;
-patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
+patternField: metadataList? patternUnion ROOT_IDENTIFIER? (VALUE_ASSIGN value)?;
+patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 
 // Actual Statements
 statementBlock: LC (statement | SEMICOLON | trivia)* RC;
@@ -176,6 +179,7 @@ primaryValue
     | NUMBER
     | BOOLEAN
     | NULL
+    | MISSING
     ;
 
 lambdaValue
@@ -184,7 +188,7 @@ lambdaValue
     ;
 
 prefixOperators: NOT_VALUE;
-postfixOperators: VALUE_CHECK;
+postfixOperators: QUESTION;
 
 valueStatement: functionIdentifier callValueList;
 
@@ -203,7 +207,7 @@ tableValue
     | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* VALUE_DELIMITER? RC
     ;
 
-tableKeyedEntry: metadata* ROOT_IDENTIFIER VALUE_ASSIGN value;
+tableKeyedEntry: metadata* (ROOT_IDENTIFIER | MISSING) VALUE_ASSIGN value;
 
 valueList
     : BEGIN_PARAMETERS value (VALUE_DELIMITER value)* VALUE_DELIMITER? END_PARAMETERS
@@ -221,7 +225,7 @@ callValueList
     | argumentValue+
     ;
 
-callArgument: ROOT_IDENTIFIER VALUE_ASSIGN value | value;
+callArgument: (ROOT_IDENTIFIER | MISSING) VALUE_ASSIGN value | value;
 
 argumentValue: BEGIN_ARGUMENT argumentBody ARGUMENT_END;
 
@@ -235,7 +239,7 @@ derivation: derivationRoot transformationPart*;
 
 derivationRoot
     : ROOT_IDENTIFIER
-    | VALUE_SMART_ROOT (ROOT_IDENTIFIER | NUMBER)
+    | VALUE_SMART_ROOT (ROOT_IDENTIFIER | NUMBER | MISSING)
     ;
 
 elvisValue: VALUE_ELVIS value;
@@ -256,7 +260,7 @@ functionDeclarationIdentifier: IDENTIFIER | argumentValue;
 variableIdentifier: IDENTIFIER;
 functionIdentifier: FUNCTION_IDENTIFIER | ROOT_IDENTIFIER;
 invocationIdentifier: IDENTIFIER | KEYWORD_LOCAL;
-kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
+kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 
 // Modifiers
 expressionModifier: KEYWORD_PRELUDE | KEYWORD_STRICT;

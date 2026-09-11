@@ -32,7 +32,7 @@ public sealed class HixThreadTests {
       """, "Example");
     var result = HixVM.Execute(second, new HixThread(context));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"value", "updated", ""}, result.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"value", "updated", "missing"}, result.Outputs.Select(output => output.ReadText()));
     Assert.Equal("updated", Assert.IsType<LiteralHixValue>(context.Carries[HixString.Dynamic("carried")]).Value.Resolve(null));
     var failing = TestCompiler.Compile("""
       mixin Example { expression { var<saved> @= <discard>; local carried = <discard>; fail<stop> } }
@@ -104,7 +104,7 @@ public sealed class HixThreadTests {
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(42, Assert.IsType<NumberHixValue>(result.Value).Value);
     Assert.False(thread.IsRunning);
-    Assert.IsType<NullHixValue>(thread.Resolve(HixExpressionRoot.Local, HixString.Dynamic("current")));
+    Assert.IsType<MissingHixValue>(thread.Resolve(HixExpressionRoot.Local, HixString.Dynamic("current")));
   }
 
   [Fact]
@@ -123,9 +123,9 @@ public sealed class HixThreadTests {
     Assert.True(first.Success, first.Error.Resolve(first.Strings));
     Assert.True(second.Success, second.Error.Resolve(second.Strings));
     Assert.True(other.Success, other.Error.Resolve(other.Strings));
-    Assert.Equal(new[] {"", "first"}, first.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"missing", "first"}, first.Outputs.Select(output => output.ReadText()));
     Assert.Equal(new[] {"first", "first"}, second.Outputs.Select(output => output.ReadText()));
-    Assert.Equal(new[] {"", "other"}, other.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"missing", "other"}, other.Outputs.Select(output => output.ReadText()));
 
     var failing = TestCompiler.Compile("mixin Example { expression { tar<saved> @= <discarded>; fail<stop> } }", "Example");
     Assert.False(HixVM.Execute(failing, new HixThread(context)).Success);

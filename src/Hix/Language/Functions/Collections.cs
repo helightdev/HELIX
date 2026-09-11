@@ -15,7 +15,7 @@ public static class CollectionFunctions {
     value
     : a.Length == 3
       ? a[2]
-      : NullHixValue.Instance;
+      : MissingHixValue.Instance;
 
   private static bool TrySelect(HixThread e, IHixValue collection, IHixValue key, out IHixValue value) {
     if (collection is HixTableValue table) {
@@ -24,7 +24,7 @@ public static class CollectionFunctions {
     var index = ((NumberHixValue)key).Value;
     var values = ((TupleHixValue)collection).Values;
     var present = index == Math.Truncate(index) && index >= 0 && index < values.Count;
-    value = present ? values[(int)index] : NullHixValue.Instance;
+    value = present ? values[(int)index] : MissingHixValue.Instance;
     return present;
   }
 
