@@ -9,6 +9,19 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `decompiled inline blocks and explicit dispatch parse locally`() {
+        val source = "pure func main { local result = [do { local value = 1 } => local#value]; " +
+            "@= [plus(1, 2) @static(\"plus(number 0, number 1) -> number\")]; " +
+            "return([main() @dynamic]) }"
+        val parsed = HixAntlrSyntax.parse(source)
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(1, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.InlineBlockValueContext })
+        assertEquals(2, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.CallBindingContext })
+        assertSame(HixColors.KEYWORD,
+            HixSyntaxHighlighter(null).getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.BEGIN_INLINE_BLOCK]).single())
+    }
+
+    @Test
     fun `table and tuple declarations expose constructor fields`() {
         val parsed = HixAntlrSyntax.parse(
             "type Person = @{string name, %optional number age, string title = <friend>}\n" +

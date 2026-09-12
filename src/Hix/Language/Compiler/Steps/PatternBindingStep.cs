@@ -138,6 +138,29 @@ public sealed class PatternBindingStep : HixCompilerStep {
 
     protected override void VisitCall(CallExpressionIr call) {
       foreach (var argument in call.Arguments) Visit(argument);
+      if (call.DispatchConstraint is { } constraint) {
+        if (call.ArgumentNames.Any(name => name != null)) {
+          diagnostics.Add(new(call.Line, "explicit dispatch requires positional arguments")); return;
+        }
+        if (constraint.Kind == HixCallKind.Dynamic) { call.Binding = HixCallBinding.Dynamic; return; }
+        if (constraint.Kind != HixCallKind.Static || constraint.Signature == null) {
+          diagnostics.Add(new(call.Line, "invalid explicit call dispatch")); return;
+        }
+        var bindings = new List<HixCallBinding>();
+        if (functions.TryGetValue(call.Name, out var available))
+          foreach (var function in available)
+            foreach (var signature in function.Signatures)
+              if (signature.Constant(call.Name).Display == constraint.Signature && AcceptsCount(signature, call.Arguments.Count))
+                if (bindings.Count == 0) bindings.Add(HixCallBinding.Language(signature.Constant(call.Name), function));
+        if (bindings.Count == 0)
+          foreach (var definition in backend.Functions.Resolve(call.Name, call.Arguments.Count))
+            foreach (var signature in definition.Signatures)
+              if (BuiltinSignature(call.Name, signature).Display == constraint.Signature)
+                bindings.Add(HixCallBinding.Host(BuiltinSignature(call.Name, signature), definition));
+        if (bindings.Count != 1) diagnostics.Add(new(call.Line, "cannot bind explicit signature '" + constraint.Signature + "'"));
+        else call.Binding = bindings[0];
+        return;
+      }
       var arguments = call.Arguments;
       var argumentPatterns = arguments.Select(argument => argument.InferredPattern).ToArray();
       var selected = HixCallBinding.Dynamic;

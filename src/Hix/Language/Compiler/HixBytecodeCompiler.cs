@@ -26,6 +26,7 @@ public sealed class HixBytecodeCompiler {
   }
   private void Patch(int pc, int target) => code[pc] = code[pc] with {A = target};
   private void Constant(IHixValue value) {
+    if (value is MissingHixValue) { Emit(HixOpcode.LoadMissing); return; }
     if (value is NullHixValue) { Emit(HixOpcode.LoadNull); return; }
     if (value is BooleanHixValue boolean) { Emit(boolean.Value ? HixOpcode.LoadTrue : HixOpcode.LoadFalse); return; }
     Emit(HixOpcode.LoadConst, C(value));
@@ -157,8 +158,9 @@ public sealed class HixBytecodeCompiler {
     var line = statement.Line;
     sourceLine = line;
     foreach (var metadata in statement.Metadata.Where(item => item.Name == "marker")) {
-      if (metadata.Values.Count != 1 || metadata.Values[0] is not StringExpressionIr name)
-        throw new ArgumentException("%marker requires one literal string");
+      if (metadata.Values.Count is not (1 or 2) || metadata.Values[0] is not StringExpressionIr name ||
+          metadata.Values.Count == 2 && metadata.Values[1] is not StringExpressionIr)
+        throw new ArgumentException("%marker requires a literal name and optional literal type");
       if (markers.ContainsKey(name.Value)) throw new ArgumentException("duplicate bytecode marker '" + name.Value + "'");
       var type = statement switch {
         AssignmentStatementIr assignment => assignment.Value?.InferredPattern.Display ?? "missing",
@@ -166,7 +168,7 @@ public sealed class HixBytecodeCompiler {
         ExpressionStatementIr expression => expression.Expression.InferredPattern.Display,
         _ => "null"
       };
-      markers.Add(name.Value, (code.Count, line, type));
+      markers.Add(name.Value, (code.Count, line, metadata.Values.Count == 2 ? ((StringExpressionIr)metadata.Values[1]).Value : type));
     }
     switch (statement) {
       case BlockStatementIr block: NestedBlock(block); break;

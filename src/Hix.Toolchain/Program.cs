@@ -1,1 +1,1 @@
-return Hix.Standalone.Program.Main(args);
+return AotReflectionRoots.Run(args);

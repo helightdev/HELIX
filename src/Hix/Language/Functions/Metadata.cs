@@ -9,6 +9,9 @@ public static class MetadataFunctions {
     HixMetadataKind.FunctionDefinition | HixMetadataKind.MixinDefinition;
   public static void Register(FunctionSignatureRegistryBuilder definitions) {
     definitions.Add(
+      Meta("marker", HixMetadataKind.Statement | HixMetadataKind.VariableDeclaration,
+        [Signature(K.String), Signature(K.String, K.String)], "Names a bytecode location, optionally preserving its decompiled type."),
+      Meta("variadic", HixMetadataKind.PatternField, [Signature()], "Allows the final function input to accept remaining arguments."),
       Meta("optional", Pattern, [Signature()],
         "Allows a pattern field to be absent, producing missing without making null a valid value."),
       Meta("many", Pattern, [Signature(), Signature(K.Pattern)], "Matches repeated tuple elements."),

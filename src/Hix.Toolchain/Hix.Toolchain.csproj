@@ -5,7 +5,13 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Hix.Toolchain</AssemblyName>
+    <PublishAot Condition="'$(HixToolchainAot)' == 'true'">true</PublishAot>
   </PropertyGroup>
+  <!-- Image serialization discovers Hix data records through reflection. -->
+  <ItemGroup Condition="'$(HixToolchainAot)' == 'true'">
+    <TrimmerRootAssembly Include="Hix" />
+    <TrimmerRootAssembly Include="Hix.Standalone" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Hix.Standalone/Hix.Standalone.csproj" />
   </ItemGroup>

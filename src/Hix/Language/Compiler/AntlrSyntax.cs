@@ -354,7 +354,7 @@ public static class AntlrSyntax {
     private SignatureField SignatureField(Parser.PatternFieldContext context) {
       var field = PatternField(context, signature: true);
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
-      return new SignatureField(field.Name, field.Pattern, false,
+      return new SignatureField(field.Name, field.Pattern, metadata.Any(item => item.Name == "variadic"),
         metadata, field.Optional, context.value() == null ? null : Value(context.value()));
     }
 
@@ -371,8 +371,9 @@ public static class AntlrSyntax {
       var signatures = new List<FunctionSignature>();
       if (context.directFunctionSignature() is { } direct) {
         var parameters = direct.patternParameterList()?.patternField().Select(SignatureField).ToArray();
-        signatures.Add(new FunctionSignature((HixPattern)null, parameters,
-          Pattern(direct.patternExpression()), null));
+        signatures.Add(new FunctionSignature(direct.collectiveInputPattern() == null ? null : Pattern(direct.collectiveInputPattern().patternExpression()), parameters,
+          direct.patternExpression() == null ? null : Pattern(direct.patternExpression()),
+          direct.outputSignatureFields()?.patternParameterList().patternField().Select(SignatureField).ToArray()));
       }
       var identifier = context.functionDeclarationIdentifier();
       return At(new FunctionDeclarationIr(DeclarationName(identifier.IDENTIFIER(), identifier.argumentValue()),
@@ -380,6 +381,15 @@ public static class AntlrSyntax {
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures.ToArray(),
         FunctionBody(context.functionBody()), declarationMetadata), context);
+    }
+
+    public override HixIrNode VisitInlineBlockValue(Parser.InlineBlockValueContext context) {
+      var result = Value(context.derivation());
+      if (result is not MemberExpressionIr {Receiver: RootExpressionIr {Name: "local", IsSmart: false}} member) {
+        diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "inline block result must be local#name"));
+        return At(new NullExpressionIr(), context);
+      }
+      return At(new InlineExpressionIr(At(new BlockStatementIr(context.statement().Select(Statement).ToArray()), context), member.Member), context);
     }
 
     public override HixIrNode VisitLambdaValue(Parser.LambdaValueContext context) {
@@ -407,7 +417,8 @@ public static class AntlrSyntax {
         return At(new ControlFlowStatementIr(ControlFlowKind.Label, label.LABEL_IDENTIFIER().GetText(), []), context);
       var child = context.children.OfType<ParserRuleContext>().Single();
       var node = Visit(child);
-      return node is SelectionExpressionIr selection ? At(new SelectionStatementIr(selection), context) : node;
+      return node is SelectionExpressionIr selection ? At(new SelectionStatementIr(selection), context) :
+        node is ExpressionIr expression ? At(new ExpressionStatementIr(expression), context) : node;
     }
 
     public override HixIrNode VisitLocalDeclarationStatement(Parser.LocalDeclarationStatementContext context) => At(
@@ -494,17 +505,32 @@ public static class AntlrSyntax {
     public override HixIrNode VisitNonArgumentValue(Parser.NonArgumentValueContext context) {
       if (context.prefixOperators() != null)
         return At(new UnaryExpressionIr(UnaryOperation.Not, Value(context.nonArgumentValue())), context);
-      if (context.postfixOperators() != null)
-        return At(new UnaryExpressionIr(UnaryOperation.Check, Value(context.nonArgumentValue())), context);
-      var value = Value(context.primaryValue());
+      if (context.postfixOperators() is { } postfix) {
+        var operand = Value(context.nonArgumentValue());
+        if (postfix.QUESTION() != null) return At(new UnaryExpressionIr(UnaryOperation.Check, operand), context);
+        if (operand is CallExpressionIr call) return At(new CallExpressionIr(call.Name, call.Arguments, true,
+          argumentNames: call.ArgumentNames) {DispatchConstraint = call.DispatchConstraint}, context);
+        diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "@bool must follow a call"));
+        return operand;
+      }
+      var value = Transform(Value(context.primaryValue()), context.transformationPart());
       return context.elvisValue() is { } fallback
         ? At(new FallbackExpressionIr(value, Value(fallback.value())), context) : value;
+    }
+
+    private HixCallConstraint Dispatch(Parser.CallBindingContext context) {
+      if (context == null) return null;
+      if (context.DYNAMIC_CALL() != null) return new(HixCallKind.Dynamic);
+      var arguments = Arguments(context.valueList());
+      if (arguments.Length == 1 && arguments[0] is StringExpressionIr signature) return new(HixCallKind.Static, signature.Value);
+      diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "@static requires one literal signature string"));
+      return null;
     }
 
     public override HixIrNode VisitValueStatement(Parser.ValueStatementContext context) {
       var supplied = CallArguments(context.callValueList());
       return At(new CallExpressionIr(context.functionIdentifier().GetText(), supplied.Values,
-        argumentNames: supplied.Names), context);
+        argumentNames: supplied.Names) {DispatchConstraint = Dispatch(context.callBinding())}, context);
     }
 
     public override HixIrNode VisitTupleValue(Parser.TupleValueContext context) => At(
@@ -519,8 +545,14 @@ public static class AntlrSyntax {
             (MetadataIr)Visit(metadata)).ToArray())).ToArray()), context);
     }
 
-    public override HixIrNode VisitDerivationRoot(Parser.DerivationRootContext context) => At(
-      new RootExpressionIr(context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER()?.GetText() ?? context.MISSING().GetText(),
+    public override HixIrNode VisitExplicitRoot(Parser.ExplicitRootContext context) {
+      var arguments = Arguments(context.valueList());
+      if (arguments.Length == 1 && arguments[0] is StringExpressionIr name) return At(new RootExpressionIr(name.Value), context);
+      diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "@root requires one literal root name"));
+      return At(new NullExpressionIr(), context);
+    }
+    public override HixIrNode VisitDerivationRoot(Parser.DerivationRootContext context) => context.explicitRoot() != null
+      ? Visit(context.explicitRoot()) : At(new RootExpressionIr(context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER()?.GetText() ?? context.MISSING().GetText(),
         context.VALUE_SMART_ROOT() != null), context);
     public override HixIrNode VisitDerivation(Parser.DerivationContext context) =>
       Transform(Value(context.derivationRoot()), context.transformationPart());
@@ -533,7 +565,7 @@ public static class AntlrSyntax {
           var supplied = CallArguments(part.callValueList());
           value = At(new CallExpressionIr(function.GetText(), new[] {value}.Concat(supplied.Values).ToArray(),
             part.functionChainType().VALUE_PREDICATE() != null, argumentNames:
-            new string[] {null}.Concat(supplied.Names).ToArray()), part);
+            new string[] {null}.Concat(supplied.Names).ToArray()) {DispatchConstraint = Dispatch(part.callBinding())}, part);
         }
         if (part.VALUE_WRAP() == null && !start.IsEmpty) {
           value.SourceRange = value.SourceRange with {Start = start.Start, Line = start.Line, Column = start.Column};

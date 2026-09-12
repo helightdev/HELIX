@@ -492,6 +492,20 @@ private fun registerHixBuildTasks(project: Project) {
         description = "Builds the standalone Hix command-line toolchain."
         commandLine("dotnet", "build", "src/Hix.Toolchain/Hix.Toolchain.csproj", "--configuration", configuration.get())
     }
+    project.tasks.register("buildHixToolchainAot", Exec::class.java) {
+        group = "hix"
+        description = "Publishes the standalone toolchain as a Release Native AOT executable."
+        workingDir(project.layout.projectDirectory)
+        val runtime = project.providers.gradleProperty("HixToolchainRuntime").orNull
+        val destination = project.layout.buildDirectory.dir("hix-toolchain/aot").get().asFile
+        commandLine(buildList {
+            addAll(listOf("dotnet", "publish", "src/Hix.Toolchain/Hix.Toolchain.csproj",
+                "--configuration", "Release", "--self-contained", "true", "-p:HixToolchainAot=true",
+                "--output", destination.absolutePath))
+            if (runtime == null) add("--use-current-runtime")
+            else addAll(listOf("--runtime", runtime))
+        })
+    }
     build.configure { dependsOn(toolchain) }
     project.tasks.register("testHix", Exec::class.java) {
         group = "hix"

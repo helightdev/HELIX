@@ -16,6 +16,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hix.Standalone.Tests", "..\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hix.MixinGenerator.Tests", "..\Hix.MixinGenerator.Tests\Hix.MixinGenerator.Tests.csproj", "{C9B0FC31-9334-567E-8B8E-FE1D39AADCB4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hix.Toolchain", "..\Hix.Toolchain\Hix.Toolchain.csproj", "{BBA8EF37-BE2C-4803-8EFB-EC3C491DFD0A}"
+EndProject
 Global
  GlobalSection(SolutionConfigurationPlatforms) = preSolution
   Debug|Any CPU = Debug|Any CPU
@@ -54,5 +56,9 @@ Global
   {C9B0FC31-9334-567E-8B8E-FE1D39AADCB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
   {C9B0FC31-9334-567E-8B8E-FE1D39AADCB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
   {C9B0FC31-9334-567E-8B8E-FE1D39AADCB4}.Release|Any CPU.Build.0 = Release|Any CPU
+  {BBA8EF37-BE2C-4803-8EFB-EC3C491DFD0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+  {BBA8EF37-BE2C-4803-8EFB-EC3C491DFD0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+  {BBA8EF37-BE2C-4803-8EFB-EC3C491DFD0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+  {BBA8EF37-BE2C-4803-8EFB-EC3C491DFD0A}.Release|Any CPU.Build.0 = Release|Any CPU
  EndGlobalSection
 EndGlobal

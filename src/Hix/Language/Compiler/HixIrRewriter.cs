@@ -57,6 +57,8 @@ public class HixIrRewriter {
       call.ArgumentNames) {BoundArguments = call.BoundArguments?.Select(Rewrite).ToArray()};
 
   protected static T CopyLocation<T>(HixIrNode source, T target) where T : HixIrNode {
+    if (source is CallExpressionIr sourceCall && target is CallExpressionIr targetCall)
+      targetCall.DispatchConstraint = sourceCall.DispatchConstraint;
     target.SourceRange = source.SourceRange;
     target.Tokens = source.Tokens;
     return target;

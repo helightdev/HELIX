@@ -14,6 +14,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Hix.Tests/HixRoundTripAssertions.cs" Link="HixRoundTripAssertions.cs" />
     <ProjectReference Include="../Hix.Standalone/Hix.Standalone.csproj" />
   </ItemGroup>
   <ItemGroup>

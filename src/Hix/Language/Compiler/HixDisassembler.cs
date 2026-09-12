@@ -93,6 +93,7 @@ public static class HixDisassembler {
       case HixOpcode.LoadRoot: return (StringId(), "push(" + Name() + ")");
       case HixOpcode.LoadTrue: return ("", "push(true)");
       case HixOpcode.LoadFalse: return ("", "push(false)");
+      case HixOpcode.LoadMissing: return ("", "push(missing)");
       case HixOpcode.LoadNull: return ("", "push(null)");
       case HixOpcode.LoadTuple: return ("", "push(tuple())");
       case HixOpcode.LoadTable: return ("", "push(table())");

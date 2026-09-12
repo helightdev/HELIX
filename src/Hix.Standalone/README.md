@@ -26,6 +26,44 @@ Execution remains bytecode-only. `Program.Run` returns 0 for success, 1 for
 compilation/runtime/I/O failure, and 2 for usage errors. Errors are written to the supplied error
 writer. Roslyn functions and roots are unavailable in this backend.
 
+Build the toolchain itself as a Release Native AOT executable with:
+
+```sh
+./gradlew buildHixToolchainAot
+# Select a target runtime explicitly:
+./gradlew buildHixToolchainAot -PHixToolchainRuntime=linux-x64
+```
+
+The task defaults to the current .NET runtime identifier and writes to
+`build/hix-toolchain/aot/`. It always uses Release, independently of `BuildConfiguration`.
+Publishing requires the .NET SDK and the Native AOT native compiler/linker prerequisites for
+the target platform. Native AOT compatibility warnings must be reviewed before distribution.
+
+The optional `Hix.Toolchain` executable exposes saved bytecode commands:
+
+```sh
+hix compile path/to/main.hix --output app.hixbc
+hix compile path/to/project --output app.hixbc
+hix run app.hixbc --entry main -- argument1 argument2
+hix disassemble app.hixbc --output app.disassembly.txt
+hix decompile app.hixbc --output recovered.hix
+```
+
+`compile` resolves the same imports, project sources, and dependencies as source execution and
+writes an image without executing it. `--entry` overrides the entry stored in the image; otherwise
+it stores the project's `applicationMain` or `main`. `run` uses the stored entry unless overridden,
+passes arguments as strings, and resolves relative filesystem paths from the image's directory.
+The original source files are not required to load or run an image.
+
+`disassemble` and `decompile` write to standard output when `--output` is omitted. `-o` is an alias
+for `--output`. Decompiled source can be compiled again with `compile`. `hix --help` lists commands.
+
+Images use a versioned JSON container containing executable bytecode, string and constant pools,
+source-line mappings, signatures, lexical scopes, patterns, parameters, markers, and derivations.
+Loading checks the format version and validates bytecode through `HixDecompiler`; malformed or
+unsupported images return an error. Loading binds host functions against the standalone backend.
+`HixImageFile.Write` and `HixImageFile.Read` expose the same storage format to .NET consumers.
+
 The standalone backend also provides JSON conversion through Newtonsoft.Json:
 
 ```hix

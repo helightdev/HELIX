@@ -29,6 +29,7 @@ pure func bytecodeMarked(number value) -> number {
 
 %test
 func literalAndCollectionOpcodesAreExplicit {
+  local absent = [missing]
   local empty = null
   local yes = true
   local no = false
@@ -38,6 +39,7 @@ func literalAndCollectionOpcodesAreExplicit {
   local packedTable = @{value=null}
   local compiled = compile()
   assert(success($compiled))
+  assert(hasOpcode($compiled, <LoadMissing>))
   assert(hasOpcode($compiled, <LoadNull>))
   assert(hasOpcode($compiled, <LoadTrue>))
   assert(hasOpcode($compiled, <LoadFalse>))

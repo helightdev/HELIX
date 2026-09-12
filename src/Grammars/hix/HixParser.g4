@@ -36,7 +36,9 @@ funcDeclaration
     : funcModifier* KEYWORD_FUNC functionDeclarationIdentifier directFunctionSignature? trivia* functionBody
     ;
 
-directFunctionSignature: patternParameterList? ARROW patternExpression;
+directFunctionSignature: (patternParameterList | collectiveInputPattern)? ARROW (patternExpression | outputSignatureFields);
+collectiveInputPattern: BEGIN_VALUE_INLINE patternExpression VALUE_END_INLINE;
+outputSignatureFields: patternParameterList;
 
 functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
 
@@ -96,6 +98,7 @@ statementBody
     | whenValueStatement
     | whenConditionStatement
     | whenChainStatement
+    | valueExpression
     ;
 
 // Calls
@@ -168,7 +171,7 @@ value: nonArgumentValue | argumentValue;
 valueExpression: TOPLEVEL_VALUE_EXPRESSION value VALUE_END;
 
 nonArgumentValue
-    : primaryValue elvisValue?
+    : primaryValue transformationPart* elvisValue?
     | prefixOperators nonArgumentValue
     | nonArgumentValue postfixOperators
     ;
@@ -176,6 +179,7 @@ nonArgumentValue
 primaryValue
     : inlineValue
     | lambdaValue
+    | inlineBlockValue
     | derivation
     | tableValue
     | tupleValue
@@ -188,15 +192,20 @@ primaryValue
     | MISSING
     ;
 
+inlineBlockValue: BEGIN_INLINE_BLOCK (statement | SEMICOLON | trivia)* RC FAT_ARROW derivation;
+
 lambdaValue
     : BEGIN_LAMBDA_BLOCK (statement | SEMICOLON | trivia)* RC
     | BEGIN_LAMBDA_ARROW value VALUE_END?
     ;
 
 prefixOperators: NOT_VALUE;
-postfixOperators: QUESTION;
+postfixOperators: QUESTION | CAST_BOOLEAN;
 
-valueStatement: functionIdentifier callValueList;
+valueStatement: functionIdentifier callValueList callBinding?;
+
+// Explicit dispatch is used when reconstructing syntax-free bytecode.
+callBinding: STATIC_CALL valueList | DYNAMIC_CALL;
 
 tailValue
     : NEWLINE? contentBlock
@@ -243,15 +252,18 @@ inlineTransformation: BEGIN_VALUE_INLINE transformationPart+ VALUE_END_INLINE;
 
 derivation: derivationRoot transformationPart*;
 
+explicitRoot: EXPLICIT_ROOT valueList;
+
 derivationRoot
-    : ROOT_IDENTIFIER
+    : explicitRoot
+    | ROOT_IDENTIFIER
     | VALUE_SMART_ROOT (ROOT_IDENTIFIER | NUMBER | MISSING)
     ;
 
 elvisValue: VALUE_ELVIS value;
 
 transformationPart
-    : functionChainType functionIdentifier callValueList?
+    : functionChainType functionIdentifier callValueList? callBinding?
     | memberIdentifier
     | VALUE_WRAP
     ;

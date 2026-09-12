@@ -9,10 +9,6 @@ namespace Hix.Standalone;
 
 internal static class CompilationFunctions {
   public static void Register(FunctionSignatureRegistryBuilder functions) {
-    functions.Add(new FunctionDefinition("marker", [
-        new FunctionSignature(K.Pattern, [K.String], ArgumentNames: ["name"])
-      ], "Names a statement or variable declaration for standalone compilation inspection.",
-      HixMetadataKind.Statement | HixMetadataKind.VariableDeclaration));
     functions.Add(
       Function("compile", [new(K.Table, []), new(K.Table, [K.String])], Compile),
       Function("success", [new(K.Bool, [K.Table])], (thread, args) => Field(thread, args[0], "success")),

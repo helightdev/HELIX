@@ -19,6 +19,8 @@ public enum HixOpcode : byte {
   LoadString = 1,
   /// <summary>No operands; push null.</summary>
   LoadNull = 2,
+  /// <summary>No operands; push missing.</summary>
+  LoadMissing = 11,
   /// <summary>No operands; push true.</summary>
   LoadTrue = 3,
   /// <summary>No operands; push false.</summary>
@@ -121,7 +123,7 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
       HixOpcode.InvalidGoto or HixOpcode.Break or HixOpcode.Continue or
       HixOpcode.CheckStoreCarry or HixOpcode.CastString or HixOpcode.LoadTrue
       or HixOpcode.LoadFalse or
-      HixOpcode.LoadNull or HixOpcode.LoadTuple or HixOpcode.LoadTable => 1,
+      HixOpcode.LoadMissing or HixOpcode.LoadNull or HixOpcode.LoadTuple or HixOpcode.LoadTable => 1,
     _ => throw new ArgumentException("Unknown opcode " + Opcode)
   };
 

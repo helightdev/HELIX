@@ -58,7 +58,7 @@ public static class HixFormatter {
   private static bool IsWhitespace(IToken token) => token.Type is HixLexer.OUTER_WHITESPACE or HixLexer.NEWLINE or
     HixLexer.METADATA_WHITESPACE or HixLexer.DERIVATION_WHITESPACE or HixLexer.VALUE_WHITESPACE;
   private static bool IsOpening(int type) => type is HixLexer.LC or HixLexer.BEGIN_TABLE or HixLexer.BEGIN_TUPLE or
-    HixLexer.BEGIN_LAMBDA_BLOCK or HixLexer.BEGIN_PARAMETERS or HixLexer.BEGIN_VALUE_INLINE or
+    HixLexer.BEGIN_INLINE_BLOCK or HixLexer.BEGIN_LAMBDA_BLOCK or HixLexer.BEGIN_PARAMETERS or HixLexer.BEGIN_VALUE_INLINE or
     HixLexer.BEGIN_METADATA_VALUE;
   private static bool IsClosing(int type) => type is HixLexer.RC or HixLexer.END_PARAMETERS or
     HixLexer.VALUE_END_INLINE;

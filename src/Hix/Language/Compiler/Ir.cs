@@ -251,6 +251,9 @@ public sealed class MemberExpressionIr(ExpressionIr receiver, string member) : E
   public HixReferenceBinding Binding { get; set; } = HixReferenceBinding.Unbound;
 }
 
+/// <summary>An explicit dispatch requirement, independent of inferred argument types.</summary>
+public sealed record HixCallConstraint(HixCallKind Kind, string Signature = null);
+
 public sealed class CallExpressionIr(string name, IReadOnlyList<ExpressionIr> arguments,
   bool coerceBoolean = false, HixCallBinding binding = null, IReadOnlyList<string> argumentNames = null
 ) : ExpressionIr(arguments) {
@@ -259,6 +262,7 @@ public sealed class CallExpressionIr(string name, IReadOnlyList<ExpressionIr> ar
   public bool CoerceBoolean { get; } = coerceBoolean;
   public HixCallBinding Binding { get; set; } = binding ?? HixCallBinding.Unbound;
   public IReadOnlyList<string> ArgumentNames { get; } = argumentNames ?? Enumerable.Repeat<string>(null, arguments.Count).ToArray();
+  public HixCallConstraint DispatchConstraint { get; set; }
   public IReadOnlyList<ExpressionIr> BoundArguments { get; set; }
   public IReadOnlyList<ExpressionIr> EffectiveArguments => BoundArguments ?? Arguments;
 }

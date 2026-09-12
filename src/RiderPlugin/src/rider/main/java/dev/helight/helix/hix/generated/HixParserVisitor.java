@@ -89,6 +89,18 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitDirectFunctionSignature(HixParser.DirectFunctionSignatureContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#collectiveInputPattern}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCollectiveInputPattern(HixParser.CollectiveInputPatternContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#outputSignatureFields}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitOutputSignatureFields(HixParser.OutputSignatureFieldsContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#functionBody}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -317,6 +329,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitPrimaryValue(HixParser.PrimaryValueContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#inlineBlockValue}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitInlineBlockValue(HixParser.InlineBlockValueContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#lambdaValue}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -340,6 +358,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitValueStatement(HixParser.ValueStatementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#callBinding}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCallBinding(HixParser.CallBindingContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#tailValue}.
 	 * @param ctx the parse tree
@@ -412,6 +436,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitDerivation(HixParser.DerivationContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#explicitRoot}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitExplicitRoot(HixParser.ExplicitRootContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#derivationRoot}.
 	 * @param ctx the parse tree

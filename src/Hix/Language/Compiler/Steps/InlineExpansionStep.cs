@@ -104,7 +104,7 @@ public sealed class InlineExpansionStep : HixLoweringStep {
           _ => new TupleExpressionIr(returned.Values.Select(Rewrite).ToArray())
         };
         return CopyLocation(returned, new BlockStatementIr([
-          new AssignmentStatementIr(StorageSpace.Local, resultLocal, result),
+          new AssignmentStatementIr(StorageSpace.Local, resultLocal, result, declaration: false),
           new ControlFlowStatementIr(ControlFlowKind.Goto, endLabel, [])
         ]));
       }

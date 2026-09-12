@@ -523,6 +523,7 @@ public sealed class HixThread {
           case HixOpcode.LoadString: stack.Add(String(HixString.Interned(a))); break;
           case HixOpcode.LoadTrue: stack.Add(BooleanHixValue.True); break;
           case HixOpcode.LoadFalse: stack.Add(BooleanHixValue.False); break;
+          case HixOpcode.LoadMissing: stack.Add(MissingHixValue.Instance); break;
           case HixOpcode.LoadNull: stack.Add(NullHixValue.Instance); break;
           case HixOpcode.LoadTuple: stack.Add(TupleHixValue.Empty); break;
           case HixOpcode.LoadTable: stack.Add(HixTableValue.Empty); break;
