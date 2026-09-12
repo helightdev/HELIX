@@ -80,8 +80,7 @@ public static class HixDisassembler {
     string StringId() => "s" + Number(a);
     string Storage() => instruction.Opcode switch {
       HixOpcode.StoreCarry or HixOpcode.CheckStoreCarry => "carry.local",
-      HixOpcode.StoreVariable or HixOpcode.CheckStoreVariable => "var",
-      HixOpcode.StoreTarget or HixOpcode.CheckStoreTarget => "target.var", _ => "local"
+      _ => "local"
     };
     string Slot() => Storage() + "[" + Quote(Name()) + "]";
     string Args(int count) => count == 0 ? "" : count == 1 ? "pop()" : "pop_args(" + Number(count) + ")...";
@@ -98,13 +97,9 @@ public static class HixDisassembler {
       case HixOpcode.LoadTuple: return ("", "push(tuple())");
       case HixOpcode.LoadTable: return ("", "push(table())");
       case HixOpcode.Member: return (StringId(), "push(pop()[" + Quote(Name()) + "])");
-      case HixOpcode.CheckStoreCarry:
-      case HixOpcode.CheckStoreVariable:
-      case HixOpcode.CheckStoreTarget: return ("", "require_writable(" + Storage() + ")");
+      case HixOpcode.CheckStoreCarry: return ("", "require_writable(" + Storage() + ")");
       case HixOpcode.StoreLocal:
-      case HixOpcode.StoreCarry:
-      case HixOpcode.StoreVariable:
-      case HixOpcode.StoreTarget: return (StringId(), Slot() + " = pop()");
+      case HixOpcode.StoreCarry: return (StringId(), Slot() + " = pop()");
       case HixOpcode.Pop: return ("", "discard(pop())");
       case HixOpcode.PackTuple: return (Number(a), "push(tuple(" + Args(a) + "))");
       case HixOpcode.PackTable: return (Number(a), "push(table(pop_pairs(" + Number(a) + ")))");

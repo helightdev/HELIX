@@ -1,0 +1,57 @@
+%import<support.hix>
+---
+
+%test
+func unknownNamedParameter {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { pair(first = <a>, unknown = <b>) }"
+  assertCompilationFails($source, <no overload of 'pair'>)
+}
+
+%test
+func missingRequiredNamedParameter {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { pair(second = <b>) }"
+  assertCompilationFails($source, <no overload of 'pair'>)
+}
+
+%test
+func positionalAndNamedDuplicateParameter {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { pair(<a>, first = <b>) }"
+  assertCompilationFails($source, <no overload of 'pair'>)
+}
+
+%test
+func tooManyPositionalParameters {
+  local source = "pure func one(string value) -> string => $value;\nfunc invalid { one(<a>, <b>) }"
+  assertCompilationFails($source, <no overload of 'one'>)
+}
+
+%test
+func unknownFunctionCall {
+  local source = "func invalid { unknownSyntaxFunction() }"
+  assertRejected($source)
+}
+
+%test
+func callbackWithMultipleUnpackedArguments {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { call(pair, <a>, <b>) }"
+  assertCompilationFails($source, <no overload of 'call'>)
+}
+
+%test
+func doubleCommaInCall {
+  local source = "func invalid { uppercase(<a>,,) }"
+  assertRejected($source)
+}
+
+%test
+func missingNamedArgumentValue {
+  local source = "func invalid { uppercase(value = ) }"
+  assertRejected($source)
+}
+
+%test
+func unclosedCallParameterList {
+  local source = "func invalid { uppercase(<a> }"
+  assertRejected($source)
+}
+

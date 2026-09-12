@@ -19,7 +19,7 @@ public class StandaloneTests {
     var output = new StringWriter();
     var result = HixTestRunner.Run([Path.Combine(AppContext.BaseDirectory, "HixTests")], output);
     Assert.True(result.Success, output.ToString());
-    Assert.True(result.Passed >= 54, output.ToString());
+    Assert.True(result.Passed >= 247, output.ToString());
   }
   [Fact] public void MainReturnsValue() {
     var result = Run("func main { return(42) }");

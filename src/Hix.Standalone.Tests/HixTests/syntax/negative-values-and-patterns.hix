@@ -1,0 +1,117 @@
+%import<support.hix>
+---
+
+%test
+func duplicateTableLiteralKeys {
+  local source = "func invalid { local value = @{key=1, key=2} }"
+  assertCompilationFails($source, <duplicate table literal key>)
+}
+
+%test
+func unknownPatternIdentifier {
+  local source = "type Unknown = NonexistentSyntaxType"
+  assertCompilationFails($source, <unknown pattern>)
+}
+
+%test
+func duplicateTypeDeclarations {
+  local source = "type Same = string\ntype Same = number"
+  assertCompilationFails($source, <duplicate pattern>)
+}
+
+%test
+func duplicateFunctionSignatures {
+  local source = "pure func same(string value) -> string => $value;\npure func same(string value) -> string => $value;"
+  assertCompilationFails($source, <duplicate function signature>)
+}
+
+%test
+func conflictingInlineModifiers {
+  local source = "pure inline noinline func invalid -> null { return() }"
+  assertCompilationFails($source, <inline and noinline>)
+}
+
+%test
+func unclosedTupleLiteral {
+  local source = "func invalid { return(@[1, 2) }"
+  assertRejected($source)
+}
+
+%test
+func unclosedTableLiteral {
+  local source = "func invalid { return(@{key=1) }"
+  assertRejected($source)
+}
+
+%test
+func tableEntryWithoutValue {
+  local source = "func invalid { return(@{key=}) }"
+  assertRejected($source)
+}
+
+%test
+func unterminatedAngleString {
+  local source = "func invalid { return(<unterminated) }"
+  assertRejected($source)
+}
+
+%test
+func unterminatedQuotedString {
+  local source = "func invalid { return(\"unterminated) }"
+  assertRejected($source)
+}
+
+%test
+func memberWithoutIdentifier {
+  local source = "pure func invalid(any value) -> any => $value#;"
+  assertRejected($source)
+}
+
+%test
+func transformationWithoutFunction {
+  local source = "pure func invalid(any value) -> any => $value:;"
+  assertRejected($source)
+}
+
+%test
+func emptyUnionAlternative {
+  local source = "type Invalid = string |;"
+  assertRejected($source)
+}
+
+%test
+func incompleteDelegatePattern {
+  local source = "type Invalid = delegate(string value) ->;"
+  assertRejected($source)
+}
+
+
+%test
+func invalidQuotedEscape {
+  local source = "func invalid { return(\"\\q\") }"
+  assertRejected($source)
+}
+
+%test
+func unexpectedCommaInTuple {
+  local source = "func invalid { return(@[1,,2]) }"
+  assertRejected($source)
+}
+
+%test
+func unexpectedCommaInTable {
+  local source = "func invalid { return(@{first=1,,second=2}) }"
+  assertRejected($source)
+}
+
+%test
+func unsupportedExponentLiteral {
+  local source = "func invalid { return(1e3) }"
+  assertRejected($source)
+}
+
+%test
+func missingLocalInitializer {
+  local source = "func invalid { local value = }"
+  assertRejected($source)
+}

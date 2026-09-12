@@ -38,16 +38,8 @@ public enum HixOpcode : byte {
   StoreLocal = 9,
   /// <summary>u16 string pool name; pop into a carried local; requires top-level prelude.</summary>
   StoreCarry = 10,
-  /// <summary>u16 string pool name; pop into a shared variable.</summary>
-  StoreVariable = 11,
-  /// <summary>u16 string pool name; pop into a target variable.</summary>
-  StoreTarget = 12,
   /// <summary>No operands; check carry write permission and top-level prelude context before evaluation.</summary>
   CheckStoreCarry = 13,
-  /// <summary>No operands; check shared-variable write permission before evaluating the assigned value.</summary>
-  CheckStoreVariable = 14,
-  /// <summary>No operands; check target-variable write permission before evaluating the assigned value.</summary>
-  CheckStoreTarget = 15,
 
 
   // Stack and packing
@@ -118,7 +110,7 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
     HixOpcode.JumpNotNull or HixOpcode.JumpFalse or HixOpcode.Block or HixOpcode.Goto;
   public bool UsesStringPool => Opcode is HixOpcode.LoadString or HixOpcode.LoadRoot or HixOpcode.Member
     or HixOpcode.StoreLocal or
-    HixOpcode.StoreCarry or HixOpcode.StoreVariable or HixOpcode.StoreTarget or HixOpcode.CallDynamic or HixOpcode.Throw;
+    HixOpcode.StoreCarry or HixOpcode.CallDynamic or HixOpcode.Throw;
   public int Size => Opcode switch {
     HixOpcode.Call or HixOpcode.CallDynamic => 5,
     _ when IsRelative || UsesStringPool || Opcode is HixOpcode.LoadConst or HixOpcode.PackTuple or HixOpcode.PackTable
@@ -126,8 +118,8 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
       HixOpcode.Interpolate or HixOpcode.Pack => 3,
     HixOpcode.End or HixOpcode.Pop or HixOpcode.CastBoolean or HixOpcode.Not or HixOpcode.EndCheck or
       HixOpcode.Equal or HixOpcode.Return or
-      HixOpcode.InvalidGoto or HixOpcode.Break or HixOpcode.Continue or HixOpcode.CheckStoreVariable or
-      HixOpcode.CheckStoreTarget or HixOpcode.CheckStoreCarry or HixOpcode.CastString or HixOpcode.LoadTrue
+      HixOpcode.InvalidGoto or HixOpcode.Break or HixOpcode.Continue or
+      HixOpcode.CheckStoreCarry or HixOpcode.CastString or HixOpcode.LoadTrue
       or HixOpcode.LoadFalse or
       HixOpcode.LoadNull or HixOpcode.LoadTuple or HixOpcode.LoadTable => 1,
     _ => throw new ArgumentException("Unknown opcode " + Opcode)

@@ -1,0 +1,63 @@
+%import<support.hix>
+---
+
+%test
+func duplicateLabels {
+  local source = "func invalid {\n:again\n:again\nreturn()\n}"
+  assertCompilationFails($source, <duplicate label>)
+}
+
+%test
+func undeclaredLocalAssignment {
+  local source = "func invalid { $undeclared = <value> }"
+  assertCompilationFails($source, <cannot assign undeclared local>)
+}
+
+%test
+func duplicateLocalDeclarations {
+  local source = "func invalid { local value = 1; local value = 2 }"
+  assertCompilationFails($source, <already declared>)
+}
+
+%test
+func carriedLocalInFunction {
+  local source = "func invalid { carry local value = 1 }"
+  assertCompilationFails($source, <carry local is only valid>)
+}
+
+%test
+func localMutationThroughFunction {
+  local source = "func invalid { local(<value>, 1) }"
+  assertCompilationFails($source, <locals cannot be modified>)
+}
+
+%test
+func gotoWithoutLabel {
+  local source = "func invalid { goto }"
+  assertRejected($source)
+}
+
+%test
+func returnWithNamedArguments {
+  local source = "func invalid { return(value = 1) }"
+  assertRejected($source)
+}
+
+%test
+func selectorBranchWithoutArrow {
+  local source = "func invalid { when [1] {\n1 <one>\n} }"
+  assertRejected($source)
+}
+
+%test
+func unclosedStatementBlock {
+  local source = "func invalid { return(1)"
+  assertRejected($source)
+}
+
+%test
+func conditionChainWithoutArrow {
+  local source = "func invalid { when {\n(true) <one>\n} }"
+  assertRejected($source)
+}
+

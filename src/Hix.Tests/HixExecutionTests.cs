@@ -561,10 +561,15 @@ public sealed class HixExecutionTests {
       """;
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
-    Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"Ada", "18", "ready", "21", "left", "4", "Existing", "Pet"},
-      result.Outputs.Select(output => output.ReadText()));
+    var program = TestCompiler.Compile(unit, "Example", TestBackend.Instance);
+    var vm = new HixVM([program]);
+    // Constructor methods belong to the image and must work across independent invocations.
+    for (var run = 0; run < 2; run++) {
+      var result = vm.Run(program, new HixThread(new Context()));
+      Assert.True(result.Success, result.Error.Resolve(result.Strings));
+      Assert.Equal(new[] {"Ada", "18", "ready", "21", "left", "4", "Existing", "Pet"},
+        result.Outputs.Select(output => output.ReadText()));
+    }
   }
 
   [Fact]

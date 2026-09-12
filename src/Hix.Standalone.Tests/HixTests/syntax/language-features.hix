@@ -21,11 +21,19 @@ func syntaxFeaturesExecuteFromTheirCanonicalParse {
     true -> <yes>
     else -> <no>
   }
-  assert(success(compile()))
+  assert(eq($tuple, @[<left>, 2]))
+  assert(eq($table, @{first=<a>, second=<b>}))
+  assert(eq(call($mapper, <mapped>), <mapped>))
+  assert(eq($selected, <yes>))
   assert(eq(arrow(2), 3))
 }
 
 %test
 func nullableUnionTupleDelegateAndTaggedPatternsCompile {
-  assert(success(compile()))
+  assert(eq(NullableString(null), null))
+  assert(eq(Pair(<left>, 2), @[<left>, 2]))
+  local house = House(pet = Cat(name = <Milo>))
+  assert(eq($house#pet#name, <Milo>))
+  assert(eq($house#pet#lives, 9))
+  assert(eq(get($house, <$type>), <House>))
 }

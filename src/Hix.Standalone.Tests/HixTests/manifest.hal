@@ -2,6 +2,6 @@
 name = standalone-tests
 sources = {
   main = []
-  test = ["*", "imports/**", "syntax/tests.hix", "syntax/language-features.hix"]
+  test = ["*", "imports/**", "syntax/**"]
   modules = []
 }

@@ -13,6 +13,46 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixBytecodeTests {
   [Fact]
+  public void DeclaredPatternConstructorsAreOrdinaryBytecodeFunctions() {
+    var program = TestCompiler.Compile("""
+      type Person = @{string name, number age = [18], %optional string note}
+      type Pair = @[string first, %optional number second]
+      %tagged type Pet = @{string name}
+      pure func make (any value) -> Person { return(Person($value)) }
+      pure func accepts (pattern value) -> bool { return(true) }
+      mixin Example { expression {
+        local constructed = make(<Ada>)
+        local identity = make(@{name=<Grace>, age=21})
+        local pair = Pair(first = <one>)
+        local pet = Pet(@{name=<Milo>})
+        emit(local#constructed#name)
+        emit(local#constructed#age)
+        emit(has(local#constructed, <note>))
+        emit(local#identity#name)
+        emit(length(local#pair))
+        emit(get(local#pet, <$type>))
+        emit(accepts(Person))
+      } }
+      """, "Example");
+    var methods = program.Scope.DisassemblyFunctions("mixin").Select(item => item.Function).ToArray();
+    foreach (var name in new[] {"Person", "Pair", "Pet"}) {
+      var constructors = methods.Where(method => method.Name == name).ToArray();
+      Assert.Equal(2, constructors.Length);
+      Assert.All(constructors, method => {
+        Assert.True(method.IsPure);
+        Assert.Equal(HixOpcode.Enter, HixInstruction.Decode(program.Bytecode, method.Body).Opcode);
+      });
+    }
+    Assert.Contains(program.ConstantPool.OfType<FunctionReferenceHixValue>(), reference => reference.Signature.Name == "Pair");
+    var vm = new HixVM([program]);
+    for (var run = 0; run < 2; run++) {
+      var result = vm.Run(program, TestBackend.Instance.CreateThread());
+      Assert.True(result.Success, result.Error.Resolve(result.Strings));
+      Assert.Equal(new[] {"Ada", "18", "false", "Grace", "1", "Pet", "true"}, result.Outputs.Select(output => output.ReadText()));
+    }
+  }
+
+  [Fact]
   public void LoadedReferencesReuseBindingsAndPreserveShadowedCallDispatch() {
     var program = TestCompiler.Compile("""
       pure func choose (number value) -> string { return(<global>) }

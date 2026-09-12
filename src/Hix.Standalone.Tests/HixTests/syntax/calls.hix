@@ -1,0 +1,214 @@
+// The same function is invoked through positional, named, tail, and chain forms.
+pure func pair(string first, string second = [<right>]) -> string => <[$first]:[$second]>;
+pure func zero() -> string => <zero>;
+pure func identity(any value) -> any { return($value) }
+
+%test
+%testcase(@[], <left:right>)
+func parenthesizedCall -> string { return(pair(<left>, <right>)) }
+
+%test
+%testcase(@[], <left:right>)
+func angleArgumentCall -> string { return(pair<left><right>) }
+
+%test
+%testcase(@[], <left:right>)
+func mixedQuotedAndAngleArguments -> string { return(pair("left", <right>)) }
+
+%test
+%testcase(@[], <left:right>)
+func namedCall -> string { return(pair(first = <left>, second = <right>)) }
+
+%test
+%testcase(@[], <left:right>)
+func reversedNamedCall -> string { return(pair(second = <right>, first = <left>)) }
+
+%test
+%testcase(@[], <left:right>)
+func mixedPositionalAndNamedCall -> string { return(pair(<left>, second = <right>)) }
+
+%test
+%testcase(@[], <left:right>)
+func omittedDefaultCall -> string { return(pair(first = <left>)) }
+
+%test
+%testcase(@[], <left:right>)
+func trailingCommaCall -> string { return(pair(<left>, <right>,)) }
+
+%test
+%testcase(@[], <left:right>)
+func multilineCall -> string {
+  return(pair(
+    first = <left>,
+    second = <right>,
+  ))
+}
+
+%test
+%testcase(@[], <left:right>)
+func callWithValueTail -> string {
+  local result = pair(<left>) [<right>]
+  return($result)
+}
+
+%test
+%testcase(@[], <left:right>)
+func callWithContentTail -> string {
+  local result = pair<left> @> right
+  return($result)
+}
+
+%test
+%testcase(@[], <left:right>)
+func callWithExpressionTail -> string {
+  local result = pair<left> @= <right>;
+  return($result)
+}
+
+%test
+%testcase(@[], <left:right>)
+func chainedParenthesizedCall -> string {
+  local first = <left>
+  return($first:pair(<right>))
+}
+
+%test
+%testcase(@[], <left:right>)
+func chainedAngleCall -> string {
+  local first = <left>
+  return($first:pair<right>)
+}
+
+%test
+%testcase(@[], <left:right>)
+func chainedNamedCall -> string {
+  local first = <left>
+  return($first:pair(second = <right>))
+}
+
+%test
+%testcase(@[], <left:right>)
+func chainedDefaultCall -> string {
+  local first = <left>
+  return($first:pair)
+}
+
+%test
+%testcase(@[], <zero:zero>)
+func emptyArgumentLists -> string { return(pair(zero(), zero(  ))) }
+
+%test
+%testcase(@[], <zero>)
+func multilineEmptyArgumentList -> string {
+  return(zero(
+  ))
+}
+
+%test
+%testcase(@[], <left:right>)
+func directFunctionReferenceCall -> string { return(call(pair, <left>)) }
+
+%test
+%testcase(@[], <left:right>)
+func storedFunctionReferenceCall -> string {
+  local callback = [pair]
+  return(call($callback, <left>))
+}
+
+%test
+%testcase(@[], <left:right>)
+func resolvedFunctionReferenceCall -> string { return(call(function(<pair>), <left>)) }
+
+%test
+%testcase(@[], <LEFT>)
+func arrowLambdaCall -> string { return(call(func => uppercase($0), <left>)) }
+
+%test
+%testcase(@[], <LEFT>)
+func blockLambdaCall -> string { return(call(func { return(uppercase($0)) }, <left>)) }
+
+%test
+%testcase(@[], @[1, 2])
+func tupleArgumentIsOneArgument -> any { return(identity(@[1, 2])) }
+
+%test
+%testcase(@[], @{left=<value>})
+func tableArgumentIsOneArgument -> any { return(identity(@{left=<value>})) }
+
+%test
+%testcase(@[], <left:right>)
+func explicitTupleCallbackArgument -> string {
+  return(call(func => pair($0#0, $0#1), @[<left>, <right>]))
+}
+
+%test
+%testcase(@[], <zero>)
+func callbackWithoutArgument -> string { return(call(zero)) }
+
+%test
+%testcase(@[], <VALUE = TEXT>)
+func equalsInsideAngleArgumentIsLiteralText -> string { return(uppercase<value = text>) }
+
+pure func callOverload(string value) -> string => <text:[$value]>;
+pure func callOverload(number value) -> string => <number:[$value]>;
+pure func callNullable(string? value) -> any => $value;
+pure func callOptional(%optional string value) -> any => $value;
+pure func callDefaults(string first = [<first>], string second = [<second>]) -> string => <[$first]:[$second]>;
+
+%test
+%testcase(@[], <text:value>)
+func angleCallSelectsStringOverload -> string { return(callOverload<value>) }
+
+%test
+%testcase(@[], <text:2>)
+func inlineAngleInterpolationIsStringArgument -> string { return(callOverload<[2]>) }
+
+%test
+%testcase(@[], <number:2>)
+func parenthesizedCallSelectsNumericOverload -> string { return(callOverload(2)) }
+
+%test
+%testcase(@[], <number:2>)
+func namedCallSelectsNumericOverload -> string { return(callOverload(value = 2)) }
+
+%test
+%testcase(@[], null)
+func explicitNullCallArgument -> any { return(callNullable(null)) }
+
+%test
+%testcase(@[], missing)
+func explicitMissingCallArgument -> any { return(callOptional(missing)) }
+
+%test
+%testcase(@[], <first:second>)
+func allDefaultArgumentsOmitted -> string { return(callDefaults()) }
+
+%test
+%testcase(@[], <first:changed>)
+func namedArgumentSkipsEarlierDefault -> string { return(callDefaults(second = <changed>)) }
+
+%test
+%testcase(@[], <first:changed>)
+func explicitMissingArgumentUsesDefault -> string { return(callDefaults(missing, <changed>)) }
+
+%test
+%testcase(@[], <left:right>)
+func invocationWithOnlyExpressionTail -> string {
+  local result = pair [<left>]
+  return($result)
+}
+
+%test
+%testcase(@[], <left:right>)
+func invocationWithOnlyContentTail -> string {
+  local result = pair @> left
+  return($result)
+}
+
+%test
+%testcase(@[], <left:right>)
+func invocationWithContentTailOnNextLine -> string {
+  local result = pair<left>
+    @> right
+  return($result)
+}

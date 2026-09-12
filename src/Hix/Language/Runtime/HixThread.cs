@@ -536,20 +536,13 @@ public sealed class HixThread {
               ? execution.Error("member selection requires a container or host selector")
               : receiver.Select(execution, HixString.Dynamic(Name(a))), line); break;
           case HixOpcode.CheckStoreCarry:
-          case HixOpcode.CheckStoreVariable:
-          case HixOpcode.CheckStoreTarget:
           case HixOpcode.StoreCarry:
           case HixOpcode.StoreLocal:
-          case HixOpcode.StoreVariable:
-          case HixOpcode.StoreTarget:
-            b = instruction.Opcode is HixOpcode.StoreVariable or HixOpcode.CheckStoreVariable ? 1
-              : instruction.Opcode is HixOpcode.StoreTarget or HixOpcode.CheckStoreTarget ? 2 : 0;
             var isCarry = instruction.Opcode is HixOpcode.StoreCarry or HixOpcode.CheckStoreCarry;
-            if (execution.pure && (b != 0 || isCarry)) { completion = Failed(execution.Error("pure functions cannot mutate shared storage"), line); break; }
+            if (execution.pure && isCarry) { completion = Failed(execution.Error("pure functions cannot mutate shared storage"), line); break; }
             if (isCarry && (!execution.prelude || execution.depth != 0)) { completion = Failed(execution.Error("carry local assignments require a top-level prelude expression"), line); break; }
-            if (instruction.Opcode is HixOpcode.CheckStoreCarry or HixOpcode.CheckStoreVariable or HixOpcode.CheckStoreTarget) break;
-            var destination = b == 0 ? isCarry || execution.depth == 0 && execution.carries.ContainsKey(HixString.Dynamic(Name(a))) ? execution.carries : execution.locals
-              : b == 1 ? execution.variables : execution.targetVariables;
+            if (instruction.Opcode == HixOpcode.CheckStoreCarry) break;
+            var destination = isCarry || execution.depth == 0 && execution.carries.ContainsKey(HixString.Dynamic(Name(a))) ? execution.carries : execution.locals;
             destination.StoreIsolated(HixString.Dynamic(Name(a)), HixStorageValue.Capture(Pop())); break;
           case HixOpcode.Pop: Pop(); break;
           case HixOpcode.PackTuple: stack.Add(new TupleHixValue(PopMany(a))); break;
@@ -618,40 +611,6 @@ public sealed class HixThread {
 
   private IHixValue Call(string name, IHixValue[] arguments, int line) {
     if (name is "var" or "tar" or "local") return ModifyStorage(name, arguments);
-    if (program.Patterns.TryGetValue(name, out var pattern)) {
-      IHixValue value = null;
-      if (arguments.Length == 1 && pattern is TaggedHixPattern identityTag && arguments[0] is HixTableValue identityTable) {
-        value = identityTable.TryGetValue(this, HixString.Dynamic(TaggedHixPattern.FieldName), out _)
-          ? identityTable
-          : identityTable.Put(this, HixString.Dynamic(TaggedHixPattern.FieldName), String(identityTag.Discriminator));
-      } else if (arguments.Length == 1 && HixPatternMatcher.Matches(pattern, arguments[0], this,
-          program.Patterns, out _)) value = arguments[0];
-      else if (HixPatterns.TryStructural(pattern, program.Patterns, out var structural)) {
-        var fields = structural is TableHixPattern tablePattern ? tablePattern.Fields
-          : ((TupleHixPattern)structural).Fields;
-        var required = fields.Count(field => !field.AllowsMissing);
-        if (arguments.Length < required || arguments.Length > fields.Count)
-          return Error("pattern '" + name + "' constructor expects " + required + ".." + fields.Count + " arguments");
-        var values = new IHixValue[fields.Count];
-        for (var i = 0; i < fields.Count; i++) values[i] = i < arguments.Length && arguments[i] is not MissingHixValue
-          ? arguments[i] : fields[i].HasDefault ? Import(fields[i].DefaultValue) : MissingHixValue.Instance;
-        if (structural is TableHixPattern)
-          value = new HixTableValue(fields.Select((field, index) => (field, index))
-            .Where(item => values[item.index] is not MissingHixValue)
-            .Select(item => new KeyValuePair<HixString, IHixValue>(ResolveString(item.field.Name), values[item.index])));
-        else {
-          var length = values.Length;
-          while (length != 0 && values[length - 1] is MissingHixValue) length--;
-          value = new TupleHixValue(values.Take(length).ToArray());
-        }
-      } else if (arguments.Length != 1) return Error("pattern '" + name + "' expects one value");
-      else value = arguments[0];
-      if (pattern is TaggedHixPattern tagged && value is HixTableValue table &&
-          !table.TryGetValue(this, HixString.Dynamic(TaggedHixPattern.FieldName), out _))
-        value = table.Put(this, HixString.Dynamic(TaggedHixPattern.FieldName), String(tagged.Discriminator));
-      return HixPatternMatcher.Matches(pattern, value, this, program.Patterns, out var patternFailure)
-        ? value : Error("value does not match pattern '" + name + "': " + patternFailure);
-    }
 
     if (scope.Contains(name)) return Invoke(name, arguments, line);
     var definitions = Backend.Functions.Resolve(name, arguments.Length);

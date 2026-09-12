@@ -140,18 +140,26 @@ public sealed class PatternBindingStep : HixCompilerStep {
       foreach (var argument in call.Arguments) Visit(argument);
       var arguments = call.Arguments;
       var argumentPatterns = arguments.Select(argument => argument.InferredPattern).ToArray();
-      var selected = patterns.ContainsKey(call.Name) ? HixCallBinding.Pattern : HixCallBinding.Dynamic;
+      var selected = HixCallBinding.Dynamic;
       if (patterns.TryGetValue(call.Name, out var declaredPattern)) {
+        var methods = functions.TryGetValue(call.Name, out var namedMethods) ? namedMethods
+          .Where(method => method.Signatures.Any(signature => signature.OutputPattern is NamedHixPattern named && named.Name == call.Name))
+          .ToArray() : [];
+        var identityMethod = methods.FirstOrDefault(method => method.Signatures.Any(signature => signature.Inputs == null));
+        var constructorMethod = methods.FirstOrDefault(method => method.Signatures.Any(signature => signature.Inputs != null));
+        var identityPattern = identityMethod?.Signatures[0].InputPattern ?? declaredPattern;
+        var relation = call.Arguments.Count == 1
+          ? HixPatternRelations.Relate(argumentPatterns[0], identityPattern, patterns) : HixPatternRelation.Never;
         if (call.ArgumentNames.All(name => name == null) && call.Arguments.Count == 1 &&
-            HixPatternRelations.Relate(argumentPatterns[0], declaredPattern, patterns) != HixPatternRelation.Never) {
-          call.Binding = selected;
+            relation != HixPatternRelation.Never) {
+          call.Binding = identityMethod == null || relation == HixPatternRelation.Maybe && constructorMethod != null
+            ? HixCallBinding.Dynamic
+            : HixCallBinding.Language(identityMethod.Signatures[0].Constant(call.Name), identityMethod);
           return;
         }
-        if (HixPatterns.TryStructural(declaredPattern, patterns, out var structural) &&
-            TryArrangePattern(call, structural is TableHixPattern table ? table.Fields :
-              ((TupleHixPattern)structural).Fields, out var arranged)) {
+        if (constructorMethod != null && TryArrange(call, constructorMethod.Signatures[0], out var arranged)) {
           call.BoundArguments = arranged;
-          call.Binding = selected;
+          call.Binding = HixCallBinding.Language(constructorMethod.Signatures[0].Constant(call.Name), constructorMethod);
           return;
         }
         if (call.ArgumentNames.Any(name => name != null) || call.Arguments.Count != 1) {
@@ -162,7 +170,8 @@ public sealed class PatternBindingStep : HixCompilerStep {
           else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' only accepts " + call.Name + "(value: " +
             call.Name + ")"));
         }
-        call.Binding = selected;
+        call.Binding = identityMethod == null ? HixCallBinding.Dynamic :
+          HixCallBinding.Language(identityMethod.Signatures[0].Constant(call.Name), identityMethod);
         return;
       }
       if (functions.TryGetValue(call.Name, out var declarations)) {
@@ -204,36 +213,6 @@ public sealed class PatternBindingStep : HixCompilerStep {
           diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts the supplied named arguments"));
       }
       call.Binding = selected;
-    }
-
-    private static bool TryArrangePattern(CallExpressionIr call, IReadOnlyList<HixPatternField> fields,
-      out ExpressionIr[] arranged) {
-      arranged = null;
-      if (call.Arguments.Count > fields.Count) return false;
-      var values = new ExpressionIr[fields.Count];
-      var positional = 0;
-      var sawNamed = false;
-      for (var index = 0; index < call.Arguments.Count; index++) {
-        var name = call.ArgumentNames[index];
-        int target;
-        if (name == null) {
-          if (sawNamed || positional >= fields.Count) return false;
-          target = positional++;
-        } else {
-          sawNamed = true;
-          target = fields.ToList().FindIndex(field => field.Name == name);
-          if (target < 0) return false;
-        }
-        if (values[target] != null) return false;
-        values[target] = call.Arguments[index];
-      }
-      for (var index = 0; index < fields.Count; index++) {
-        if (values[index] != null) continue;
-        if (!fields[index].AllowsMissing) return false;
-        values[index] = new MissingExpressionIr {InferredPattern = new KindHixPattern(HixValueKind.Missing)};
-      }
-      arranged = values;
-      return true;
     }
 
     private static bool TryArrange(CallExpressionIr call, global::Hix.FunctionSignature signature,

@@ -1,0 +1,39 @@
+%import<support.hix>
+---
+
+%test
+func invalidCallsAreRejected {
+  local source @> func invalid { replaceAll(true) }
+  assertCompilationFails($source, <no overload of 'replaceAll'>)
+}
+
+%test
+func duplicateParametersAreRejected {
+  local source @> pure func invalid(string value, string value) -> string => $value;
+  assertCompilationFails($source, <duplicate signature field>)
+}
+
+%test
+func invalidNamedArgumentOrderingIsRejected {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { pair(first = <a>, <b>) }"
+  assertCompilationFails($source, <no overload of 'pair'>)
+}
+
+%test
+func duplicateNamedArgumentsAreRejected {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { pair(first = <a>, first = <b>) }"
+  assertCompilationFails($source, <no overload of 'pair'>)
+}
+
+%test
+func effectsInPureFunctionsAreRejected {
+  local source @> pure func invalid { print(<not pure>) }
+  assertCompilationFails($source, <pure functions cannot perform>)
+}
+
+%test
+func legacySignatureSyntaxIsRejected {
+  local source @> pure func inspect sig any -> string { return(<old>) }
+  assertCompilationFails($source, <sig>)
+}
+

@@ -73,11 +73,11 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("pure func answer => 42\n")]
   [InlineData("pure func <answer with spaces> => 42\n")]
   [InlineData("mixin <HELIX.Example-Type> { expression { emit(<ok>) } }")]
-  [InlineData("%deprecated\n%since(<2.0>)\n%[<future>]\npure func annotated => 42\n")]
+  [InlineData("%title<Example>\n%description(<Version 2.0>)\n%[<future>]\npure func annotated => 42\n")]
   [InlineData("pure func typed(%optional string value) -> string { return($value) }")]
   [InlineData("pure func typed(%many<string> tuple values, %const<test> string another) -> string { return($another) }")]
   [InlineData("mixin AnnotatedTable { expression { local value = @{%[<field-note>] name=<Ada>} } }")]
-  [InlineData("%type<Item>\n%guid<12345678-1234-1234-1234-123456789012>\n%name<My Custom Item>\n---\nmixin Test { }")]
+  [InlineData("%backend<Mixin>\n%pragma<compiler.disassemble>\n%vm<profile>\n---\nmixin Test { }")]
   [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
   [InlineData("pure func trailing(string first, string second,) -> string { return(join(<a>, <b>,)) }")]
@@ -118,8 +118,8 @@ public sealed class HixAntlrGrammarTests {
   [Fact]
   public void MetadataIsRetainedOnDeclarationsAndTableFields() {
     var semantic = Hix.Compiler.AntlrSyntax.Parse("""
-      %deprecated
-      %since(<2.0>)
+      %title<Example>
+      %description(<Version 2.0>)
       %[<future>]
       pure func annotated(%optional string value) -> @{string value} {
         return(@{%[<field-note>] value=$value})
@@ -128,7 +128,7 @@ public sealed class HixAntlrGrammarTests {
 
     Assert.Empty(semantic.Diagnostics);
     var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>().Single();
-    Assert.Equal(new[] {"deprecated", "since", null}, function.Metadata.Select(metadata => metadata.Name));
+    Assert.Equal(new[] {"title", "description", null}, function.Metadata.Select(metadata => metadata.Name));
     Assert.Equal("optional", function.Signatures.Single().Inputs.Single().Metadata.Single().Name);
     var table = function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionIr>().Single();
     Assert.Equal("field-note", Assert.IsType<Hix.Compiler.StringExpressionIr>(
@@ -167,8 +167,8 @@ public sealed class HixAntlrGrammarTests {
   }
 
   [Theory]
-  [InlineData("%deprecated func Build { return(null) }", 1)]
-  [InlineData("%deprecated %since(<2.0>) func Build { return(null) }", 2)]
+  [InlineData("%title<Example> func Build { return(null) }", 1)]
+  [InlineData("%title<Example> %description(<Version 2.0>) func Build { return(null) }", 2)]
   public void MetadataCanAppearInlineBeforeADeclaration(string source, int expectedCount) {
     var semantic = Hix.Compiler.AntlrSyntax.Parse(source);
 
@@ -198,17 +198,17 @@ public sealed class HixAntlrGrammarTests {
   [Fact]
   public void SectionDelimiterSeparatesFileMetadataFromDeclarations() {
     var semantic = Hix.Compiler.AntlrSyntax.Parse("""
-      %type<Item>
-      %guid<12345678-1234-1234-1234-123456789012>
-      %name<My Custom Item>
-      %interaction<something>
+      %backend<Mixin>
+      %pragma<compiler.disassemble>
+      %vm<profile>
+      %import<library.hix>
       ---
       mixin Test {
       }
       """);
 
     Assert.Empty(semantic.Diagnostics);
-    Assert.Equal(new[] {"type", "guid", "name", "interaction"}, semantic.Metadata.Select(value => value.Name));
+    Assert.Equal(new[] {"backend", "pragma", "vm", "import"}, semantic.Metadata.Select(value => value.Name));
     Assert.Empty(Assert.Single(semantic.Declarations.OfType<Hix.Compiler.MixinDeclarationIr>()).Metadata);
   }
 

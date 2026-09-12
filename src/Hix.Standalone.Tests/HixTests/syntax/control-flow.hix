@@ -1,0 +1,226 @@
+%test
+%testcase(@[], null)
+func bareReturn { return; error<unreachable> }
+
+%test
+%testcase(@[], null)
+func emptyReturn { return(); error<unreachable> }
+
+%test
+%testcase(@[], 7)
+func scalarReturn { return(7); error<unreachable> }
+
+%test
+%testcase(@[], <value>)
+func angleReturn { return<value>; error<unreachable> }
+
+%test
+%testcase(@[], @[<left>, 2, true])
+func packedReturn { return(<left>, 2, true,); error<unreachable> }
+
+%test
+%testcase(@[], @[<left>, <right>])
+func adjacentAngleReturn { return<left><right>; error<unreachable> }
+
+%test
+%testcase(@[true], <yes>)
+%testcase(@[false], <no>)
+func guardedReturn(bool value) -> string {
+  when($value) { return<yes> }
+  return<no>
+}
+
+%test
+%testcase(@[true], <yes>)
+%testcase(@[false], <no>)
+func guardedElseReturn(bool value) -> string {
+  when($value) { return<yes> } else { return<no> }
+}
+
+%test
+%testcase(@[true, true], <both>)
+%testcase(@[true, false], <other>)
+%testcase(@[false, true], <other>)
+%testcase(@[false, false], <other>)
+func multipleGuardConditions(bool first, bool second) -> string {
+  when($first, $second) { return<both> }
+  return<other>
+}
+
+%test
+%testcase(@[true, true], <both>)
+%testcase(@[true, false], <first>)
+%testcase(@[false, true], <second>)
+%testcase(@[false, false], <none>)
+func conditionChain(bool first, bool second) -> string {
+  local result = when {
+    ($first, $second) -> <both>
+    ($first) -> <first>
+    ($second) -> <second>
+    else -> <none>
+  }
+  return($result)
+}
+
+%test
+%testcase(@[0], <zero>)
+%testcase(@[1], <one>)
+%testcase(@[2], <other>)
+func selectorValues(number value) -> string {
+  local result = when [$value] {
+    0 -> <zero>
+    1 -> <one>
+    else -> <other>
+  }
+  return($result)
+}
+
+%test
+%testcase(@[-1], <negative>)
+%testcase(@[0], <zero>)
+%testcase(@[1], <positive>)
+func selectorTransformations(number value) -> string {
+  local result = when [$value] {
+    [:compare(<lt>, 0)] -> <negative>
+    0 -> <zero>
+    else -> <positive>
+  }
+  return($result)
+}
+
+%test
+%testcase(@[], <nested>)
+func nestedSelectionBlocks -> string {
+  when [<outer>] {
+    <outer> -> {
+      when [true] {
+        true -> { return<nested> }
+        else -> { return<wrong inner> }
+      }
+    }
+    else -> { return<wrong outer> }
+  }
+  return<wrong fallthrough>
+}
+
+%test
+%testcase(@[], <done>)
+func forwardGotoSkipsStatements -> string {
+  goto finished
+  error<unreachable>
+  :finished
+  return<done>
+}
+
+%test
+%testcase(@[0], 3)
+%testcase(@[2], 3)
+func backwardGotoRevisitsLabel(number start) -> number {
+  local current = [$start]
+  :again
+  $current = plus($current, 1)
+  when(compare($current, <lt>, 3)) { goto again }
+  return($current)
+}
+
+%test
+%testcase(@[], <done>)
+func gotoLeavesNestedBlock -> string {
+  { { goto finished } error<unreachable> }
+  :finished
+  return<done>
+}
+
+%test
+%testcase(@[], 2)
+func breakLeavesCurrentBlock -> number {
+  local value = 1
+  { $value = 2; break; $value = 99 }
+  return($value)
+}
+
+%test
+%testcase(@[], 2)
+func nestedBreakOnlyLeavesInnerBlock -> number {
+  local value = 0
+  { { $value = 1; break; $value = 99 } $value = 2 }
+  return($value)
+}
+
+%test
+%testcase(@[], 3)
+func continueRestartsCurrentBlock -> number {
+  local count = 0
+  {
+    $count = plus($count, 1)
+    when {
+      (compare($count, <lt>, 3)) -> continue
+      else -> break
+    }
+  }
+  return($count)
+}
+
+%test
+%testcase(@[], <labelled>)
+func labelledStatementBlock -> string {
+  :named { return<labelled> }
+  return<unreachable>
+}
+
+%test
+%testcase(@[], 3)
+func semicolonsAndAdjacentStatements -> number { ; local n = 1; ; $n = plus($n, 2); return($n); }
+
+%test
+%testcase(@[], <selected>)
+func guardShortCircuitsUnselectedConditions -> string {
+  when(false, error<unreachable>) { error<unreachable> }
+  local result = when {
+    (false, error<unreachable>) -> error<unreachable>
+    (true) -> <selected>
+    else -> error<unreachable>
+  }
+  return($result)
+}
+
+%test
+%testcase(@[], <fallback>)
+func unmatchedSelectionFallsThrough -> string {
+  when [1] {
+    2 -> return<wrong>
+  }
+  return<fallback>
+}
+
+%test
+%testcase(@[], <selected>)
+func selectorlessValueBranches -> string {
+  when {
+    false -> return<wrong>
+    true -> return<selected>
+    else -> return<wrong fallback>
+  }
+  return<wrong fallthrough>
+}
+
+%test
+%testcase(@[true], <first>)
+%testcase(@[false], <fallback>)
+func selectionReassignsLocal(bool selected) -> string {
+  local value = <initial>
+  $value = when {
+    ($selected) -> <first>
+    else -> <fallback>
+  }
+  return($value)
+}
+
+%test
+%testcase(@[], <firstsecond>)
+func independentGuardsBothExecute -> string {
+  local value = <>
+  when(true) { $value = join(@[$value, <first>], <>) }
+  when(true) { $value = join(@[$value, <second>], <>) }
+  return($value)
+}

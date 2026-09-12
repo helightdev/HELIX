@@ -1,6 +1,6 @@
 namespace Hix.Compiler;
 
-public enum HixCallKind { Unbound, Static, Dynamic, Pattern }
+public enum HixCallKind { Unbound, Static, Dynamic }
 
 /// <summary>Compile-time call semantics. Dynamic dispatch is an explicit bound result.</summary>
 public sealed record HixCallBinding {
@@ -14,7 +14,6 @@ public sealed record HixCallBinding {
   public global::Hix.FunctionDefinition Backend { get; }
   public static readonly HixCallBinding Unbound = new(HixCallKind.Unbound);
   public static readonly HixCallBinding Dynamic = new(HixCallKind.Dynamic);
-  public static readonly HixCallBinding Pattern = new(HixCallKind.Pattern);
   public static HixCallBinding Language(SignatureHixPattern signature, FunctionDeclarationIr function) =>
     new(HixCallKind.Static, signature, function);
   public static HixCallBinding Host(SignatureHixPattern signature, global::Hix.FunctionDefinition backend) =>

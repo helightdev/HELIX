@@ -1,0 +1,115 @@
+%test
+%testcase(@[], @[0, -2, 3.5, -4.25, true, false, null, missing])
+func primitiveLiteralValues -> tuple { return(@[0, -2, 3.5, -4.25, true, false, null, missing,]) }
+
+%test
+%testcase(@[], @[])
+func emptyTupleLiteral -> tuple { return(@[]) }
+
+%test
+%testcase(@[], @{})
+func emptyTableLiteral -> table { return(@{}) }
+
+%test
+%testcase(@[], @[1, @[2, 3], @{value=4}])
+func nestedTupleAndTableLiterals -> tuple { return(@[1, @[2, 3,], @{value=4,},]) }
+
+%test
+%testcase(@[], @{first=1, second=@[2, 3], missing=null})
+func tableKeysAndMultilineEntries -> table {
+  return(@{
+    first = 1,
+    second = @[2, 3],
+    missing = null,
+  })
+}
+
+%test
+%testcase(@[], <quoted>)
+func quotedStringLiteral -> string { return("quoted") }
+
+%test
+%testcase(@[], <>)
+func emptyStringLiterals -> string { return(join(@["", <>], <>)) }
+
+%test
+%testcase(@[], <left:right>)
+func inlineAngleInterpolation -> string {
+  local left = <left>
+  return(<[$left]:[lowercase("RIGHT")]> )
+}
+
+%test
+%testcase(@[], "line\nnext\tA")
+func quotedEscapes -> string { return("line\nnext\t\x41") }
+
+%test
+%testcase(@[], "\"quoted\"\\path")
+func quotedQuoteAndBackslashEscapes -> string { return("\"quoted\"\\path") }
+
+%test
+%testcase(@[], <angle\<value\>\x5bliteral\x5d\{braces\}>)
+func escapedAngleDelimiters -> string { return(<angle\<value\>\x5bliteral\x5d\{braces\}>) }
+
+%test
+%testcase(@[], "A\nB\tC")
+func angleHexAndControlEscapes -> string { return(<\x41\nB\tC>) }
+
+%test
+%testcase(@[], <hello world>)
+func contentWrapJoinsLines -> string {
+  local value @> hello
+    @+  world
+  return($value)
+}
+
+%test
+%testcase(@[], "hello\nworld")
+func contentContinuationPreservesNewline -> string {
+  local value @> hello
+    @> world
+  return($value)
+}
+
+%test
+%testcase(@[], <hello ADA>)
+func contentInterpolatesTransformation -> string {
+  local name = <Ada>
+  local value @> hello {{$name:uppercase}}
+  return($value)
+}
+
+%test
+%testcase(@[], 3)
+func expressionValueInitializer -> number {
+  local value @= plus(1, 2);
+  return($value)
+}
+
+%test
+%testcase(@[], 3)
+func wrappedInlineValueInitializer -> number {
+  local value = [plus(1, 2)]
+  return($value)
+}
+
+%test
+%testcase(@[], null)
+func uninitializedLocalDefaultsToNull { local value; return($value) }
+
+%test
+%testcase(@[], 7)
+func typedLocalDeclaration -> number { local number value = 7; return($value) }
+
+%test
+%testcase(@[], <updated>)
+func smartLocalReassignment -> string { local value = <initial>; $value = <updated>; return($value) }
+
+%test
+%testcase(@[], <comments>)
+func commentsBetweenStatements -> string {
+  // slash comment
+  local value = <comments>
+  @# at comment
+  return($value) // trailing comment
+}
