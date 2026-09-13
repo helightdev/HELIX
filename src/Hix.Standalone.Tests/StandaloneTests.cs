@@ -14,14 +14,14 @@ public class StandaloneTests {
     public readonly HixTask<IHixValue> Completion = new();
     public int ExecutionThread;
     public bool UsedPoolThread;
-    public DeferredFunction() : base("deferred", 0, HixValueKind.Any, HixValueKind.Number, []) { }
+    public DeferredFunction() : base("deferred") { }
     public override HixTask<IHixValue> ExecuteAsync(HixCoroutine coroutine, IHixValue[] arguments, int line) {
       ExecutionThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
       UsedPoolThread = System.Threading.Thread.CurrentThread.IsThreadPoolThread;
       return Completion;
     }
   }
-  private sealed class ThreadIdFunction() : FunctionDefinition("threadId", 0, HixValueKind.Any, HixValueKind.Number, []) {
+  private sealed class ThreadIdFunction() : FunctionDefinition("threadId") {
     public override IHixValue Execute(HixCoroutine coroutine, IHixValue[] arguments, int line) =>
       new NumberHixValue(System.Threading.Thread.CurrentThread.ManagedThreadId);
   }
@@ -29,7 +29,7 @@ public class StandaloneTests {
     public readonly System.Collections.Concurrent.ConcurrentQueue<double> Order = new();
     public readonly System.Threading.ManualResetEventSlim Started = new();
     public readonly System.Threading.ManualResetEventSlim Release = new();
-    public OrderFunction() : base("mark", 1, HixValueKind.Any, HixValueKind.Null, [HixValueKind.Number]) { }
+    public OrderFunction() : base("mark") { }
     public override IHixValue Execute(HixCoroutine coroutine, IHixValue[] arguments, int line) {
       var value = ((NumberHixValue)arguments[0]).Value;
       Order.Enqueue(value);
@@ -43,14 +43,17 @@ public class StandaloneTests {
   private sealed class OrderBackend(OrderFunction mark) : HixBackend {
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
+      functions.AddLibrary("pure func mark(number value) -> null external;");
       functions.Add(mark);
     }
   }
   private sealed class SpawnBackend(Action spawn) : HixBackend {
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
+      functions.AddLibrary("pure func threadId() -> number external;");
       functions.Add(new ThreadIdFunction());
-      functions.Add(new SimpleFunction("spawn", [new(HixValueKind.Null, [])], (_, _) => {
+      functions.AddLibrary("pure func spawn() -> null external;");
+      functions.Add(new SimpleFunction("spawn", (_, _) => {
         spawn();
         return NullHixValue.Instance;
       }));
@@ -101,7 +104,9 @@ public class StandaloneTests {
   private sealed class DeferredBackend(DeferredFunction deferred) : HixBackend {
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
+      functions.AddLibrary("pure func deferred() -> number external;");
       functions.Add(deferred);
+      functions.AddLibrary("pure func threadId() -> number external;");
       functions.Add(new ThreadIdFunction());
     }
   }
@@ -829,11 +834,11 @@ public class StandaloneTests {
     return Assert.IsType<LiteralHixValue>(result.Value).Value.Resolve(result.Strings);
   }
   private sealed class CustomBackend : HixBackend {
-    protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) { base.RegisterFunctions(functions); functions.Add(new CustomFunction()); }
+    protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) { base.RegisterFunctions(functions); functions.AddLibrary("pure func custom(function value) -> any external;"); functions.Add(new CustomFunction()); }
     protected override void RegisterRoots(IDictionary<string,HixBackendRoot> roots) => roots.Add("environment", new("environment", HixValueKind.Number));
     public override IHixValue ResolveRoot(HixCoroutine context, string name) => new NumberHixValue(7);
   }
-  private sealed class CustomFunction() : FunctionDefinition("custom", new[] {new Hix.FunctionSignature(HixValueKind.Any, new[] {HixValueKind.Function})}) {
+  private sealed class CustomFunction() : FunctionDefinition("custom") {
     public override IHixValue Execute(HixCoroutine context, IHixValue[] args, int line) => context.Invoke(args[0], Array.Empty<IHixValue>(), line);
   }
 }

@@ -10,7 +10,7 @@ public sealed class HixAnalyzerServiceTests {
     var backend = Assert.Single(new HixAnalyzerService().Definitions.Where(item => item.Name == "backend"));
 
     Assert.Equal("FileMetadata", backend.Kind);
-    Assert.Equal(new[] {"String"}, backend.ArgumentTypes);
+    Assert.Equal(new[] {"string"}, backend.ArgumentTypes);
     var definition = Assert.Single(HixCoreBackend.Instance.Functions.EnumerateAll()
       .Where(item => item.Name == "backend"));
     Assert.Equal(HixMetadataKind.File, definition.Metadata);
@@ -32,7 +32,7 @@ public sealed class HixAnalyzerServiceTests {
     Assert.All(service.QueryDefinitions("FileMetadata", "", "", ""),
       definition => Assert.Equal("FileMetadata", definition.Kind));
     Assert.All(service.QueryDefinitions("Function", "String", "", ""), definition =>
-      Assert.True(definition.ReceiverType is "String" or "Any"));
+      Assert.True(definition.ReceiverType is "string" or "any"));
     Assert.Empty(service.QueryDefinitions("Root", "", "", "definitelyMissing"));
   }
 

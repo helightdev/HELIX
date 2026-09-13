@@ -7,8 +7,13 @@ type TextMap = %map<string,string>;
 type Positive = %min<1> number;
 type Exact = %const<fixed> string;
 type Handler = delegate(string value,) -> string;
+meta externalAnnotation(string text) for function;
+pure func externalSignature(number value = [42]) -> string external hostSignature;
+%generic<T>
+pure func externalGenericSignature(T value) -> T external hostGenericSignature
 %tagged type Animal = @{string name};
 
+%externalAnnotation<identity documentation>
 pure inline func inlineIdentity(string value) -> string => $value;
 pure noinline func noinlineIdentity(string value) -> string { return($value) }
 pure func doIdentity(string value,) -> string do { return($value) }
@@ -30,6 +35,19 @@ func noinlineFunctionModifier -> string { return(noinlineIdentity(<value>)) }
 %test
 %testcase(@[], <value>)
 func doFunctionBody -> string { return(doIdentity(<value>,)) }
+
+%test
+%testcase(@[], 42)
+func externalDeclarationsLeaveFollowingFunctionsIntact -> number { return(42) }
+
+%test
+func externalDeclarationsStillValidateSignatures {
+  assert(not(success(compile("func missing(Unknown value) -> number external;"))))
+  assert(not(success(compile("func missing(number value, string value) -> number external;"))))
+  assert(not(success(compile("func deferredMissing -> number external; func main { deferredMissing() }"))))
+  assert(not(success(compile("func deferredMissing external; func main { deferredMissing() }"))))
+  assert(not(success(compile("func deferredMissing external; func main { return(deferredMissing) }"))))
+}
 
 %test
 %testcase(@[], <default>)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Linq;
 using Hix.Compiler;
 using Hix.Runtime;
 using K = Hix.HixValueKind;
@@ -8,57 +9,60 @@ using K = Hix.HixValueKind;
 namespace Hix.Standalone;
 
 internal static class ConcurrencyFunctions {
+  public static readonly HixOpaqueTypeDefinition TaskType = new("hix.standalone.task", "task", 1);
+  public static readonly HixOpaqueTypeDefinition ChannelType = new("hix.standalone.channel", "channel", 1);
+  public static readonly HixOpaqueTypeDefinition SemaphoreType = new("hix.standalone.semaphore", "semaphore");
+  private static HixPattern Kind(K kind) => kind == K.Any ? HixPattern.Any : new KindHixPattern(kind);
+
   public static void Register(FunctionSignatureRegistryBuilder functions) {
+    functions.DefineOpaqueType(TaskType.Identity, TaskType.Name, TaskType.Arity);
+    functions.DefineOpaqueType(ChannelType.Identity, ChannelType.Name, ChannelType.Arity);
+    functions.DefineOpaqueType(SemaphoreType.Identity, SemaphoreType.Name);
+    functions.DefineInference("spawn", signature => signature with { CallableArguments = new Dictionary<int, int> { [0] = 1 } });
+    functions.DefineInference("awaitAll", signature => signature with { InferResult = values => JoinPattern(values[0], false) });
+    functions.DefineInference("awaitAny", signature => signature with { InferResult = values => JoinPattern(values[0], true) });
     functions.Add(
-      Sync("spawn", new(K.Symbol, [K.Function, K.Tuple, K.Bool],
-        ArgumentNames: ["function", "arguments", "useThreadPool"],
-        ArgumentDefaults: [null, new TupleExpressionIr([]), new BooleanExpressionIr(false)]), Spawn,
-        "Queues a Hix function or lambda on the current worker, or explicitly on the VM pool. Arguments are positional."),
-      Async("awaitTask", new(K.Any, [K.Symbol]), (thread, args) => Handle<TaskHandle>(args[0], "task").Completion,
-        "Suspends until a task finishes and returns its value, propagating errors."),
-      Async("awaitAll", new(K.Tuple, [K.Tuple]), (thread, args) => Combine(thread, (TupleHixValue)args[0], false),
-        "Waits for every task and returns results in input order. An empty tuple returns an empty tuple."),
-      Async("awaitAny", new(K.Table, [K.Tuple]), (thread, args) => Combine(thread, (TupleHixValue)args[0], true),
-        "Returns {index, value} for the first completed task. Empty input is an error; other tasks keep running."),
-      Sync("taskDone", new(K.Bool, [K.Symbol]), (thread, args) => BooleanHixValue.From(Handle<TaskHandle>(args[0], "task").Completion.IsCompleted),
-        "Tests completion without waiting."),
-      Async("yield", new(K.Null, []), (thread, args) => {
+      Sync("spawn", Spawn),
+      Async("awaitTask", (thread, args) => Handle<TaskHandle>(args[0], "task").Completion),
+      Async("awaitAll", (thread, args) => Combine(thread, (TupleHixValue)args[0], false)),
+      Async("awaitAny", (thread, args) => Combine(thread, (TupleHixValue)args[0], true)),
+      Sync("taskDone", (thread, args) => BooleanHixValue.From(Handle<TaskHandle>(args[0], "task").Completion.IsCompleted)),
+      Async("yield", (thread, args) => {
         RequireSuspendable(thread);
         var completion = new HixTask<IHixValue>();
         HixThread.Current.Post(() => completion.TrySetResult(NullHixValue.Instance));
         return completion;
-      }, "Yields to other runnable events on the current worker."),
-      Async("sleep", new(K.Null, [K.Number], ArgumentNames: ["milliseconds"]), Sleep,
-        "Suspends for a non-negative number of milliseconds without blocking the worker."),
-      Sync("workerId", new(K.Number, []), (thread, args) => new NumberHixValue(Thread.CurrentThread.ManagedThreadId),
-        "Returns the current worker's OS thread ID."),
-      Sync("channel", new(K.Symbol, [K.Number], ArgumentNames: ["capacity"], ArgumentDefaults: [new NumberExpressionIr(0)]),
-        (thread, args) => new ObjectHixValue(new Channel(Count(args[0], "capacity"))),
-        "Creates a FIFO channel. Capacity zero is a rendezvous channel; positive capacity buffers messages."),
-      Async("send", new(K.Null, [K.Symbol, K.Any]), (thread, args) => Handle<Channel>(args[0], "channel").Send(thread, thread.DetachValue(args[1])),
-        "Sends a value, suspending when the channel has no space."),
-      Async("receive", new(K.Any, [K.Symbol]), (thread, args) => Handle<Channel>(args[0], "channel").Receive(thread),
-        "Receives the next value, suspending when the channel is empty. Closed and drained channels return an error."),
-      Sync("closeChannel", new(K.Bool, [K.Symbol]), (thread, args) => BooleanHixValue.From(Handle<Channel>(args[0], "channel").Close()),
-        "Closes a channel, wakes waiting senders/receivers, and preserves buffered messages. Returns false if already closed."),
-      Sync("semaphore", new(K.Symbol, [K.Number, K.Number], ArgumentNames: ["permits", "maximum"],
-        ArgumentDefaults: [new NumberExpressionIr(1), new NumberExpressionIr(int.MaxValue)]), (thread, args) =>
-          new ObjectHixValue(new Semaphore(Count(args[0], "permits"), Count(args[1], "maximum"))),
-        "Creates a FIFO semaphore with non-negative initial permits and a positive maximum. One permit can be used as a mutex."),
-      Async("acquire", new(K.Null, [K.Symbol]), (thread, args) => Handle<Semaphore>(args[0], "semaphore").Acquire(thread),
-        "Acquires one permit, suspending when none is available."),
-      Sync("release", new(K.Null, [K.Symbol]), (thread, args) => {
+      }),
+      Async("sleep", Sleep),
+      Sync("workerId", (thread, args) => new NumberHixValue(Thread.CurrentThread.ManagedThreadId)),
+      Sync("channel", (thread, args) => new ObjectHixValue(new Channel(Count(args[0], "capacity")))),
+      Async("send", (thread, args) => Handle<Channel>(args[0], "channel").Send(thread, thread.DetachValue(args[1]))),
+      Async("receive", (thread, args) => Handle<Channel>(args[0], "channel").Receive(thread)),
+      Sync("closeChannel", (thread, args) => BooleanHixValue.From(Handle<Channel>(args[0], "channel").Close())),
+      Sync("semaphore", (thread, args) =>
+          new ObjectHixValue(new Semaphore(Count(args[0], "permits"), Count(args[1], "maximum")))),
+      Async("acquire", (thread, args) => Handle<Semaphore>(args[0], "semaphore").Acquire(thread)),
+      Sync("release", (thread, args) => {
         Handle<Semaphore>(args[0], "semaphore").Release();
         return NullHixValue.Instance;
-      }, "Releases one permit and wakes the oldest waiter. Exceeding the maximum is an error.")
+      })
     );
   }
 
-  private static FunctionDefinition Sync(string name, FunctionSignature signature, InlineFunction action, string documentation) =>
-    new SimpleFunction(name, [signature], action, effects: true, documentation: documentation);
+  private static HixPattern JoinPattern(HixPattern input, bool any) {
+    if (input is not TupleHixPattern tuple) return Kind(any ? K.Table : K.Tuple);
+    var results = tuple.Fields.Select(field => field.Pattern is OpaqueHixPattern task &&
+      task.Definition.Identity == TaskType.Identity ? task.Arguments[0] : HixPattern.Any).ToArray();
+    return any ? new TableHixPattern([new("index", Kind(K.Number)),
+      new("value", HixPatterns.Union(results))]) :
+      new TupleHixPattern(results.Select((value, index) => new HixPatternField(index.ToString(), value)).ToArray());
+  }
 
-  private static FunctionDefinition Async(string name, FunctionSignature signature,
-    Func<HixCoroutine, IHixValue[], HixTask<IHixValue>> action, string documentation) => new SuspendingFunction(name, signature, action, documentation);
+  private static FunctionDefinition Sync(string name, InlineFunction action) =>
+    new SimpleFunction("standalone_" + name, action);
+
+  private static FunctionDefinition Async(string name,
+    Func<HixCoroutine, IHixValue[], HixTask<IHixValue>> action) => new SuspendingFunction("standalone_" + name, action);
 
   private static T Handle<T>(IHixValue value, string name) where T : class =>
     value is ObjectHixValue { Value: T handle } ? handle : throw new ArgumentException("expected a " + name + " handle");
@@ -168,9 +172,8 @@ internal static class ConcurrencyFunctions {
     return completion;
   }
 
-  private sealed class SuspendingFunction(string name, FunctionSignature signature,
-    Func<HixCoroutine, IHixValue[], HixTask<IHixValue>> action, string documentation) : FunctionDefinition(name, [signature], documentation) {
-    public override bool HasEffects => true;
+  private sealed class SuspendingFunction(string name,
+    Func<HixCoroutine, IHixValue[], HixTask<IHixValue>> action) : FunctionDefinition(name) {
 
     public override HixTask<IHixValue> ExecuteAsync(HixCoroutine thread, IHixValue[] arguments, int line) {
       var completion = action(thread, arguments);

@@ -24,7 +24,7 @@ func concurrencyLambdasAndOrderedJoins {
   assert(eq(local#ready#value, 42))
 }
 
-func concurrencyProducer(symbol channel) -> null {
+func concurrencyProducer(%channel<any> channel) -> null {
   send($channel, <first>)
   send($channel, <second>)
   closeChannel($channel)
@@ -56,4 +56,35 @@ func concurrencyFailuresAreCheckable {
   assert(is([channel(0.5)?], error))
   assert(is([awaitAny(@[])?], error))
   assert(is([spawn(func => 1, useThreadPool = true)?], error))
+}
+
+%test
+%testcase(@[], 42)
+func opaqueTasksInferLambdaResults -> number {
+  local task = spawn(func => plus($0, 1), @[41])
+  local number result = awaitTask(local#task)
+  assert(is(local#task, opaque))
+  return(local#result)
+}
+
+func opaqueOverloadedChild(number value) -> number { return($value) }
+func opaqueOverloadedChild(string value) -> string { return($value) }
+func opaqueDefaultChild(number value = [42]) -> number { return($value) }
+
+%test
+%testcase(@[], 42)
+func opaqueTasksInferOverloadsAndDefaults -> number {
+  local number first = awaitTask(spawn(opaqueOverloadedChild, @[20]))
+  local number second = awaitTask(spawn(opaqueDefaultChild))
+  return(plus(local#first, minus(local#second, 20)))
+}
+
+%test
+func opaqueHandleMixupsAreCompilerErrors {
+  assert(not(success(compile("func main { awaitTask(channel()) }"))))
+  assert(not(success(compile("func main { receive(semaphore()) }"))))
+  assert(not(success(compile("func main { acquire(channel()) }"))))
+  assert(not(success(compile("func main { awaitAll(@[channel()]) }"))))
+  assert(not(success(compile("func main { awaitTask(1) }"))))
+  assert(not(success(compile("func child(number value) -> number { return($value) } func main { spawn(child, @[]) }"))))
 }

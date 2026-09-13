@@ -3,7 +3,7 @@
 
 type DerivedProperty = @{
   string name,
-  symbol type,
+  opaque type,
   string modifier,
   string parameter,
   string argument,
@@ -18,7 +18,7 @@ type DerivedProperty = @{
   string equality,
   string hash
 }
-type DerivedPropertyEntry = @{symbol symbol, DerivedProperty value}
+type DerivedPropertyEntry = @{opaque symbol, DerivedProperty value}
 type DerivedProperties = %many<DerivedPropertyEntry>
 
 func KeepInstanceField -> bool {
@@ -79,13 +79,13 @@ func SeedProp -> table {
   return(@{symbol=$Item, value=@{name=$Name, type=$Type, modifier=$ModifierPrefix, parameter=<[$ParameterModifierPrefix][$Type] [$Name]>, argument=<[$ParameterModifierPrefix][$Name]>, callArgument=<[$ModifierPrefix][$Name]>, assignment=<this.[$Name] = [$Name];>, datatype=$Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=$Type:containsPointer, equality=$Equality, hash=$Hash}})
 }
 
-func DeriveParameters(symbol value) -> DerivedProperties {
+func DeriveParameters(opaque value) -> DerivedProperties {
   assert(![$value:genericMethod])
   tar<PropOptional> @= false;
   return($value:parameters:map(SeedProp):derive)
 }
 
-func DeriveFields(symbol value) -> DerivedProperties {
+func DeriveFields(opaque value) -> DerivedProperties {
   tar<PropOptional> @= false;
   return($value:members:where(KeepInstanceField):map(SeedProp):derive)
 }

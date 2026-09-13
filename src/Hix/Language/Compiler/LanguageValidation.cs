@@ -10,6 +10,22 @@ public static class LanguageValidation {
     void Error(HixIrNode node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
     var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
+    var metadataSignatures = new Dictionary<string, HixMetadataKind>(StringComparer.Ordinal);
+    foreach (var metadata in declarations.OfType<MetadataDeclarationIr>()) {
+      var key = metadata.Name + "(" + string.Join(",", metadata.Arguments.Select(argument =>
+        (argument.Variadic ? "..." : "") + argument.Pattern.Display)) + ")";
+      if (metadataSignatures.TryGetValue(key, out var targets) && (targets & metadata.Targets) != 0)
+        Error(metadata, "duplicate metadata signature '" + key + "'");
+      metadataSignatures[key] = targets | metadata.Targets;
+      var names = new HashSet<string>(StringComparer.Ordinal);
+      for (var index = 0; index < metadata.Arguments.Count; index++) {
+        var argument = metadata.Arguments[index];
+        if (!names.Add(argument.Name)) Error(metadata, "duplicate signature field '" + argument.Name + "'");
+        ValidatePattern(argument.Pattern, metadata, new HashSet<string>());
+        if (argument.Variadic && index != metadata.Arguments.Count - 1)
+          Error(metadata, "only the last metadata argument may be variadic");
+      }
+    }
     void Signature(FunctionDeclarationIr function, FunctionSignature signature) {
       void Fields(IReadOnlyList<SignatureField> fields, string kind, bool output) {
         if (fields == null) {
@@ -36,6 +52,7 @@ public static class LanguageValidation {
       var visible = functions.Concat(imported.Where(function => !localNames.Contains(function.Name))).ToArray();
       var signatures = new HashSet<string>(StringComparer.Ordinal);
       void Pure(BlockStatementIr body) {
+        if (body == null) return;
         foreach (var node in Descendants(body)) {
           if (node is AssignmentStatementIr {Storage: not StorageSpace.Local} or AssignmentStatementIr {IsCarried: true})
             Error(node, "pure functions cannot mutate shared storage");
@@ -52,6 +69,10 @@ public static class LanguageValidation {
       }
       foreach (var function in functions) {
         if (function.IsInline && function.IsNoinline) Error(function, "inline and noinline cannot be combined");
+        foreach (var parameter in function.TypeParameters) {
+          if (parameter.Bound != null) ValidatePattern(parameter.Bound, function, new HashSet<string>());
+          foreach (var bound in parameter.AdditionalBounds) ValidatePattern(bound, function, new HashSet<string>());
+        }
         if (function.Signatures.Count == 0 && !signatures.Add(function.Name + "(*)"))
           Error(function, "duplicate function '" + function.Name + "'");
         foreach (var signature in function.Signatures) {
@@ -63,7 +84,7 @@ public static class LanguageValidation {
         if (function.IsPure) Pure(function.Body);
       }
       foreach (var lambda in nodes.SelectMany(Descendants).OfType<LambdaExpressionIr>()) Pure(lambda.Body);
-      foreach (var function in nodes.OfType<FunctionDeclarationIr>())
+      foreach (var function in nodes.OfType<FunctionDeclarationIr>().Where(function => !function.IsExternal))
         foreach (var assignment in Descendants(function.Body).OfType<AssignmentStatementIr>().Where(item => item.IsCarried))
           Error(assignment, "carry local is only valid in top-level prelude expressions");
       foreach (var lambda in nodes.SelectMany(Descendants).OfType<LambdaExpressionIr>())
@@ -73,7 +94,7 @@ public static class LanguageValidation {
         foreach (var assignment in Descendants(expression.Body).OfType<AssignmentStatementIr>().Where(item => item.IsCarried))
           Error(assignment, "carry local is only valid in prelude expressions");
       foreach (var boundary in nodes.SelectMany(node => node switch {
-        FunctionDeclarationIr function => new[] {function.Body},
+        FunctionDeclarationIr {IsExternal: false} function => new[] {function.Body},
         ExpressionDeclarationIr expression => new[] {expression.Body},
         _ => Array.Empty<BlockStatementIr>()
       })) {
@@ -118,6 +139,16 @@ public static class LanguageValidation {
 
     void ValidatePattern(HixPattern pattern, HixIrNode owner, ISet<string> path) {
       switch (pattern) {
+        case OpaqueHixPattern opaque:
+          if (opaque.Arguments.Count != opaque.Definition.Arity) Error(owner, "invalid opaque type arity");
+          foreach (var argument in opaque.Arguments) ValidatePattern(argument, owner, new HashSet<string>(path));
+          break;
+        case TypeParameterHixPattern parameter:
+          if (owner is FunctionDeclarationIr declaration && !declaration.TypeParameters.Contains(parameter.Parameter) && !declaration.Signatures.Any(signature =>
+              signature.TypeParameters.Contains(parameter.Parameter))) Error(owner, "undeclared type parameter '" + parameter.Display + "'");
+          if (parameter.Parameter.Bound != null) ValidatePattern(parameter.Parameter.Bound, owner, path);
+          foreach (var bound in parameter.Parameter.AdditionalBounds) ValidatePattern(bound, owner, new HashSet<string>(path));
+          break;
         case NamedHixPattern named when !patterns.ContainsKey(named.Name):
           Error(owner, "unknown pattern '" + named.Name + "'"); break;
         case NamedHixPattern named when !path.Add(named.Name):

@@ -1,0 +1,58 @@
+%generic<T>
+pure func genericIdentity(T value) -> T { return($value) }
+
+%generic<T>(union(number, string))
+pure func genericBoundedIdentity(T value) -> T { return($value) }
+
+%generic<T>(number, number)
+pure func genericMultipleBounds(T value) -> T { return($value) }
+
+%generic<T>
+%generic<U>
+pure func genericSecond(T first, U second) -> U { return($second) }
+
+type GenericNestedList = %many(many(string));
+type GenericNestedArgumentList = %many(many<string>);
+type GenericNumberTask = %task<number>;
+
+%generic<T>
+func genericTaskResult(%task<T> task) -> T { return(awaitTask($task)) }
+
+%test
+%testcase(@[], 42)
+func genericMetadataInference -> number {
+  local number first = genericIdentity(20)
+  local string text = genericIdentity(<hello>)
+  assert(eq(local#text, <hello>))
+  assert(eq(genericBoundedIdentity(<hello>), <hello>))
+  assert(eq(genericMultipleBounds(42), 42))
+  return(plus(local#first, genericSecond(<ignored>, 22)))
+}
+
+%test
+%testcase(@[], 42)
+func genericMetadataOpaqueInference -> number {
+  local GenericNumberTask task = spawn(func => 42)
+  return(genericTaskResult(local#task))
+}
+
+%test
+func genericMetadataNestedConstructors {
+  local GenericNestedList first = @[@[<hello>]]
+  local GenericNestedArgumentList second = @[@[<world>]]
+  assert(eq(local#first, @[@[<hello>]]))
+  assert(eq(local#second, @[@[<world>]]))
+}
+
+%test
+%testcase(@["%generic<T>(number) func identity(T value) -> T { return($value) } func main { identity(true) }"], false)
+%testcase(@["%generic<T>(number, string) func identity(T value) -> T { return($value) } func main { identity(42) }"], false)
+%testcase(@["%generic<T> %generic<T> func identity(T value) -> T { return($value) }"], false)
+%testcase(@["%generic<T> func identity(T value) -> T { return($value) } func outside(T value) -> T { return($value) }"], false)
+%testcase(@["type Wrong = %many(number, string);"], false)
+%testcase(@["type Wrong = %task<number,string>;"], false)
+%testcase(@["type Wrong = %many(spawn(number));"], false)
+%testcase(@["type Wrong = %many<symbol>;"], false)
+func genericMetadataRejectsInvalidTypes(string source) -> bool {
+  return(success(compile($source)))
+}

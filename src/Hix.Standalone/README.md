@@ -165,9 +165,15 @@ still run to completion within a slice.
 
 ## Concurrency functions
 
+Concurrency handles have compiler-only nominal types: `task<T>`, `channel<T>`, and `semaphore`.
+`spawn` infers its result from the function/lambda and argument tuple; `awaitTask` preserves that
+result type. `awaitAll` preserves known tuple positions, and `awaitAny` returns an index plus the
+union of known result types. `channel()` produces `channel<any>`; host-created IR can provide an
+explicit element type. All handles still use the single `opaque` runtime kind.
+
 The entrypoint is the main worker on the calling OS thread, independently of the
 background pool. `spawn(function, arguments = @[], useThreadPool = false)` creates
-an independent coroutine/context and returns an opaque `symbol` task handle.
+an independent coroutine/context and returns an opaque `task<T>` handle.
 Functions and lambdas are supported; host-function references are not entrypoints.
 The arguments tuple supplies positional arguments and is snapshotted at submission.
 Lambdas do not capture the caller's locals: pass shared values explicitly.
@@ -217,3 +223,87 @@ to run an event loop until completion, or manage `Run`/`Tick` yourself. Pool siz
 supports all single-threaded concurrency operations without creating background workers.
 Pending waits inside synchronous C# host callbacks are rejected rather than blocking
 or attempting to preserve a native C# stack. Completed waits remain usable there.
+
+## Host-defined opaque types and generics
+
+Use top-level `meta` declarations for annotation signatures. They are not runtime-callable functions
+and do not require an execution handler. List the allowed targets after `for`, for example:
+
+```hix
+meta annotation(string text) for function type;
+```
+
+Targets are `pattern`, `field`, `file`, `type`, `function`, `mixin`, `statement`, and `variable`.
+Targets may be separated by spaces or commas; a terminating semicolon is required.
+
+Host functions declared `pure` have no effects. Ordinary unmarked functions are impure; their effects
+are taken from the Hix declaration, not a C# handler-registration flag.
+
+Register nominal types alongside host implementations. Companion Hix declarations supply signatures,
+generic parameters, defaults, and documentation; the handler only supplies execution behavior.
+
+```csharp
+var box = functions.DefineOpaqueType("my.backend.box", "box", arity: 1,
+  documentation: "An opaque host-owned box.");
+functions.Add(new SimpleFunction("unbox", (execution, arguments) => ReadBoxPayload(arguments[0])));
+functions.AddLibrary("""
+  %description("Reads the value of a host-owned box.")
+  %generic<T>
+  pure func unbox(%box<T> value) -> T external;
+  """);
+```
+
+Use a stable host-qualified identity; display names alone do not establish type identity. Generic
+parameters are scoped to their declaring API and may have a bound pattern. Opaque type arguments
+are invariant, and conflicting concrete inferences or bound violations are compilation errors.
+Unknown values remain `any`; runtime implementations must still validate their opaque payloads.
+
+Programmatic `FunctionDeclarationIr`/IR signatures can declare `TypeParameters`, and
+`CallExpressionIr.TypeArguments` supplies explicit type arguments. Compile these through
+`HixCompiler.CompileFunctions(IEnumerable<CompilationUnitIr>, backend)`. Generic bodies emit once
+with bounds/`any` and opaque types erased; declaration identity metadata preserves static overload
+binding when signatures erase identically. `FunctionSignature.CallableArguments` can connect a callable argument to the tuple
+used to invoke it, providing contextual lambda inference and argument validation (as in `spawn`).
+Opaque types have no JSON/JSON Schema representation.
+
+### Metadata-based generic types
+
+Use `external` instead of a body for signature-only declarations:
+
+```hix
+%generic<T>
+func deferred(T value) -> T external;
+func renamed(number value) -> number external hostOperation;
+```
+
+These declarations retain metadata and signature validation but emit no executable function.
+The trailing semicolon is optional. Binding them to host implementations is a future integration;
+an external declaration alone is not callable at runtime.
+An optional identifier after `external` selects the host entry name. Without it, the declared
+function name is used; the IR preserves the explicit override as `ExternalName`.
+
+Generic definitions are compiler-only pattern constructors, not patterns themselves. Registered
+opaque definitions automatically provide constructors; hosts may also register structural constructors
+with `DefinePatternConstructor(name, arity, implementation, documentation)`.
+
+```hix
+%generic<T>
+func identity(T value) -> T { return($value) }
+
+%generic<T>(union(number, string))
+func boundedIdentity(T value) -> T { return($value) }
+
+%generic<T>
+func taskResult(%task<T> task) -> T { return(awaitTask($task)) }
+
+type TextList = %many<string>;
+type NestedTextList = %many(many(string));
+type OtherNestedTextList = %many(many<string>);
+```
+
+`%generic<T>` introduces `T` only within the annotated function's signatures and body. Repeated
+declarations introduce parameters in metadata order. Bounds follow the name and must all hold;
+`union(...)` expresses alternatives. Nested construction uses ordinary call expressions in metadata,
+not nested angle brackets within a string argument. Calls infer type arguments; explicit runtime-call
+type arguments remain programmatic IR only. Constructed types and generic declarations emit no
+runtime type environments or specialized code.

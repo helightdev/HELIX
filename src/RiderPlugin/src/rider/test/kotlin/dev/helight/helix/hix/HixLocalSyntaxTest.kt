@@ -9,6 +9,16 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `nested callable patterns in external function parameters parse locally`() {
+        val parsed = HixAntlrSyntax.parse(
+            "%generic<T> func spawn(delegate() -> T callback) -> %task<T> any external hostSpawn;\n" +
+                "pure func apply(delegate(number value) -> delegate() -> string callback) -> function external hostApply;"
+        )
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(3, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.DelegatePatternContext })
+    }
+
+    @Test
     fun `decompiled inline blocks and explicit dispatch parse locally`() {
         val source = "pure func main { local result = [do { local value = 1 } => local#value]; " +
             "@= [plus(1, 2) @static(\"plus(number 0, number 1) -> number\")]; " +

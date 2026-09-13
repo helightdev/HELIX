@@ -11,11 +11,8 @@ namespace Hix.Standalone;
 
 internal static class HalFunctions {
   public static void Register(FunctionSignatureRegistryBuilder functions) => functions.Add(
-    new SimpleFunction("parseHal", [new FunctionSignature(K.Any, [K.String]), new FunctionSignature(K.Any, [K.String, K.String])],
-      (thread, args) => Parse(thread, args), documentation: "Parses a Hal asset and returns its primary or named local section."),
-    new SimpleFunction("writeHal", [new FunctionSignature(K.String, [K.Any]), new FunctionSignature(K.String, [K.Any, K.Pattern]),
-        new FunctionSignature(K.String, [K.Any, K.Kind])], (thread, args) => Write(thread, args), acceptsErrors: true,
-      documentation: "Writes a Hix value as a canonical single-section Hal asset."));
+    new SimpleFunction("standalone_parseHal", (thread, args) => Parse(thread, args)),
+    new SimpleFunction("standalone_writeHal", (thread, args) => Write(thread, args)));
 
   private static IHixValue Parse(HixCoroutine thread, IHixValue[] args) {
     try {

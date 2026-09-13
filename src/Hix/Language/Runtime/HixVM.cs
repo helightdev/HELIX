@@ -238,19 +238,24 @@ public sealed class HixVM : IDisposable {
                 continue;
             var signature = reference.Signature;
             var owner = scopes[index] ?? program.Scope;
-            var key = (owner, signature.Display);
+            var key = (owner, signature.Display + (reference.DeclarationSignature == null ? "" : "|" + reference.DeclarationSignature));
             if (resolved.TryGetValue(key, out var cached)) {
                 constants[index] = cached;
                 continue;
             }
 
-            var candidate = owner.Resolve(signature);
+            var candidate = reference.DeclarationSignature == null ? owner.Resolve(signature) : owner.Candidates(signature.Name)
+                .SingleOrDefault(item => item.Signature?.DeclarationSignature == reference.DeclarationSignature);
             if (candidate != null) {
                 constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, candidate);
                 continue;
             }
 
-            var definitions = Backend.Functions.Resolve(signature.Name, signature.Parameters.Count).SelectMany(definition => definition.Signatures.Select(item => (definition, signature: item))).Where(item => BuiltinSignature(item.definition.Name, item.signature).Display == signature.Display).ToArray();
+            var definitions = Backend.Functions.Resolve(signature.Name, signature.Parameters.Count).SelectMany(definition => definition.Signatures.Select(item => (definition, signature: item))).Where(item =>
+                BuiltinSignature(item.definition.Name, item.signature).Display == signature.Display &&
+                (reference.DeclarationSignature == null || HixGenericTypes.SignatureIdentity(new SignatureHixPattern(item.definition.Name,
+                  item.signature.ArgumentPatterns.Select((pattern, position) => new HixPatternField(
+                    item.signature.GetArgumentName(position) ?? position.ToString(), pattern)).ToArray(), item.signature.ResultPattern)) == reference.DeclarationSignature)).ToArray();
             if (definitions.Length != 1)
                 throw new ArgumentException("cannot bind signature '" + signature.Display + "' while loading program");
             constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, definitions[0].definition, definitions[0].signature);

@@ -68,7 +68,7 @@ public sealed class HixAnalyzerService {
   public IReadOnlyList<HixDefinition> QueryDefinitions(string kind, string receiverType,
     string operandType, string prefix) => definitions.Where(definition =>
       (string.IsNullOrEmpty(kind) || definition.Kind == kind) &&
-      (string.IsNullOrEmpty(receiverType) || definition.ReceiverType == "Any" ||
+      (string.IsNullOrEmpty(receiverType) || string.Equals(definition.ReceiverType, "any", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(definition.ReceiverType, receiverType, StringComparison.OrdinalIgnoreCase)) &&
       (string.IsNullOrEmpty(operandType) || definition.OperandType == "Pattern" ||
         string.Equals(definition.OperandType, operandType, StringComparison.OrdinalIgnoreCase)) &&
@@ -105,11 +105,11 @@ public sealed class HixAnalyzerService {
     var functions = all.Where(definition => definition.Metadata == HixMetadataKind.None)
       .SelectMany(definition => definition.Signatures.Select(signature =>
       new HixDefinition(definition.Name, "Function", signature.ArgumentCount, signature.IsVariadic, "None",
-        (signature.ArgumentTypes.Count == 0 ? HixValueKind.Any : signature.ArgumentTypes[0]).ToString(),
-        signature.ResultType.ToString(), signature.ArgumentTypes.Select(type => type.ToString()).ToArray(),
+        (signature.ArgumentPatterns.Count == 0 ? HixPattern.Any : signature.ArgumentPatterns[0]).Display,
+        signature.ResultPattern.Display, signature.ArgumentPatterns.Select(type => type.Display).ToArray(),
         definition.Documentation)));
     var roots = backend.Roots.Values.Select(root => new HixDefinition(root.Name, "Root", 0, false, "None",
-      "None", root.Kind.ToString(), [], "Backend root"));
+      "None", root.Pattern.Display, [], "Backend root"));
     var kinds = Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>().Select(kind => new HixDefinition(
       kind.ToString().ToLowerInvariant(), "Kind", 0, false, "None", "None", "Kind", [],
       "Matches values of kind `" + kind.ToString().ToLowerInvariant() + "`."));
@@ -118,21 +118,23 @@ public sealed class HixAnalyzerService {
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "PatternMetadata", signature.ArgumentCount, signature.IsVariadic,
         definition.Metadata == HixMetadataKind.PatternField ? "Field" : "Pattern", "None", "Pattern",
-        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
     var fileMetadata = all.Where(definition => (definition.Metadata & HixMetadataKind.File) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "FileMetadata", signature.ArgumentCount, signature.IsVariadic, "File", "None", "None",
-        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
     var typeMetadata = all.Where(definition => (definition.Metadata & HixMetadataKind.TypeDefinition) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "TypeMetadata", signature.ArgumentCount, signature.IsVariadic, "Type", "None", "Pattern",
-        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
     var declarationMetadata = all.Where(definition => (definition.Metadata &
         (HixMetadataKind.FunctionDefinition | HixMetadataKind.MixinDefinition)) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "DeclarationMetadata", signature.ArgumentCount, signature.IsVariadic, "Declaration", "None", "None",
-        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
-    return functions.Concat(roots).Concat(kinds).Concat(metadata).Concat(typeMetadata)
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
+    var opaqueTypes = backend.Functions.OpaqueTypes.Select(type => new HixDefinition(type.Name, "Type", 0, false,
+      "None", "None", "opaque", [], type.Documentation));
+    return functions.Concat(roots).Concat(kinds).Concat(opaqueTypes).Concat(metadata).Concat(typeMetadata)
       .Concat(declarationMetadata).Concat(fileMetadata).ToArray();
   }
 

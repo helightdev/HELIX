@@ -132,7 +132,7 @@ public sealed record BooleanHixValue(bool Value) : IHixValue {
 }
 
 public sealed record ObjectHixValue(object Value) : IHixValue {
-  public HixValueKind Kind => HixValueKind.Symbol;
+  public HixValueKind Kind => HixValueKind.Opaque;
   public bool IsTruthy(HixCoroutine context) {
     return Value is not null && Value is not false;
   }

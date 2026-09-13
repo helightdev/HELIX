@@ -8,9 +8,7 @@ using Hix.Runtime;
 
 namespace Hix.Functions;
 
-public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier", 0,
-  HixValueKind.String, HixValueKind.String) {
-  public override string Documentation => "Escapes a name so it can be used as a C# identifier.";
+public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
@@ -24,9 +22,7 @@ public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier"
   }
 }
 
-public sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime", 0,
-  HixValueKind.Any, HixValueKind.String) {
-  public override string Documentation => "Parses a time value and renders its numeric representation for generated code.";
+public sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments

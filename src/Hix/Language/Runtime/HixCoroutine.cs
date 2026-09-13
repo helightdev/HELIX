@@ -382,7 +382,7 @@ public sealed class HixCoroutine : IDisposable {
     private IHixValue InvokePrepared(ResolvedFunctionHixValue prepared, IHixValue[] arguments, int line) {
         using var profile = HixProfiler.Measure("vm.invoke_prepared");
         if (prepared.Backend != null) {
-            if (!FunctionDefinition.TryConvertValues(this, prepared.BackendSignature, arguments, out var converted))
+            if (!HixFunctionEntry.TryConvertValues(this, prepared.BackendSignature, arguments, out var converted))
                 return Error("no matching function '" + prepared.Backend.Name + "' for " + arguments.Length + " arguments");
             return ExecuteBackend(prepared.Backend, converted, line);
         }
@@ -395,7 +395,7 @@ public sealed class HixCoroutine : IDisposable {
     // Scheduling here means pushing a child frame, not dispatching onto another OS thread.
     private bool SchedulePrepared(ResolvedFunctionHixValue prepared, IHixValue[] arguments, int line, out IHixValue value) {
         if (prepared.Backend != null) {
-            if (!FunctionDefinition.TryConvertValues(this, prepared.BackendSignature, arguments, out var converted)) {
+            if (!HixFunctionEntry.TryConvertValues(this, prepared.BackendSignature, arguments, out var converted)) {
                 value = Error("no matching function '" + prepared.Backend.Name + "' for " + arguments.Length + " arguments");
                 return false;
             }
@@ -445,13 +445,13 @@ public sealed class HixCoroutine : IDisposable {
         return false;
     }
 
-    private bool ScheduleBackend(FunctionDefinition definition, IHixValue[] arguments, int line, out IHixValue value) {
+    private bool ScheduleBackend(HixFunctionEntry definition, IHixValue[] arguments, int line, out IHixValue value) {
         value = CheckBackend(definition, arguments);
         if (value != null)
             return false;
-        if (definition is CallbackFunction)
+        if (definition.Handler is CallbackFunction)
             return ScheduleCallback(arguments[0], arguments.Length == 2 ? [arguments[1]] : [], line, out value);
-        if (definition is CatchFunction && arguments.Length == 2 && arguments[0] is ErrorHixValue)
+        if (definition.Handler is CatchFunction && arguments.Length == 2 && arguments[0] is ErrorHixValue)
             return ScheduleCallback(arguments[1], [arguments[0]], line, out value);
         value = ExecuteBackendUnchecked(definition, arguments, line);
         return false;
@@ -522,7 +522,7 @@ public sealed class HixCoroutine : IDisposable {
         if (machine.Contains(Scope, name))
             return Invoke(name, arguments, line);
         var definitions = Backend.Functions.Resolve(name, arguments.Length);
-        FunctionDefinition definition = null;
+        HixFunctionEntry definition = null;
         IHixValue[] convertedArguments = null;
         var conversions = int.MaxValue;
         foreach (var candidate in definitions) {
@@ -541,35 +541,29 @@ public sealed class HixCoroutine : IDisposable {
         return value;
     }
 
-    private IHixValue ExecuteBackend(FunctionDefinition definition, IHixValue[] arguments, int line) {
+    private IHixValue ExecuteBackend(HixFunctionEntry definition, IHixValue[] arguments, int line) {
         return CheckBackend(definition, arguments) ?? ExecuteBackendUnchecked(definition, arguments, line);
     }
 
-    private IHixValue CheckBackend(FunctionDefinition definition, IHixValue[] arguments) {
+    private IHixValue CheckBackend(HixFunctionEntry definition, IHixValue[] arguments) {
         var name = definition.Name;
         if (pure && definition.HasEffects)
             return Error("pure functions cannot perform '" + name + "'");
-        if (Context.ValidateAvailability(this, name, definition.RequiresPrelude)is { } unavailable)
+        if (Context.ValidateAvailability(this, name, false)is { } unavailable)
             return unavailable;
-        if (!definition.AcceptsErrors)
-            for (var i = 0; i < arguments.Length; i++)
-                if (arguments[i] is ErrorHixValue failure)
-                    return failure with {
-                        IsChecked = false
-                    };
         return null;
     }
 
-    private IHixValue ExecuteBackendUnchecked(FunctionDefinition definition, IHixValue[] arguments, int line) {
+    private IHixValue ExecuteBackendUnchecked(HixFunctionEntry definition, IHixValue[] arguments, int line) {
         try {
-            if (definition.ExecuteAsync(this, arguments, line)is { } operation) {
+            if (definition.Handler.ExecuteAsync(this, arguments, line)is { } operation) {
                 if (!sliceEnabled || operation.IsCompleted)
                     return ReadAsyncResult(operation);
                 pendingOperation = operation;
                 return null;
             }
 
-            return definition.Execute(this, arguments, line) ?? Error("invalid arguments for '" + definition.Name + "'");
+            return definition.Handler.Execute(this, arguments, line) ?? Error("invalid arguments for '" + definition.Name + "'");
         } catch (ArgumentException exception) {
             return Error(exception.Message);
         } catch (OverflowException exception) {

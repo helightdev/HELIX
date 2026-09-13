@@ -8,6 +8,36 @@ import kotlin.test.assertTrue
 
 class HixLookupTest {
     @Test
+    fun `meta declares annotation arguments and targets at top level`() {
+        val parsed = HixAntlrSyntax.parse("meta annotation(string text) for function type;")
+        val declaration = parsed.tree.topLevelDeclaration().single().metaDeclaration()
+        assertEquals("annotation", declaration.IDENTIFIER().text)
+        assertEquals(listOf("function", "type"), declaration.metaTarget().map { it.text })
+        assertEquals(1, declaration.patternParameterList().patternField().size)
+    }
+
+    @Test
+    fun `external terminates a function without consuming the next declaration`() {
+        val parsed = HixAntlrSyntax.parse("pure func deferred(number value) -> string external hostDeferred;\nfunc main { return(42) }")
+        val functions = parsed.tree.topLevelDeclaration().mapNotNull { it.funcDeclaration() }
+        assertEquals(2, functions.size)
+        assertTrue(functions[0].functionBody().KEYWORD_EXTERNAL() != null)
+        assertEquals("hostDeferred", functions[0].functionBody().IDENTIFIER()?.text)
+        assertTrue(functions[0].functionBody().statementBlock() == null)
+        assertTrue(functions[1].functionBody().statementBlock() != null)
+    }
+
+    @Test
+    fun `generic metadata combines a name argument with nested bounds`() {
+        val source = "%generic<T>(many<string>)\nfunc example(T value) -> T { return(\$value) }"
+        val parsed = HixAntlrSyntax.parse(source)
+        assertEquals(HixLookup.SemanticRole.DeclarationMetadata,
+            HixLookup.semanticRoleAt(parsed, source.indexOf("generic")))
+        assertEquals(HixLookup.MetadataArgument("generic", 0),
+            HixLookup.metadataArgumentAt(parsed, source.indexOf("<T>") + 1))
+    }
+
+    @Test
     fun `type declaration metadata has its own semantic role`() {
         val source = "%tagged<person>\ntype Person = @{string name}"
         assertEquals(HixLookup.SemanticRole.TypeMetadata,
@@ -78,7 +108,7 @@ class HixLookupTest {
         assertTrue(site.chained)
         assertFalse(site.member)
         assertEquals("number", HixLookup.receiverType(parsed, site.receiverEnd, null))
-        assertFalse(HixLookup.acceptsReceiver(method("Symbol"), "number"))
+        assertFalse(HixLookup.acceptsReceiver(method("Opaque"), "number"))
         assertTrue(HixLookup.acceptsReceiver(method("Number"), "number"))
         assertTrue(HixLookup.acceptsReceiver(method("Any"), "number"))
     }
@@ -93,10 +123,10 @@ class HixLookupTest {
 
     @Test
     fun `lookup retains individual signatures and documentation`() {
-        val definition = method("Symbol")
-        assertEquals("method(symbol) -> string", HixLookup.signature(definition))
+        val definition = method("Opaque")
+        assertEquals("method(opaque) -> string", HixLookup.signature(definition))
         assertEquals("Returns the selected value's name.", definition.documentation)
-        assertFalse(HixLookup.acceptsReceiver(definition.copy(argumentTypes = emptyArray()), "symbol"))
+        assertFalse(HixLookup.acceptsReceiver(definition.copy(argumentTypes = emptyArray()), "opaque"))
     }
 
     @Test

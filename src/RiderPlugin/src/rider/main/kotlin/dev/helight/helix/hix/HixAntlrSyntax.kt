@@ -149,6 +149,7 @@ internal object HixAntlrSyntax {
     fun declarationNames(context: ParserRuleContext): Sequence<TerminalNode> = rules(context).mapNotNull {
         when (it) {
             is HixParser.FuncDeclarationContext -> it.functionDeclarationIdentifier().IDENTIFIER()
+            is HixParser.MetaDeclarationContext -> it.IDENTIFIER()
             is HixParser.TypeDeclarationContext -> it.IDENTIFIER()
             is HixParser.VariableIdentifierContext -> it.IDENTIFIER()
             is HixParser.LabelIdentifierContext -> it.LABEL_IDENTIFIER()

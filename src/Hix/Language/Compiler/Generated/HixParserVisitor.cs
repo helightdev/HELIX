@@ -87,6 +87,18 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitTypeDeclaration([NotNull] HixParser.TypeDeclarationContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.metaDeclaration"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMetaDeclaration([NotNull] HixParser.MetaDeclarationContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.metaTarget"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMetaTarget([NotNull] HixParser.MetaTargetContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.mixinBody"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

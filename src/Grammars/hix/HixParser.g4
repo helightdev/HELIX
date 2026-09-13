@@ -7,17 +7,18 @@ compilationUnit: trivia* fileMetadataSection? (topLevelDeclaration trivia*)* EOF
 fileMetadataSection: metadataList trivia* SECTION_DELIMITER trivia*;
 
 topLevelDeclaration
-    : metadataList trivia* (mixinDeclaration | funcDeclaration | typeDeclaration)
+    : metadataList trivia* (mixinDeclaration | funcDeclaration | typeDeclaration | metaDeclaration)
     | mixinDeclaration
     | funcDeclaration
     | typeDeclaration
+    | metaDeclaration
     ;
 
 metadataList: metadata (trivia* metadata)*;
 inlineMetadataList: metadata+;
 
 metadata
-    : METADATA_PREFIX IDENTIFIER valueList?
+    : METADATA_PREFIX IDENTIFIER argumentValue* valueList?
     | metadataValue
     ;
 
@@ -27,6 +28,9 @@ metadataValue: BEGIN_METADATA_VALUE value VALUE_END_INLINE;
 mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier patternParameterList? mixinBody;
 
 typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression SEMICOLON?;
+
+metaDeclaration: KEYWORD_META IDENTIFIER patternParameterList KEYWORD_FOR metaTarget (COMMA? metaTarget)* SEMICOLON;
+metaTarget: IDENTIFIER | KEYWORD_TYPE | KEYWORD_MIXIN | KEYWORD_EXPRESSION;
 
 mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
 
@@ -40,7 +44,7 @@ directFunctionSignature: (patternParameterList | collectiveInputPattern)? ARROW 
 collectiveInputPattern: BEGIN_VALUE_INLINE patternExpression VALUE_END_INLINE;
 outputSignatureFields: patternParameterList;
 
-functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
+functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END? | KEYWORD_EXTERNAL IDENTIFIER? SEMICOLON?;
 
 // Patterns
 patternExpression

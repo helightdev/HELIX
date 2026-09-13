@@ -11,9 +11,9 @@ public sealed class MixinRepositorySyntaxTests {
   [Fact]
   public void FunctionCatalogUsesFlatRuntimeSignatures() {
     var members = Hix.HixMixinBackend.Instance.Functions.Enumerate().Single(item => item.Name == "members");
-    Assert.Equal(HixValueKind.Symbol, members.ReceiverType);
+    Assert.Equal(HixValueKind.Opaque, members.ReceiverType);
     Assert.Equal(HixValueKind.Tuple, members.ResultType);
-    Assert.Equal([HixValueKind.Symbol], members.ArgumentTypes);
+    Assert.Equal([HixValueKind.Opaque], members.ArgumentTypes);
 
     var matches = Hix.HixMixinBackend.Instance.Functions.Enumerate().Single(item => item.Name == "matches");
     Assert.Equal(HixValueKind.Bool, matches.ResultType);
@@ -46,7 +46,7 @@ public sealed class MixinRepositorySyntaxTests {
   public void ValueKindsAreFlatAndComplete() {
     Assert.Equal(new[] {
       HixValueKind.Any, HixValueKind.Null, HixValueKind.String, HixValueKind.Bool,
-      HixValueKind.Number, HixValueKind.Tuple, HixValueKind.Table, HixValueKind.Symbol,
+      HixValueKind.Number, HixValueKind.Tuple, HixValueKind.Table, HixValueKind.Opaque,
       HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind, HixValueKind.Pattern,
       HixValueKind.Missing
     }, Enum.GetValues<HixValueKind>());

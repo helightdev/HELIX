@@ -9,7 +9,7 @@ using Hix.Runtime;
 namespace Hix;
 
 /// <summary>Flat runtime kinds. Any is a signature wildcard, not a parent kind.</summary>
-public enum HixValueKind { Any, Null, String, Bool, Number, Tuple, Table, Symbol, Function, Error, Kind, Pattern, Missing }
+public enum HixValueKind { Any, Null, String, Bool, Number, Tuple, Table, Opaque, Function, Error, Kind, Pattern, Missing }
 
 public enum HixExpressionRoot {
   Target,
@@ -39,10 +39,45 @@ public enum HixMetadataKind {
   FunctionDefinition = 16, MixinDefinition = 32, Statement = 64, VariableDeclaration = 128
 }
 
+public static class HixMetadataTargets {
+  private static readonly (string Name, HixMetadataKind Kind)[] targets = [
+    ("pattern", HixMetadataKind.Pattern), ("field", HixMetadataKind.PatternField),
+    ("file", HixMetadataKind.File), ("type", HixMetadataKind.TypeDefinition),
+    ("function", HixMetadataKind.FunctionDefinition), ("mixin", HixMetadataKind.MixinDefinition),
+    ("statement", HixMetadataKind.Statement), ("variable", HixMetadataKind.VariableDeclaration)
+  ];
+  public static bool TryParse(string name, out HixMetadataKind kind) {
+    foreach (var target in targets)
+      if (target.Name == name) { kind = target.Kind; return true; }
+    kind = HixMetadataKind.None;
+    return false;
+  }
+  public static IEnumerable<string> Names(HixMetadataKind kinds) => targets
+    .Where(target => (kinds & target.Kind) != 0).Select(target => target.Name);
+}
+
 public sealed record FunctionSignature(
   HixValueKind ResultType, IReadOnlyList<HixValueKind> ArgumentTypes, bool IsVariadic = false,
   IReadOnlyList<string> ArgumentNames = null, IReadOnlyList<ExpressionIr> ArgumentDefaults = null
 ) {
+  public FunctionSignature(HixPattern resultPattern, IReadOnlyList<HixPattern> argumentPatterns,
+    bool IsVariadic = false, IReadOnlyList<string> ArgumentNames = null,
+    IReadOnlyList<ExpressionIr> ArgumentDefaults = null, IReadOnlyList<HixTypeParameter> typeParameters = null)
+    : this(HixGenericTypes.Erase(resultPattern), argumentPatterns.Select(HixGenericTypes.Erase).ToArray(),
+      IsVariadic, ArgumentNames, ArgumentDefaults) {
+    ResultPattern = resultPattern;
+    ArgumentPatterns = argumentPatterns;
+    TypeParameters = typeParameters ?? Array.Empty<HixTypeParameter>();
+  }
+  public HixPattern ResultPattern { get; init; } = ResultType == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(ResultType);
+  public IReadOnlyList<HixPattern> ArgumentPatterns { get; init; } = ArgumentTypes.Select(kind =>
+    kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind)).ToArray();
+  public IReadOnlyList<HixTypeParameter> TypeParameters { get; init; } = Array.Empty<HixTypeParameter>();
+  public Func<IReadOnlyList<HixPattern>, HixPattern> InferResult { get; init; }
+  /// <summary>Maps callable argument positions to tuple arguments used to invoke those callables.</summary>
+  public IReadOnlyDictionary<int, int> CallableArguments { get; init; }
+  public HixPattern GetArgumentPattern(int index) => index < ArgumentPatterns.Count ? ArgumentPatterns[index] :
+    IsVariadic ? ArgumentPatterns[ArgumentPatterns.Count - 1] : HixPattern.Any;
   public int MinimumArgumentCount => IsVariadic ? ArgumentCount : Enumerable.Range(0, ArgumentTypes.Count)
     .Count(index => GetArgumentDefault(index) == null);
   public int ArgumentCount => ArgumentTypes.Count - (IsVariadic ? 1 : 0);
@@ -57,87 +92,116 @@ public sealed record FunctionSignature(
 }
 
 public sealed class FunctionSignatureRegistry {
-  private readonly IReadOnlyDictionary<string, FunctionDefinition[]> _definitions;
-  private readonly FunctionDefinition[] _all;
+  private readonly IReadOnlyDictionary<string, HixFunctionEntry[]> _definitions;
+  private readonly HixFunctionEntry[] _all;
 
-  public FunctionSignatureRegistry(IEnumerable<FunctionDefinition> definitions) {
+  public FunctionSignatureRegistry(IEnumerable<HixFunctionEntry> definitions) {
     _all = definitions.ToArray();
     _definitions = _all.GroupBy(definition => definition.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group
-        .OrderBy(definition => definition.Signatures.Min(signature => signature.ArgumentTypes.Count(kind => kind == HixValueKind.Any))).ToArray(),
+        .OrderBy(definition => definition.Signatures.Select(signature => signature.ArgumentTypes.Count(kind => kind == HixValueKind.Any)).DefaultIfEmpty(int.MaxValue).Min()).ToArray(),
         StringComparer.Ordinal);
   }
 
-  public bool TryGet(string name, int argumentCount, out FunctionDefinition definition) {
+  public bool TryGet(string name, int argumentCount, out HixFunctionEntry definition) {
     definition = Resolve(name, argumentCount).FirstOrDefault();
     return definition is not null;
   }
 
-  public IReadOnlyList<FunctionDefinition> Resolve(string name, int argumentCount) =>
+  public IReadOnlyList<HixFunctionEntry> Resolve(string name, int argumentCount) =>
     _definitions.TryGetValue(name, out var definitions)
       ? definitions.Where(definition => definition.MatchesArgumentCount(argumentCount)).ToArray()
-      : Array.Empty<FunctionDefinition>();
+      : Array.Empty<HixFunctionEntry>();
 
-  public IReadOnlyList<FunctionDefinition> Resolve(string name) =>
-    _definitions.TryGetValue(name, out var definitions) ? definitions : Array.Empty<FunctionDefinition>();
+  public IReadOnlyList<HixFunctionEntry> Resolve(string name) =>
+    _definitions.TryGetValue(name, out var definitions) ? definitions : Array.Empty<HixFunctionEntry>();
 
-  public IEnumerable<FunctionDefinition> Enumerate() => _all;
+  public IEnumerable<HixFunctionEntry> Enumerate() => _all;
 }
 
 public delegate IHixValue InlineFunction(HixCoroutine execution, IHixValue[] arguments);
 
 public sealed class FunctionSignatureRegistryBuilder {
   private readonly List<FunctionDefinition> _definitions = [];
+  private readonly List<string> libraries = [];
+  private readonly List<CompilationUnitIr> libraryUnits = [];
+  private readonly Dictionary<string, HixOpaqueTypeDefinition> opaqueTypes = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, HixPatternConstructor> patternConstructors = new(StringComparer.Ordinal);
+  private readonly Dictionary<string, Func<FunctionSignature, FunctionSignature>> inference = new(StringComparer.Ordinal);
+
+  public IReadOnlyList<FunctionDefinition> Handlers => _definitions;
+  public IReadOnlyList<string> Libraries => libraries;
+  public IReadOnlyList<CompilationUnitIr> LibraryUnits => libraryUnits;
+  public IReadOnlyCollection<HixOpaqueTypeDefinition> OpaqueTypes => opaqueTypes.Values;
+  public IReadOnlyCollection<HixPatternConstructor> PatternConstructors => patternConstructors.Values;
+
+  public FunctionSignatureRegistryBuilder AddLibrary(string source) {
+    libraries.Add(source ?? throw new ArgumentNullException(nameof(source)));
+    return this;
+  }
+  public HixPatternConstructor DefinePatternConstructor(string name, int arity,
+    Func<IReadOnlyList<HixPattern>, HixPattern> implementation, string documentation = "") {
+    var constructor = new HixPatternConstructor(name, arity, implementation, documentation);
+    if (patternConstructors.ContainsKey(name))
+      throw new ArgumentException("Duplicate pattern constructor '" + name + "'.");
+    patternConstructors.Add(name, constructor);
+    return constructor;
+  }
+
+  public HixOpaqueTypeDefinition DefineOpaqueType(string identity, string name, int arity = 0, string documentation = "") {
+    if (string.IsNullOrWhiteSpace(identity) || string.IsNullOrWhiteSpace(name) || arity < 0)
+      throw new ArgumentException("An opaque type requires an identity, name, and non-negative arity.");
+    var definition = new HixOpaqueTypeDefinition(identity, name, arity, documentation);
+    if (opaqueTypes.TryGetValue(identity, out var existing)) {
+      if (existing != definition) throw new ArgumentException("Conflicting opaque type identity '" + identity + "'.");
+      return existing;
+    }
+    opaqueTypes.Add(identity, definition);
+    return definition;
+  }
 
   public FunctionSignatureRegistryBuilder Add(params FunctionDefinition[] definitions) {
     _definitions.AddRange(definitions);
     return this;
   }
 
-  public FunctionSignatureRegistry Build(Action<IEnumerable<FunctionDefinition>> validate = null) {
-    validate?.Invoke(_definitions);
-    return new FunctionSignatureRegistry(_definitions);
+  public FunctionSignatureRegistryBuilder AddLibrary(CompilationUnitIr unit) {
+    libraryUnits.Add(unit ?? throw new ArgumentNullException(nameof(unit)));
+    return this;
   }
+  /// <summary>Configures compiler inference without attaching declaration metadata to host handlers.</summary>
+  public FunctionSignatureRegistryBuilder DefineInference(string name, Func<FunctionSignature, FunctionSignature> configure) {
+    inference.Add(name, configure);
+    return this;
+  }
+  internal FunctionSignature ConfigureInference(string name, FunctionSignature signature) =>
+    inference.TryGetValue(name, out var configure) ? configure(signature) : signature;
 }
 
-public sealed class SimpleFunction(
-  string name,
-  IReadOnlyList<FunctionSignature> signatures,
-  InlineFunction implementation,
-  bool effects = false,
-  bool acceptsErrors = false,
-  bool requiresPrelude = false, string documentation = null
-) : FunctionDefinition(name, signatures, documentation) {
-  public override bool HasEffects => effects;
-  public override bool RequiresPrelude => requiresPrelude;
-  public override bool AcceptsErrors => acceptsErrors;
-  public override IHixValue Execute(HixCoroutine execution, IHixValue[] arguments, int line) { return implementation(execution, arguments); }
+/// <summary>A name-only host implementation. Its signature comes from an external Hix declaration.</summary>
+public sealed class SimpleFunction(string name, InlineFunction implementation) : FunctionDefinition(name) {
+  public override IHixValue Execute(HixCoroutine execution, IHixValue[] arguments, int line) =>
+    implementation(execution, arguments);
 }
 
 public class FunctionDefinition {
-
-  protected FunctionDefinition(
-    string name, int argumentCount,
-    HixValueKind receiverType = HixValueKind.Any,
-    HixValueKind resultType = HixValueKind.Any,
-    IReadOnlyList<HixValueKind> argumentTypes = null,
-    string documentation = null, bool variadic = false
-  ) {
-    Name = name;
-    ArgumentCount = argumentCount;
-    IsVariadic = variadic;
-    ReceiverType = receiverType;
-    ResultType = resultType;
-    ArgumentTypes = argumentTypes ?? [
-      .. Enumerable.Repeat(HixValueKind.Any, argumentCount + (variadic ? 1 : 0))
-    ];
-    Documentation = documentation ?? "";
-    if (ArgumentTypes.Count != argumentCount + (variadic ? 1 : 0))
-      throw new ArgumentException("Function argument signature does not match its arity.", nameof(argumentTypes));
-    Signatures = [new FunctionSignature(resultType, ArgumentTypes, variadic)];
+  public FunctionDefinition(string name) {
+    Name = name ?? throw new ArgumentNullException(nameof(name));
   }
 
-  public FunctionDefinition(string name, IReadOnlyList<FunctionSignature> signatures, string documentation = null,
+  public string Name { get; }
+
+  public virtual IHixValue Execute(HixCoroutine context, IHixValue[] arguments, int line) =>
+    context.Error("host function '" + Name + "' has no synchronous implementation");
+
+  /// <summary>Optional nonblocking implementation. Null selects the synchronous Execute path.</summary>
+  public virtual HixTask<IHixValue> ExecuteAsync(HixCoroutine context, IHixValue[] arguments, int line) => null;
+}
+
+public class HixFunctionEntry {
+
+
+  public HixFunctionEntry(string name, IReadOnlyList<FunctionSignature> signatures, string documentation = null,
     HixMetadataKind metadata = HixMetadataKind.None) {
     if (signatures is null || signatures.Count == 0) throw new ArgumentException("A function requires at least one signature.", nameof(signatures));
     Name = name; Signatures = signatures;
@@ -154,7 +218,7 @@ public class FunctionDefinition {
   public HixValueKind ResultType { get; private set; }
   public IReadOnlyList<HixValueKind> ArgumentTypes { get; private set; }
   public virtual string Documentation { get; }
-  public IReadOnlyList<FunctionSignature> Signatures { get; }
+  public IReadOnlyList<FunctionSignature> Signatures { get; protected set; }
   public HixMetadataKind Metadata { get; }
 
   public bool MatchesArgumentCount(int count) => Signatures.Any(signature => signature.MatchesArgumentCount(count));
@@ -170,9 +234,9 @@ public class FunctionDefinition {
   }
 
   public virtual bool HasEffects => false;
-  public virtual bool AcceptsErrors => false;
-  public virtual IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string>();
-  public virtual bool RequiresPrelude => false;
+  public bool RequiresPrelude { get; protected set; }
+  public IReadOnlyDictionary<int, string> ArgumentReferences { get; protected set; } =
+    new Dictionary<int, string>();
   public bool MatchesValues(IHixValue[] values) {
     return Signatures.Any(signature => signature.MatchesArgumentCount(values.Length) &&
       values.Select((value, index) => signature.GetArgumentType(index) is var expected &&
@@ -217,40 +281,16 @@ public class FunctionDefinition {
     }
     return true;
   }
-  public virtual IHixValue Execute(HixCoroutine context, IHixValue[] arguments, int line) =>
-    context.Error("metadata function '" + Name + "' cannot be invoked");
-  /// <summary>Optional nonblocking implementation. Null selects the synchronous Execute path.</summary>
-  public virtual HixTask<IHixValue> ExecuteAsync(HixCoroutine context, IHixValue[] arguments, int line) => null;
+  public FunctionDefinition Handler { get; protected set; }
+
 }
 
-public abstract class EvaluatedFunctionDefinition(
-  string name, int argumentCount,
-  HixValueKind receiverType = HixValueKind.Any,
-  HixValueKind resultType = HixValueKind.Any,
-  IReadOnlyList<HixValueKind> argumentTypes = null,
-  bool variadic = false
-) : FunctionDefinition(
-  name, argumentCount + 1, receiverType,
-  resultType, new[] {receiverType}.Concat(argumentTypes ?? Enumerable.Repeat(HixValueKind.Any, argumentCount + (variadic ? 1 : 0))).ToArray(),
-  null, variadic
-) {
-
+public abstract class EvaluatedFunctionDefinition(string name) : FunctionDefinition(name) {
   public sealed override IHixValue Execute(HixCoroutine execution, IHixValue[] supplied, int line) {
-    var context = execution;
-    var instance = supplied[0];
-    IReadOnlyList<IHixValue> arguments = supplied.Skip(1).ToArray();
     using var profile = HixProfiler.MeasureFunction(Name);
-    instance = context.Evaluate(instance);
-    if (instance is ErrorHixValue) return instance;
-    var values = arguments.Count == 0 ? Array.Empty<IHixValue>() : arguments.Select(context.Evaluate).ToArray();
-    if (values.OfType<ErrorHixValue>().FirstOrDefault() is { } error) return error;
-    IHixValue result;
-    try {
-      result = EvaluateValue(context, instance, values);
-    } catch (ArgumentException exception) {
-      return context.Error($"function ':{Name}' failed: {exception.Message}");
-    }
-    return result;
+    if (supplied.Length == 0) return execution.Error("function ':" + Name + "' requires a receiver");
+    var arguments = supplied.Length == 1 ? Array.Empty<IHixValue>() : supplied.Skip(1).ToArray();
+    return EvaluateValue(execution, supplied[0], arguments);
   }
 
   protected virtual IHixValue EvaluateValue(HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments) => Apply(context, value, arguments);

@@ -12,7 +12,7 @@ namespace Hix.Runtime;
 /// <summary>Immutable handle to a Roslyn semantic value; all services come from HixCoroutine.</summary>
 public sealed record RoslynHixValue(object Value, HixExpressionRoot Root = HixExpressionRoot.Null)
   : IHixValue {
-  public HixValueKind Kind => HixValueKind.Symbol;
+  public HixValueKind Kind => HixValueKind.Opaque;
   public bool IsTruthy(HixCoroutine context) {
     return Value switch {
       null => false, bool boolean => boolean,
@@ -123,7 +123,7 @@ public sealed record DetachedSemanticData(string Namespace, string TypeName);
 public sealed record DetachedSemanticHixValue(
   HixString Namespace, HixString TypeName
 ) : IHixValue {
-  public HixValueKind Kind => HixValueKind.Symbol;
+  public HixValueKind Kind => HixValueKind.Opaque;
   public bool IsTruthy(HixCoroutine context) {
     return true;
   }

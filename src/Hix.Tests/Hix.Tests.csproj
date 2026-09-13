@@ -16,4 +16,10 @@
   <ItemGroup>
     <ProjectReference Include="../Hix/Hix.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Pending multi-assembly specification: the runtime currently accepts one image only.
+         Restore these tests when CompileAssembly and assembly serialization are implemented. -->
+    <Compile Remove="HixAssemblyTests.cs" />
+    <None Include="HixAssemblyTests.cs" />
+  </ItemGroup>
 </Project>

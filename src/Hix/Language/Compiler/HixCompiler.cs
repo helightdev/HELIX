@@ -29,6 +29,9 @@ public static class HixCompiler {
       declaration is FunctionDeclarationIr function ? SignatureParameterBindingStep.Rewrite(function) : declaration).ToArray();
     var diagnostics = new List<HixParseDiagnostic>();
     LanguageValidation.Validate(declarations, diagnostics, backend);
+    if (declarations.OfType<FunctionDeclarationIr>().Any(function => function.TypeParameters.Count != 0 || function.Signatures.Any(signature => signature.TypeParameters.Count != 0)))
+      PatternTypeAnalysis.Validate(declarations, declarations.OfType<TypeDeclarationIr>().ToDictionary(type => type.Name,
+        type => type.Pattern, StringComparer.Ordinal), diagnostics, backend);
     if (diagnostics.Count != 0) throw new ArgumentException(diagnostics[0].Message);
     var strings = new HixStringPoolBuilder();
     foreach (var unit in syntax)
@@ -69,6 +72,10 @@ public static class HixCompiler {
     var globals = PrepareGlobals(sources, backend);
     return CreateProgram([], [], globals);
   }
+
+  /// <summary>Compiles host-constructed IR, including signatures not exposed by the Hix grammar.</summary>
+  public static HixProgramImage CompileFunctions(IEnumerable<CompilationUnitIr> units, HixBackend backend = null) =>
+    CreateProgram([], [], PrepareGlobals(units, backend));
 
   public static HixProgramImage Prepare(MixinDeclarationIr declaration,
     HixCompilerCatalog globals, bool? prelude) {

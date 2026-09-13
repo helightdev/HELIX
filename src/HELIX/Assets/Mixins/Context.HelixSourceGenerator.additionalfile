@@ -66,7 +66,7 @@ mixin HELIX.Context.InjectAttribute(string? qualifier = [null], bool required = 
   }
 }
 
-mixin HELIX.Context.BindAttribute(symbol? type = [null], string? qualifier = [null], bool required = [true], bool proxied = [false]) {
+mixin HELIX.Context.BindAttribute(opaque? type = [null], string? qualifier = [null], bool required = [true], bool proxied = [false]) {
   prelude expression {
     using @> HELIX.Context;
     local Value @= target:name;
@@ -152,7 +152,7 @@ mixin HELIX.Context.AutoDisposeAttribute {
   }
 }
 
-mixin HELIX.Context.ManagedAttribute(symbol? scope = [null], bool optional = [false], number order = [0], number phase = [0]) {
+mixin HELIX.Context.ManagedAttribute(opaque? scope = [null], bool optional = [false], number order = [0], number phase = [0]) {
   prelude expression {
     defineTarget<$ConfigureManaged> @> ^*~HELIX.Context.RegistrationConfigurator
     defineTarget<$LoadManaged> @> ^LoadManaged:HELIX.Context.ManagedLoadMethod
@@ -232,7 +232,7 @@ mixin HELIX.Context.TickerAttribute(any time = [<tick>], string target = [<Updat
 }
 
 // Module discovery is generated from compilation symbols, without runtime reflection.
-func ModuleComponentRegistration(symbol value) -> string {
+func ModuleComponentRegistration(opaque value) -> string {
   when(or(!class($value), generic($value), !accessible($value))) { return(<>) }
   local ns = namespace($value)
   when(var#ModuleFilter:exists, !eq(var#ModuleFilter, <>),

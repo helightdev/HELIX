@@ -117,13 +117,13 @@ class HixPsiParser(@Suppress("UNUSED_PARAMETER") project: Project) : PsiParser {
         for (child in context.children.orEmpty()) {
             if (child is ParserRuleContext) node(builder, child)
             else if (child is TerminalNode && child.symbol.type == HixLexer.IDENTIFIER &&
-                (context is HixParser.FuncDeclarationContext || context is HixParser.InvocationStatementContext ||
+                (context is HixParser.FuncDeclarationContext || context is HixParser.MetaDeclarationContext || context is HixParser.InvocationStatementContext ||
                     context is HixParser.ControlflowStatementContext)) {
                 while (!builder.eof() && builder.currentOffset < child.symbol.startIndex) builder.advanceLexer()
                 if (!builder.eof() && builder.currentOffset == child.symbol.startIndex) {
                     val name = builder.mark()
                     builder.advanceLexer()
-                    name.done(if (context is HixParser.FuncDeclarationContext) HixElementTypes.DECLARATION
+                    name.done(if (context is HixParser.FuncDeclarationContext || context is HixParser.MetaDeclarationContext) HixElementTypes.DECLARATION
                         else HixElementTypes.REFERENCE)
                 }
             }

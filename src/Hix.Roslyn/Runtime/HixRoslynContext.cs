@@ -54,7 +54,7 @@ public partial class HixRoslynContext : HixExpressionContext {
     object value = SelectMember(_attribute, parameter.Name);
     if (value == null) return base.ResolveMixinParameter(thread, parameter, index);
     var hosted = new RoslynHixValue(value, HixExpressionRoot.Attribute);
-    return ContainsKind(parameter.Pattern, HixValueKind.Symbol)
+    return ContainsKind(parameter.Pattern, HixValueKind.Opaque)
       ? hosted : thread.Unwrap(hosted);
   }
 

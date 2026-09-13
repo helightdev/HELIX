@@ -99,7 +99,7 @@ class HixAnnotator : Annotator {
             val metadata = generateSequence(argument.parent) { it.parent }
                 .filterIsInstance<HixParser.MetadataContext>().firstOrNull()
             if (metadata != null) {
-                val index = metadata.valueList()?.argumentValue()?.indexOf(argument) ?: -1
+                val index = (metadata.argumentValue() + (metadata.valueList()?.argumentValue() ?: emptyList())).indexOf(argument)
                 if (index < 0) return null
                 return definitions.asSequence().filter {
                     it.name == metadata.IDENTIFIER()?.text && it.kind in
@@ -151,6 +151,8 @@ class HixAnnotator : Annotator {
                     highlight(rule.IDENTIFIER(), metadataColor)
                 }
                 is HixParser.TypeDeclarationContext -> highlight(rule.IDENTIFIER(), HixColors.TYPE)
+                is HixParser.MetaDeclarationContext -> highlight(rule.IDENTIFIER(), HixColors.METADATA)
+                is HixParser.MetaTargetContext -> highlight(rule.IDENTIFIER(), HixColors.KEYWORD)
                 is HixParser.PatternIdentifierContext -> {
                     highlight(rule.IDENTIFIER(), HixColors.TYPE)
                     highlight(rule.ROOT_IDENTIFIER(), HixColors.TYPE)

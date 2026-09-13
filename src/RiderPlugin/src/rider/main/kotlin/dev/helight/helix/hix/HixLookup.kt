@@ -106,7 +106,7 @@ internal object HixLookup {
     fun metadataArgumentAt(parsed: HelixAntlrParse, offset: Int): MetadataArgument? =
         HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.MetadataContext>().mapNotNull { metadata ->
             val name = metadata.IDENTIFIER()?.text ?: return@mapNotNull null
-            metadata.valueList()?.argumentValue()?.withIndex()?.firstOrNull { (_, argument) ->
+            (metadata.argumentValue() + (metadata.valueList()?.argumentValue() ?: emptyList())).withIndex().firstOrNull { (_, argument) ->
                 offset >= argument.start.startIndex && offset <= argument.stop.stopIndex + 1
             }?.let { MetadataArgument(name, it.index) }
         }.firstOrNull()
@@ -151,9 +151,10 @@ internal object HixLookup {
         fun values(metadata: Iterable<HixParser.MetadataContext>?): List<String> {
             val enumeration = metadata?.firstOrNull { it.IDENTIFIER()?.text == "enum" }
                 ?: return emptyList()
-            val list = enumeration.valueList() ?: return emptyList()
-            return if (list.argumentValue().isNotEmpty()) list.argumentValue().map { it.text }
-            else list.value().map { it.text }
+            val list = enumeration.valueList()
+            val arguments = enumeration.argumentValue() + (list?.argumentValue() ?: emptyList())
+            return if (arguments.isNotEmpty()) arguments.map { it.text }
+            else list?.value()?.map { it.text } ?: emptyList()
         }
 
         val local = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.LocalDeclarationStatementContext>()
@@ -207,7 +208,7 @@ internal object HixLookup {
         if (actual.startsWith("@{")) return expected == "table"
         if (actual.startsWith("@[")) return expected == "tuple"
         // Named patterns and unions remain unknown here; their authoritative resolution belongs to the compiler.
-        return actual !in setOf("string", "number", "bool", "null", "symbol", "tuple", "table", "kind", "function", "error", "pattern")
+        return actual !in setOf("string", "number", "bool", "null", "opaque", "tuple", "table", "kind", "function", "error", "pattern")
     }
 
     fun signature(definition: MixinLanguageDefinition): String =

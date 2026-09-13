@@ -103,10 +103,14 @@ public sealed record NamedFunctionHixValue(HixString Name) : IHixValue {
 
 /// <summary>A signature-only function reference in a compiled constant pool.</summary>
 public record FunctionReferenceHixValue(SignatureHixPattern Signature) : IHixValue {
+  public string DeclarationSignature { get; init; }
   public HixValueKind Kind => HixValueKind.Function;
   public bool IsTruthy(HixCoroutine context) => true;
   public HixString Render(HixCoroutine context) => HixString.Dynamic(Signature.Display);
-  public virtual void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) => builder.Append(Signature.Display);
+  public virtual void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
+    builder.Append(Signature.Display);
+    if (DeclarationSignature != null) builder.Append(DeclarationSignature);
+  }
   public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
   public object Unlink(HixCoroutine context) => this;
   public bool Equals(IHixValue other) => Equals(other as FunctionReferenceHixValue);
@@ -115,13 +119,13 @@ public record FunctionReferenceHixValue(SignatureHixPattern Signature) : IHixVal
 /// <summary>A function reference resolved against the loaded image and backend.</summary>
 public sealed record ResolvedFunctionHixValue : FunctionReferenceHixValue {
   public LanguageFunctionCandidate Language { get; }
-  public FunctionDefinition Backend { get; }
+  public HixFunctionEntry Backend { get; }
   public FunctionSignature BackendSignature { get; }
 
   public ResolvedFunctionHixValue(SignatureHixPattern signature, LanguageFunctionCandidate language)
     : base(signature) { Language = language ?? throw new ArgumentNullException(nameof(language)); }
 
-  public ResolvedFunctionHixValue(SignatureHixPattern signature, FunctionDefinition backend,
+  public ResolvedFunctionHixValue(SignatureHixPattern signature, HixFunctionEntry backend,
     FunctionSignature backendSignature) : base(signature) {
     Backend = backend ?? throw new ArgumentNullException(nameof(backend));
     BackendSignature = backendSignature ?? throw new ArgumentNullException(nameof(backendSignature));

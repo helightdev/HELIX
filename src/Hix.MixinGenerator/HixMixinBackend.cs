@@ -12,7 +12,7 @@ using K = Hix.HixValueKind;
 namespace Hix;
 public class HixMixinBackend : HixRoslynBackend {
   public override ErrorHixValue ValidateDerivationRecord(HixCoroutine thread, HixTableValue record) =>
-    record.Select(thread, HixString.Dynamic("symbol")).Kind == K.Symbol
+    record.Select(thread, HixString.Dynamic("symbol")).Kind == K.Opaque
       ? null : thread.Error("record must contain a semantic symbol");
 
   public override HixContext CreateContext() => new MixinOutputContext(this);
@@ -20,8 +20,7 @@ public class HixMixinBackend : HixRoslynBackend {
     ISymbol target = null, AttributeData attribute = null) =>
     new HixMixinContext(this, currentType, target, attribute, compilation, null, null, null);
   protected override void RegisterEmissionFunctions(FunctionSignatureRegistryBuilder functions) {
-    functions.Add(new SimpleFunction("emit", [new(K.Null, [K.Any]), new(K.Null, [K.String, K.Any])],
-      (thread, arguments) => {
+    functions.Add(new SimpleFunction("mixin_emit", (thread, arguments) => {
         var target = arguments.Length == 1 ? "TARGET" : thread.ResolveText(arguments[0]);
         var rendered = thread.RenderText(arguments[arguments.Length - 1]);
         if (rendered is ErrorHixValue) return rendered;
@@ -30,24 +29,42 @@ public class HixMixinBackend : HixRoslynBackend {
           ? new MixinOutput(output, text, strings: thread.Strings)
           : new MixinOutput(MixinEmissionTarget.Mixin, text, HixString.Dynamic(ResolveInjectionTarget(thread, target)), strings: thread.Strings));
         return NullHixValue.Instance;
-      }, effects: true, documentation: "Renders and emits generated source text, optionally to a named generator destination."));
+      }));
   }
 
   private static MixinOutputBuffer Emissions(HixCoroutine thread) => ((IMixinOutputContext)thread.Context).Emissions;
 
   protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
+
     base.RegisterFunctions(functions);
+    functions.AddLibrary("""
+      %description("Renders and emits generated source text, optionally to a named generator destination.")
+      func <emit>(any arg0) -> null external mixin_emit;
+      %description("Renders and emits generated source text, optionally to a named generator destination.")
+      func <emit>(string arg0, any arg1) -> null external mixin_emit;
+
+      %description("Adds a namespace import to the generated source.")
+      func <using>(string arg0) -> null external mixin_using;
+
+      %description("Emits generated text into a named injection target, with an optional priority.")
+      func <inject>(string arg0, any arg1) -> null external mixin_inject;
+      %description("Emits generated text into a named injection target, with an optional priority.")
+      func <inject>(string arg0, number arg1, any arg2) -> null external mixin_inject;
+
+      %requiresPrelude()
+      %description("Resolves a named mixin for the supplied operand during the prelude.")
+      func <resolveMixin>(string arg0, any arg1) -> any external mixin_resolveMixin;
+
+      %requiresPrelude()
+      %description("Defines a named injection-target alias during the prelude.")
+      func <defineTarget>(string arg0, string arg1) -> null external mixin_defineTarget;
+      """);
     functions.Add(
-      new SimpleFunction(
-        "using", [new FunctionSignature(K.Null, [K.String])], (e, a) => {
+      new SimpleFunction("mixin_using", (e, a) => {
           Emissions(e).Add(new MixinOutput(MixinEmissionTarget.Using, e.Text(a[0]), strings: e.Strings));
           return NullHixValue.Instance;
-        }, effects: true,
-        documentation: "Adds a namespace import to the generated source."),
-      new SimpleFunction(
-        "inject",
-        [new FunctionSignature(K.Null, [K.String, K.Any]), new FunctionSignature(K.Null, [K.String, K.Number, K.Any])],
-        (e, a) => {
+        }),
+      new SimpleFunction("mixin_inject", (e, a) => {
           var rendered = e.RenderText(a[a.Length - 1]);
           if (rendered is ErrorHixValue) return rendered;
           Emissions(e).Add(
@@ -58,22 +75,15 @@ public class HixMixinBackend : HixRoslynBackend {
             )
           );
           return NullHixValue.Instance;
-        }, effects: true,
-        documentation: "Emits generated text into a named injection target, with an optional priority."),
-      new SimpleFunction(
-        "resolveMixin", [new FunctionSignature(K.Any, [K.String, K.Any])],
-        (e, a) =>
+        }),
+      new SimpleFunction("mixin_resolveMixin", (e, a) =>
           HixExpressionContext.IsPrelude(e)
             ? ResolveMixin(e, a[0].Render(e), a[1])
-            : e.Error("resolveMixin requires the prelude pass"), effects: true, requiresPrelude: true,
-        documentation: "Resolves a named mixin for the supplied operand during the prelude."),
-      new SimpleFunction(
-        "defineTarget", [new FunctionSignature(K.Null, [K.String, K.String])],
-        (e, a) =>
+            : e.Error("resolveMixin requires the prelude pass")),
+      new SimpleFunction("mixin_defineTarget", (e, a) =>
           HixExpressionContext.IsPrelude(e)
             ? DefineTarget(e, e.ResolveText(a[0]), e.ResolveText(a[1]))
-            : e.Error("defineTarget requires the prelude pass"), effects: true, requiresPrelude: true,
-        documentation: "Defines a named injection-target alias during the prelude.")
+            : e.Error("defineTarget requires the prelude pass"))
     );
   }
   public IHixValue DefineTarget(HixCoroutine thread, string name, string descriptor) => thread.Context is HixMixinContext mixin ? mixin.DefineTargetService(thread, name, descriptor) : thread.Error("target aliases require a mixin context");

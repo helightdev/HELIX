@@ -672,7 +672,7 @@ public sealed class HixExecutionTests {
   [Fact]
   public void BackendCallsInsideGlobalFunctionsAndDerivationsArePreparedStatically() {
     var unit = AntlrSyntax.Parse("""
-      func inspect(symbol value) -> string { return(param#value:name) }
+      func inspect(opaque value) -> string { return(param#value:name) }
       derivation mixin Base { expression { local inspected @= param:name; } }
       mixin Example { expression { } }
       """, TestBackend.Instance);
@@ -681,7 +681,7 @@ public sealed class HixExecutionTests {
     var program = TestCompiler.Compile(unit, "Example", TestBackend.Instance);
     var dump = program.Disassemble();
 
-    Assert.Contains("static name(any 0) -> string", dump);
+    Assert.Contains("static name(any arg0) -> string", dump);
     Assert.DoesNotContain("dynamic name(", dump);
   }
 
@@ -805,7 +805,7 @@ public sealed class HixExecutionTests {
   }
 
   private sealed record TestSymbol : IHixValue {
-    public HixValueKind Kind => HixValueKind.Symbol;
+    public HixValueKind Kind => HixValueKind.Opaque;
     public bool IsTruthy(Hix.Runtime.HixCoroutine context) => true;
     public HixString Render(Hix.Runtime.HixCoroutine context) => HixString.Dynamic("TestSymbol");
     public void Fingerprint(HixFingerprintBuilder builder, Hix.Runtime.HixCoroutine context) => builder.Append("TestSymbol");

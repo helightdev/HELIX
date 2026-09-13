@@ -60,7 +60,7 @@ public static class HixDecompiler {
           break;
         case TypeDeclarationIr type:
           // Pattern metadata has already been incorporated in Pattern by the parser.
-          Metadatas(type.Metadata.Where(item => !PatternMetadata.Contains(item.Name ?? "")));
+          Metadatas(type.Metadata.Where(item => !item.IsPatternDirective && !PatternMetadata.Contains(item.Name ?? "")));
           var typePattern = TypePattern(type.Pattern);
           Line("type " + type.Name + " = " + Pattern(typePattern)); break;
         case MixinDeclarationIr mixin:
@@ -68,6 +68,11 @@ public static class HixDecompiler {
           Line((mixin.IsDerivation ? "derivation " : "") + "mixin " + DeclarationName(mixin.Name, true) +
             (mixin.Parameters.Count == 0 ? "" : Fields(mixin.Parameters)) + " {");
           depth++; foreach (var declaration in mixin.Declarations) Write(declaration); depth--; Line("}"); break;
+        case MetadataDeclarationIr metadata:
+          Metadatas(metadata.Metadata);
+          Line("meta " + metadata.Name + Fields(metadata.Arguments) + " for " +
+            string.Join(" ", HixMetadataTargets.Names(metadata.Targets)) + ";");
+          break;
         case FunctionDeclarationIr function:
           var signatures = function.Signatures.Count == 0 ? new FunctionSignature[] {null} : function.Signatures;
           foreach (var signature in signatures) {
@@ -77,6 +82,10 @@ public static class HixDecompiler {
             if (signature != null) {
               header += (signature.Inputs == null ? signature.InputPattern == null ? "" : " [" + Pattern(signature.InputPattern) + "]" : Fields(signature.Inputs)) + " -> " +
                 (signature.Outputs == null ? Pattern(signature.OutputPattern ?? HixPattern.Any) : Fields(signature.Outputs));
+            }
+            if (function.IsExternal) {
+              Line(header + " external" + (function.ExternalName == null ? "" : " " + function.ExternalName) + ";");
+              continue;
             }
             Line(header + " {"); var previous = declared; declared = new(StringComparer.Ordinal);
             depth++; Statements(function.Body); depth--; Line("}"); declared = previous;
@@ -103,7 +112,7 @@ public static class HixDecompiler {
       return pattern;
     }
     private string Fields(IReadOnlyList<SignatureField> fields) => "(" + string.Join(", ", fields.Select(field => {
-      var extra = field.Metadata.Where(item => !PatternMetadata.Contains(item.Name ?? ""));
+      var extra = field.Metadata.Where(item => !item.IsPatternDirective && !PatternMetadata.Contains(item.Name ?? ""));
       return string.Concat(extra.Select(item => Metadata(item) + " ")) + (field.Optional ? "%optional " : "") +
         (field.Variadic ? "%variadic " : "") + Pattern(field.Pattern) + " " + field.Name +
         (field.DefaultValue == null ? "" : " = [" + Value(field.DefaultValue) + "]");
@@ -261,6 +270,9 @@ public static class HixDecompiler {
       point >= digits.Length ? digits + new string('0', point - digits.Length) : digits.Insert(point, "."));
   }
   private static string Pattern(HixPattern pattern) => pattern switch {
+    TypeParameterHixPattern parameter => parameter.Parameter.Name,
+    OpaqueHixPattern opaque => "%" + opaque.Definition.Name + "(" +
+      string.Join(", ", opaque.Arguments.Select(TypeValue)) + ") any",
     AnyHixPattern or KindHixPattern or NamedHixPattern => pattern.Display,
     UnionHixPattern union => string.Join(" | ", union.Patterns.Select(Pattern)),
     TupleHixPattern tuple => "@[" + string.Join(", ", tuple.Fields.Select(PatternField)) + "]",
@@ -276,6 +288,17 @@ public static class HixDecompiler {
     ConstrainedHixPattern constrained => "%" + (constrained.Constraint == HixPatternConstraintKind.Minimum ? "min" : constrained.Constraint == HixPatternConstraintKind.Maximum ? "max" : constrained.Constraint.ToString().ToLowerInvariant()) + "(" + ObjectSource(constrained.Argument) +
       (constrained.Exclusive ? ", true" : "") + ") " + Pattern(constrained.Underlying),
     _ => throw new NotSupportedException("Cannot render pattern " + pattern.GetType().Name)
+  };
+
+  private static string TypeValue(HixPattern pattern) => pattern switch {
+    OpaqueHixPattern opaque => opaque.Definition.Name + "(" + string.Join(", ", opaque.Arguments.Select(TypeValue)) + ")",
+    ManyHixPattern many => "many(" + TypeValue(many.Element) + ")",
+    MapHixPattern map => "map(" + TypeValue(map.Key) + ", " + TypeValue(map.Value) + ")",
+    UnionHixPattern union => "union(" + string.Join(", ", union.Patterns.Select(TypeValue)) + ")",
+    TupleHixPattern tuple => "@[" + string.Join(", ", tuple.Fields.Select(field => TypeValue(field.Pattern))) + "]",
+    TableHixPattern table => "@{" + string.Join(", ", table.Fields.Select(field => field.Name + "=" + TypeValue(field.Pattern))) + "}",
+    AnyHixPattern or KindHixPattern or NamedHixPattern or TypeParameterHixPattern => Quote(pattern.Display),
+    _ => throw new NotSupportedException("Cannot render type argument " + pattern.GetType().Name)
   };
   private static string PatternField(HixPatternField field) => (field.Optional ? "%optional " : "") +
     (field.Graph == null ? "" : "%graph(" + Quote(field.Graph.Value.ToString().ToLowerInvariant()) + ") ") + Pattern(field.Pattern) +

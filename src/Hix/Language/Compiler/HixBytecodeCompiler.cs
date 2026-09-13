@@ -36,21 +36,21 @@ public sealed class HixBytecodeCompiler {
     if (index < 0) { index = constants.Count; constants.Add(value); }
     return index;
   }
-  private int FunctionReference(SignatureHixPattern signature) {
+  private int FunctionReference(SignatureHixPattern signature, string declarationSignature = null) {
     // Equal signatures can bind to different lexical declarations. Keep call-site slots distinct.
     var index = constants.Count;
-    constants.Add(new FunctionReferenceHixValue(signature));
+    constants.Add(new FunctionReferenceHixValue(signature) { DeclarationSignature = declarationSignature });
     return index;
   }
   public HixProgramImage Compile(IReadOnlyList<ExpressionDeclarationIr> expressions,
     IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals,
     IReadOnlyList<SignatureField> parameters = null) {
-    var globalFunctions = globals.Functions.Select(Function).ToArray();
-    var localFunctions = functions.Select(Function).ToArray();
+    var globalFunctions = globals.Functions.Where(function => !function.IsExternal).Select(Function).ToArray();
+    var localFunctions = functions.Where(function => !function.IsExternal).Select(Function).ToArray();
     var derivationBodies = globals.Derivations.Select(declaration => (
       declaration.Name, declaration.Line,
       Expressions: declaration.Declarations.OfType<ExpressionDeclarationIr>().Select(Expression).ToArray(),
-      Functions: declaration.Declarations.OfType<FunctionDeclarationIr>().Select(Function).ToArray())).ToArray();
+      Functions: declaration.Declarations.OfType<FunctionDeclarationIr>().Where(function => !function.IsExternal).Select(Function).ToArray())).ToArray();
     var entries = expressions.Select(Expression).ToArray();
     foreach (var jump in jumps) {
       if (!jump.Labels.TryGetValue(jump.Name, out var target)) throw new ArgumentException("unknown label '" + jump.Name + "'");
@@ -88,10 +88,14 @@ public sealed class HixBytecodeCompiler {
   private BytecodeFunction Function(FunctionDeclarationIr function) {
     var start = EntryBlock(function.Body);
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(
-      signature.InputPattern, Fields(signature.Inputs), signature.OutputPattern, Fields(signature.Outputs))).ToArray(), start);
+      HixGenericTypes.ErasePattern(signature.InputPattern), Fields(signature.Inputs), HixGenericTypes.ErasePattern(signature.OutputPattern), Fields(signature.Outputs)) {
+        DeclarationSignature = function.TypeParameters.Count != 0 || signature.TypeParameters.Count != 0 || signature.Constant(function.Name).Parameters.Any(field =>
+          HixGenericTypes.RequiresErasure(field.Pattern)) || HixGenericTypes.RequiresErasure(signature.Constant(function.Name).Result)
+          ? HixGenericTypes.SignatureIdentity(signature.Constant(function.Name)) : null
+      }).ToArray(), start);
   }
   private IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
-    fields?.Select(field => new BytecodeField(field.Name, field.Pattern, field.Variadic, field.Optional,
+    fields?.Select(field => new BytecodeField(field.Name, HixGenericTypes.ErasePattern(field.Pattern), field.Variadic, field.Optional,
       field.DefaultValue == null ? null : DefaultValue(field.DefaultValue))).ToArray();
   private static IHixValue DefaultValue(ExpressionIr value) => value switch {
     StringExpressionIr text => new LiteralHixValue(HixString.Dynamic(text.Value)),
@@ -240,12 +244,14 @@ public sealed class HixBytecodeCompiler {
         var other = Emit(HixOpcode.JumpNotNull);
         Emit(HixOpcode.Pop); Value(fallback.Fallback); Patch(other, code.Count); break;
       case CallExpressionIr call:
+        if (call.Binding.Function?.IsExternal == true)
+          throw new ArgumentException("External function '" + call.Name + "' has no implementation.");
         var arguments = call.EffectiveArguments;
         foreach (var argument in arguments) Value(argument);
         if (call.Binding.Kind == HixCallKind.Unbound)
           throw new InvalidOperationException("Call '" + call.Name + "' must be bound before bytecode generation");
         if (call.Binding.Kind == HixCallKind.Static)
-          Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature), arguments.Count, line: line);
+          Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature, call.Resolution?.DeclarationSignature), arguments.Count, line: line);
         else Emit(HixOpcode.CallDynamic, S(call.Name), arguments.Count, line: line);
         if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;

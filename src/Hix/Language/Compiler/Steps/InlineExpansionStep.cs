@@ -28,7 +28,7 @@ public sealed class InlineExpansionStep : HixLoweringStep {
       var supplied = explicitInline ? arguments.Skip(1).ToArray() : arguments;
       if (!functions.TryGetValue(name, out var candidates))
         return CopyLocation(call, new CallExpressionIr(call.Name, arguments, call.CoerceBoolean, call.Binding));
-      var function = candidates.FirstOrDefault(candidate => Accepts(candidate, supplied.Length) &&
+      var function = candidates.FirstOrDefault(candidate => !candidate.IsExternal && Accepts(candidate, supplied.Length) &&
         (explicitInline || candidate.IsInline));
       if (function is null)
         return CopyLocation(call, new CallExpressionIr(call.Name, arguments, call.CoerceBoolean, call.Binding));

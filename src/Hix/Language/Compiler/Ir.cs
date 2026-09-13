@@ -63,6 +63,7 @@ public abstract class HixIrNode {
 public sealed class MetadataIr(string name, IReadOnlyList<ExpressionIr> values) : HixIrNode(children: values) {
   public string Name { get; } = name;
   public IReadOnlyList<ExpressionIr> Values { get; } = values;
+  public bool IsPatternDirective { get; set; }
 }
 
 public sealed record HixParseDiagnostic(int Line, string Message);
@@ -132,6 +133,7 @@ public sealed record SignatureField {
 }
 
 public sealed record FunctionSignature {
+  public IReadOnlyList<HixTypeParameter> TypeParameters { get; init; } = [];
   public FunctionSignature(HixPattern inputPattern, IReadOnlyList<SignatureField> inputs,
     HixPattern outputPattern, IReadOnlyList<SignatureField> outputs, bool patternSyntax = true) {
     InputPattern = inputPattern; Inputs = inputs; OutputPattern = outputPattern; Outputs = outputs;
@@ -154,15 +156,32 @@ public sealed record FunctionSignature {
     Outputs == null ? OutputPattern ?? HixPattern.Any : new TableHixPattern(Outputs.Select(field => field.AsPatternField()).ToArray()));
 }
 
+public sealed class MetadataDeclarationIr(string name, IReadOnlyList<SignatureField> arguments,
+  HixMetadataKind targets, IReadOnlyList<MetadataIr> metadata = null)
+  : HixIrNode(children: (metadata ?? []).Cast<HixIrNode>().Concat(arguments.SelectMany(argument => argument.Metadata)).ToArray()) {
+  public string Name { get; } = name;
+  public IReadOnlyList<SignatureField> Arguments { get; } = arguments;
+  public HixMetadataKind Targets { get; } = targets;
+  public IReadOnlyList<MetadataIr> Metadata { get; } = metadata ?? [];
+  public Hix.FunctionSignature Signature { get; } = new(new KindHixPattern(HixValueKind.Pattern),
+    arguments.Select(argument => argument.Pattern).ToArray(), arguments.LastOrDefault()?.Variadic == true,
+    arguments.Select(argument => argument.Name).ToArray(), arguments.Select(argument => argument.DefaultValue).ToArray());
+}
+
 public sealed class FunctionDeclarationIr(string name, bool pure, bool inline, bool noinline,
-  IReadOnlyList<FunctionSignature> signatures, BlockStatementIr body, IReadOnlyList<MetadataIr> metadata = null
-) : HixIrNode(children: (metadata ?? []).Cast<HixIrNode>().Concat([body]).ToArray()) {
+  IReadOnlyList<FunctionSignature> signatures, BlockStatementIr body, IReadOnlyList<MetadataIr> metadata = null,
+  IReadOnlyList<HixTypeParameter> typeParameters = null, string externalName = null
+) : HixIrNode(children: (metadata ?? []).Cast<HixIrNode>().Concat(body == null ? [] : new HixIrNode[] {body}).ToArray()) {
   public string Name { get; } = name;
   public bool IsPure { get; } = pure;
   public bool IsInline { get; } = inline;
   public bool IsNoinline { get; } = noinline;
   public IReadOnlyList<FunctionSignature> Signatures { get; } = signatures;
+  public IReadOnlyList<HixTypeParameter> TypeParameters { get; } = typeParameters ?? [];
   public BlockStatementIr Body { get; } = body;
+  public bool IsExternal => Body == null;
+  /// <summary>Optional host entry name; null means the declared function name.</summary>
+  public string ExternalName { get; } = externalName;
   public IReadOnlyList<MetadataIr> Metadata { get; } = metadata ?? [];
 }
 
@@ -265,6 +284,8 @@ public sealed class CallExpressionIr(string name, IReadOnlyList<ExpressionIr> ar
   public HixCallConstraint DispatchConstraint { get; set; }
   public IReadOnlyList<ExpressionIr> BoundArguments { get; set; }
   public IReadOnlyList<ExpressionIr> EffectiveArguments => BoundArguments ?? Arguments;
+  public IReadOnlyList<HixPattern> TypeArguments { get; set; } = [];
+  public HixCallResolution Resolution { get; set; }
 }
 
 public sealed class InlineExpressionIr(BlockStatementIr body, string resultLocal) : ExpressionIr([body]) {

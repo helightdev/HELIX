@@ -9,6 +9,7 @@ public sealed class SignatureParameterBindingStep : HixLoweringStep {
     new(input.Prelude, input.Late, input.Functions.Select(Rewrite).ToArray(), input.Parameters);
 
   public static FunctionDeclarationIr Rewrite(FunctionDeclarationIr function) {
+    if (function.IsExternal) return function;
     var positions = new Dictionary<string, int>(StringComparer.Ordinal);
     var ambiguous = new HashSet<string>(StringComparer.Ordinal);
     foreach (var signature in function.Signatures.Where(signature => signature.Inputs != null)) {
@@ -27,7 +28,8 @@ public sealed class SignatureParameterBindingStep : HixLoweringStep {
     if (positions.Count == 0) return function;
     var body = new ParameterRewriter(positions).Rewrite(function.Body);
     return Copy(function, new FunctionDeclarationIr(function.Name, function.IsPure, function.IsInline,
-      function.IsNoinline, function.Signatures, body, function.Metadata.Select(item => new HixIrRewriter().Rewrite(item)).ToArray()));
+      function.IsNoinline, function.Signatures, body, function.Metadata.Select(item => new HixIrRewriter().Rewrite(item)).ToArray(), function.TypeParameters,
+      function.ExternalName));
   }
 
   private static IEnumerable<HixIrNode> Descendants(HixIrNode node) {

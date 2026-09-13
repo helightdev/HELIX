@@ -9,10 +9,13 @@ public class HixIrRewriter {
   protected virtual HixIrNode RewriteNode(HixIrNode node) {
     if (node is null) return null;
     HixIrNode rewritten = node switch {
-      MetadataIr value => new MetadataIr(value.Name, value.Values.Select(Rewrite).ToArray()),
+      MetadataIr value => new MetadataIr(value.Name, value.Values.Select(Rewrite).ToArray()) { IsPatternDirective = value.IsPatternDirective },
+      MetadataDeclarationIr value => new MetadataDeclarationIr(value.Name, value.Arguments.Select(argument =>
+        new SignatureField(argument.Name, argument.Pattern, argument.Variadic, argument.Metadata.Select(Rewrite).ToArray(),
+          argument.Optional, Rewrite(argument.DefaultValue))).ToArray(), value.Targets, value.Metadata.Select(Rewrite).ToArray()),
       ExpressionDeclarationIr value => new ExpressionDeclarationIr(value.IsPrelude, value.IsStrict, Rewrite(value.Body)),
       FunctionDeclarationIr value => new FunctionDeclarationIr(value.Name, value.IsPure, value.IsInline,
-        value.IsNoinline, value.Signatures, Rewrite(value.Body), value.Metadata.Select(Rewrite).ToArray()),
+        value.IsNoinline, value.Signatures, Rewrite(value.Body), value.Metadata.Select(Rewrite).ToArray(), value.TypeParameters, value.ExternalName),
       BlockStatementIr value => new BlockStatementIr(value.Statements.Select(Rewrite).ToArray(), value.Label),
       AssignmentStatementIr value => new AssignmentStatementIr(value.Storage, value.Name, Rewrite(value.Value),
         value.IsCarried, value.IsDeclaration, value.DeclaredPattern),
@@ -54,7 +57,7 @@ public class HixIrRewriter {
 
   protected virtual ExpressionIr RewriteCall(CallExpressionIr call) =>
     new CallExpressionIr(call.Name, call.Arguments.Select(Rewrite).ToArray(), call.CoerceBoolean, call.Binding,
-      call.ArgumentNames) {BoundArguments = call.BoundArguments?.Select(Rewrite).ToArray()};
+      call.ArgumentNames) {TypeArguments = call.TypeArguments, Resolution = call.Resolution, BoundArguments = call.BoundArguments?.Select(Rewrite).ToArray()};
 
   protected static T CopyLocation<T>(HixIrNode source, T target) where T : HixIrNode {
     if (source is CallExpressionIr sourceCall && target is CallExpressionIr targetCall)

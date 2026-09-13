@@ -12,68 +12,58 @@ namespace Hix.Standalone;
 internal static class IoFunctions {
   public static void Register(FunctionSignatureRegistryBuilder functions) {
     functions.Add(
-      Pure("joinPath", [new FunctionSignature(K.String, [K.String], true)], (thread, args) =>
+      Pure("joinPath", (thread, args) =>
         Text(Normalize(string.Join("/", args.Select(thread.ResolveText))))),
-      Pure("splitPath", [new FunctionSignature(K.Tuple, [K.String])], (thread, args) =>
+      Pure("splitPath", (thread, args) =>
         new TupleHixValue(Normalize(thread.ResolveText(args[0])).Split(['/'], StringSplitOptions.RemoveEmptyEntries)
           .Select(value => (IHixValue)Text(value)).ToArray())),
-      Pure("trimExtension", [new FunctionSignature(K.String, [K.String])], (thread, args) => {
+      Pure("trimExtension", (thread, args) => {
         var path = Normalize(thread.ResolveText(args[0])); var extension = Path.GetExtension(Native(path));
         return Text(extension.Length == 0 ? path : path.Substring(0, path.Length - extension.Length));
       }),
-      Pure("normalizePath", [new FunctionSignature(K.String, [K.String])], (thread, args) => Text(Normalize(thread.ResolveText(args[0])))),
-      Pure("resolvePath", [new FunctionSignature(K.String, [K.String])], (thread, args) => Text(Resolve(thread, args[0]))),
-      Pure("pathDir", [new FunctionSignature(K.String, [K.String])], (thread, args) => Text(PathDirectory(thread.ResolveText(args[0])))),
-      Pure("pathName", [new FunctionSignature(K.String, [K.String])], (thread, args) => Text(PathName(thread.ResolveText(args[0])))),
-      Pure("isRelativePath", [new FunctionSignature(K.Bool, [K.String])], (thread, args) =>
+      Pure("normalizePath", (thread, args) => Text(Normalize(thread.ResolveText(args[0])))),
+      Pure("resolvePath", (thread, args) => Text(Resolve(thread, args[0]))),
+      Pure("pathDir", (thread, args) => Text(PathDirectory(thread.ResolveText(args[0])))),
+      Pure("pathName", (thread, args) => Text(PathName(thread.ResolveText(args[0])))),
+      Pure("isRelativePath", (thread, args) =>
         BooleanHixValue.From(!Path.IsPathRooted(Native(thread.ResolveText(args[0]))))),
-      Pure("isAbsolutePath", [new FunctionSignature(K.Bool, [K.String])], (thread, args) =>
+      Pure("isAbsolutePath", (thread, args) =>
         BooleanHixValue.From(Path.IsPathRooted(Native(thread.ResolveText(args[0]))))),
-      Pure("isDirPath", [new FunctionSignature(K.Bool, [K.String])], (thread, args) => {
+      Pure("isDirPath", (thread, args) => {
         var path = thread.ResolveText(args[0]);
         return BooleanHixValue.From(path.EndsWith("/", StringComparison.Ordinal) || path.EndsWith("\\", StringComparison.Ordinal));
       }),
-      Pure("currentPath", [new FunctionSignature(K.String, [])], (thread, _) => Text(Forward(Backend(thread).WorkingDirectory))),
-      Pure("lineTerminator", [new FunctionSignature(K.String, [])], (_, _) => Text(Environment.NewLine)),
-      Pure("pathSeparator", [new FunctionSignature(K.String, [])], (_, _) => Text("/"))
+      Pure("currentPath", (thread, _) => Text(Forward(Backend(thread).WorkingDirectory))),
+      Pure("lineTerminator", (_, _) => Text(Environment.NewLine)),
+      Pure("pathSeparator", (_, _) => Text("/"))
     );
     functions.Add(
-      Effect("readFile", [
-        new FunctionSignature(K.String, [K.String, K.String], ArgumentNames: ["path", "encoding"],
-          ArgumentDefaults: [null, new StringExpressionIr("utf8")]),
-        new FunctionSignature(K.String, [K.String, K.Number, K.Number, K.String],
-          ArgumentNames: ["path", "offset", "length", "encoding"],
-          ArgumentDefaults: [null, null, null, new StringExpressionIr("utf8")])
-      ], ReadFile),
-      Effect("readFileLength", [new FunctionSignature(K.Number, [K.String])], (thread, args) => Try(thread,
+      Effect("readFile", ReadFile),
+      Effect("readFileLength", (thread, args) => Try(thread,
         () => (IHixValue)new NumberHixValue(new FileInfo(ResolveNative(thread, args[0])).Length))),
-      Effect("readFileLines", [new FunctionSignature(K.String, [K.String, K.String],
-          ArgumentNames: ["path", "encoding"], ArgumentDefaults: [null, new StringExpressionIr("utf8")])],
-        (thread, args) => Try(thread, () => Text(string.Join(Environment.NewLine,
+      Effect("readFileLines", (thread, args) => Try(thread, () => Text(string.Join(Environment.NewLine,
           File.ReadAllLines(ResolveNative(thread, args[0]), EncodingOf(thread, args, 1)))))),
-      Effect("createFile", [new FunctionSignature(K.Bool, [K.String])], (thread, args) => Mutate(() => {
+      Effect("createFile", (thread, args) => Mutate(() => {
         using var stream = File.Create(ResolveNative(thread, args[0]));
       })),
-      Effect("deleteFile", [new FunctionSignature(K.Bool, [K.String])], (thread, args) => Mutate(() => File.Delete(ResolveNative(thread, args[0])))),
-      Effect("copyFile", [new FunctionSignature(K.Bool, [K.String, K.String])], (thread, args) =>
+      Effect("deleteFile", (thread, args) => Mutate(() => File.Delete(ResolveNative(thread, args[0])))),
+      Effect("copyFile", (thread, args) =>
         Mutate(() => File.Copy(ResolveNative(thread, args[0]), ResolveNative(thread, args[1])))),
-      Effect("renameFile", [new FunctionSignature(K.Bool, [K.String, K.String])], (thread, args) =>
+      Effect("renameFile", (thread, args) =>
         Mutate(() => File.Move(ResolveNative(thread, args[0]), ResolveNative(thread, args[1])))),
-      Effect("existsFile", [new FunctionSignature(K.Bool, [K.String])], (thread, args) =>
+      Effect("existsFile", (thread, args) =>
         BooleanHixValue.From(File.Exists(ResolveNative(thread, args[0])))),
-      Effect("listFiles", [new FunctionSignature(K.Tuple, [K.String])], (thread, args) => Try(thread, () =>
+      Effect("listFiles", (thread, args) => Try(thread, () =>
         (IHixValue)new TupleHixValue(Directory.EnumerateFiles(ResolveNative(thread, args[0]))
           .OrderBy(path => path, StringComparer.Ordinal).Select(path => (IHixValue)Text(Forward(path))).ToArray()))),
-      Effect("writeFile", [new FunctionSignature(K.Bool, [K.String, K.String, K.String, K.Bool],
-        ArgumentNames: ["path", "content", "encoding", "append"],
-        ArgumentDefaults: [null, null, new StringExpressionIr("utf8"), new BooleanExpressionIr(false)])], WriteFile)
+      Effect("writeFile", WriteFile)
     );
   }
 
-  private static SimpleFunction Pure(string name, IReadOnlyList<FunctionSignature> signatures, InlineFunction implementation) =>
-    new(name, signatures, implementation);
-  private static SimpleFunction Effect(string name, IReadOnlyList<FunctionSignature> signatures, InlineFunction implementation) =>
-    new(name, signatures, implementation, effects: true);
+  private static SimpleFunction Pure(string name, InlineFunction implementation) =>
+    new("standalone_" + name, implementation);
+  private static SimpleFunction Effect(string name, InlineFunction implementation) =>
+    new("standalone_" + name, implementation);
   private static LiteralHixValue Text(string value) => new(HixString.Dynamic(value ?? ""));
   private static HixStandaloneBackend Backend(HixCoroutine thread) => (HixStandaloneBackend)thread.Backend;
   private static string Native(string path) => path.Replace('/', Path.DirectorySeparatorChar);

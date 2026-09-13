@@ -39,8 +39,8 @@ public sealed class BackendExtensionTests {
 
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
-      functions.Add(new SimpleFunction("publish", [new(HixValueKind.Number, [HixValueKind.Number])],
-        (thread, arguments) => {
+      functions.AddLibrary("pure func publish(number arg0) -> number external;");
+      functions.Add(new SimpleFunction("publish", (thread, arguments) => {
           thread.Context.Emit(thread, arguments[0]);
           thread.Context.Logs.Add(new(HixString.Dynamic("extension")));
           return arguments[0];

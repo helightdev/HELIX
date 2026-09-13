@@ -5,18 +5,18 @@ public enum HixCallKind { Unbound, Static, Dynamic }
 /// <summary>Compile-time call semantics. Dynamic dispatch is an explicit bound result.</summary>
 public sealed record HixCallBinding {
   private HixCallBinding(HixCallKind kind, SignatureHixPattern signature = null,
-    FunctionDeclarationIr function = null, global::Hix.FunctionDefinition backend = null) {
+    FunctionDeclarationIr function = null, global::Hix.HixFunctionEntry backend = null) {
     Kind = kind; Signature = signature; Function = function; Backend = backend;
   }
   public HixCallKind Kind { get; }
   public SignatureHixPattern Signature { get; }
   public FunctionDeclarationIr Function { get; }
-  public global::Hix.FunctionDefinition Backend { get; }
+  public global::Hix.HixFunctionEntry Backend { get; }
   public static readonly HixCallBinding Unbound = new(HixCallKind.Unbound);
   public static readonly HixCallBinding Dynamic = new(HixCallKind.Dynamic);
   public static HixCallBinding Language(SignatureHixPattern signature, FunctionDeclarationIr function) =>
     new(HixCallKind.Static, signature, function);
-  public static HixCallBinding Host(SignatureHixPattern signature, global::Hix.FunctionDefinition backend) =>
+  public static HixCallBinding Host(SignatureHixPattern signature, global::Hix.HixFunctionEntry backend) =>
     new(HixCallKind.Static, signature, backend: backend);
 }
 

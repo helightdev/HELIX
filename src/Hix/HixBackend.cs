@@ -4,17 +4,28 @@ using System.Collections.Generic;
 using Hix.Runtime;
 namespace Hix;
 
-public sealed record HixBackendRoot(string Name, HixValueKind Kind, bool RequiresPrelude = false, bool HasEffects = true);
+public sealed record HixBackendRoot(string Name, HixValueKind Kind, bool RequiresPrelude = false, bool HasEffects = true) {
+  public HixPattern Pattern { get; init; } = Kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(Kind);
+}
 
 /// <summary>Host services and immutable language definitions. Execution state belongs to threads.</summary>
 public abstract class HixBackend {
   private readonly Lazy<FunctionLibrary> functions;
+  private FunctionLibrary initializingFunctions;
+  private readonly object functionGate = new();
   private readonly Lazy<IReadOnlyDictionary<string, HixBackendRoot>> roots;
   protected HixBackend() {
     functions = new Lazy<FunctionLibrary>(() => {
       var definitions = new FunctionSignatureRegistryBuilder();
       RegisterFunctions(definitions);
-      return new FunctionLibrary(definitions);
+      var library = new FunctionLibrary(definitions);
+      initializingFunctions = library;
+      try {
+        library.BindLibraries(definitions, this);
+        return library;
+      } finally {
+        initializingFunctions = null;
+      }
     });
     roots = new Lazy<IReadOnlyDictionary<string, HixBackendRoot>>(() => {
       var definitions = new Dictionary<string, HixBackendRoot>(StringComparer.Ordinal);
@@ -25,19 +36,30 @@ public abstract class HixBackend {
   /// <summary>Ordered compiler transforms used for globals, mixins, and derivations.</summary>
   public virtual IReadOnlyList<HixCompilerStep> CompilerSteps => HixCompiler.DefaultSteps;
 
-  public FunctionLibrary Functions => functions.Value;
+  public FunctionLibrary Functions {
+    get {
+      if (functions.IsValueCreated) return functions.Value;
+      lock (functionGate) return initializingFunctions ?? functions.Value;
+    }
+  }
   public IReadOnlyDictionary<string, HixBackendRoot> Roots => roots.Value;
   protected virtual void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
-    Hix.Functions.Builtins.Register(functions);
     Hix.Functions.MetadataFunctions.Register(functions);
+    Hix.Functions.Builtins.Register(functions);
     functions.Add(new Hix.Functions.NameFunction(), new Hix.Functions.UnwrapFunction());
     RegisterEmissionFunctions(functions);
   }
   protected virtual void RegisterEmissionFunctions(FunctionSignatureRegistryBuilder functions) {
-    functions.Add(new SimpleFunction("emit", [new(HixValueKind.Null, [HixValueKind.Any]), new(HixValueKind.Null, [HixValueKind.String, HixValueKind.Any])], (thread, values) => {
+    functions.AddLibrary("""
+      %description<Emits a detached Hix value.>
+      func emit(any value) -> null external;
+      %description<Emits a detached Hix value to a named destination.>
+      func emit(string destination, any value) -> null external;
+      """);
+    functions.Add(new SimpleFunction("emit", (thread, values) => {
       thread.Context.Emit(thread, values[values.Length - 1], values.Length == 2 ? thread.Text(values[0]) : default);
       return NullHixValue.Instance;
-    }, effects: true, acceptsErrors: true, documentation: "Emits a detached Hix value, optionally addressed to an opaque destination."));
+    }));
   }
 
   protected virtual void RegisterRoots(IDictionary<string, HixBackendRoot> roots) { }

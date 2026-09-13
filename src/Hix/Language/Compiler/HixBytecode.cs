@@ -179,6 +179,7 @@ public sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<By
   HixPattern OutputPattern, IReadOnlyList<BytecodeField> Outputs
 ) {
   public string InputKind => InputPattern?.Display;
+  public string DeclarationSignature { get; init; }
   public string OutputKind => OutputPattern?.Display;
   public SignatureHixPattern Constant(string name) => new(name,
     Inputs == null ? [new HixPatternField(null, InputPattern ?? HixPattern.Any)] : Inputs.Select(field => field.AsPatternField()).ToArray(),
@@ -323,6 +324,7 @@ public sealed class HixProgramImage {
       foreach (var signature in item.Function.Signatures) {
         builder.Append(signature.InputKind);
         builder.Append(signature.OutputKind);
+        if (signature.DeclarationSignature != null) builder.Append(signature.DeclarationSignature);
         AppendFieldsIdentity(builder, signature.Inputs);
         AppendFieldsIdentity(builder, signature.Outputs);
       }

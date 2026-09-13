@@ -329,11 +329,12 @@ public sealed class HixThreadTests {
     internal Action<HixCoroutine> Probe;
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
+      functions.AddLibrary("pure func probe(any callback) -> any external;");
       functions.Add(new ProbeFunction(this));
     }
   }
 
-  private sealed class ProbeFunction(ProbeBackend backend) : FunctionDefinition("probe", 1) {
+  private sealed class ProbeFunction(ProbeBackend backend) : FunctionDefinition("probe") {
     public override IHixValue Execute(HixCoroutine thread, IHixValue[] arguments, int line) {
       backend.Probe(thread);
       return thread.Invoke(arguments[0], [thread.Resolve(HixExpressionRoot.Parameter, HixString.Dynamic(""))], line);

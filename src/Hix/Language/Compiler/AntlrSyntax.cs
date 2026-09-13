@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Lexer = Hix.Compiler.Generated.HixLexer;
@@ -34,22 +36,30 @@ public static class AntlrSyntax {
         diagnostics.Add(new HixParseDiagnostic(token.Line, "invalid token '" + token.Text + "'"));
     // Error recovery trees must never produce executable partial programs during compilation.
     // Editor analysis may, however, retain complete declarations surrounding an incomplete edit.
-    var builder = new IrBuilder(tokens, diagnostics, backend ?? HixCoreBackend.Instance);
+    var builder = new IrBuilder(tokens, diagnostics, backend ?? HixCoreBackend.Instance, source);
     var declarationContexts = tree.topLevelDeclaration()
       .Where(context => !recoverValidDeclarations || !HasSyntaxError(context)).ToArray();
+    var metaDeclarations = new Dictionary<Parser.TopLevelDeclarationContext, HixIrNode>();
+    if (diagnostics.Count == 0 || recoverValidDeclarations) {
+      foreach (var context in declarationContexts.Where(context => context.metaDeclaration() != null)) {
+        var declaration = (MetadataDeclarationIr)builder.Visit(context);
+        metaDeclarations.Add(context, declaration);
+        builder.RegisterMetadata(declaration);
+      }
+    }
     var declarations = diagnostics.Count == 0 || recoverValidDeclarations
-      ? declarationContexts.Select(builder.Visit).ToArray()
+      ? declarationContexts.Select(context => metaDeclarations.TryGetValue(context, out var declaration) ? declaration : builder.Visit(context)).ToArray()
       : Array.Empty<HixIrNode>();
     var metadata = (diagnostics.Count == 0 || recoverValidDeclarations) &&
       tree.fileMetadataSection() is { } section && !HasSyntaxError(section)
       ? section.metadataList().metadata().Select(value => (MetadataIr)builder.Visit(value)).ToArray()
       : Array.Empty<MetadataIr>();
-    ValidateMetadata(metadata, HixMetadataKind.File, "file", backend ?? HixCoreBackend.Instance, diagnostics);
+    ValidateMetadata(metadata, HixMetadataKind.File, "file", backend ?? HixCoreBackend.Instance, diagnostics, builder.MetadataDefinitions);
     foreach (var statement in declarations.SelectMany(DescendantsAndSelf).OfType<StatementIr>()) {
       var declaration = statement is AssignmentStatementIr {IsDeclaration: true};
       ValidateMetadata(statement.Metadata, declaration
           ? HixMetadataKind.Statement | HixMetadataKind.VariableDeclaration : HixMetadataKind.Statement,
-        declaration ? "variable declaration" : "statement", backend ?? HixCoreBackend.Instance, diagnostics);
+        declaration ? "variable declaration" : "statement", backend ?? HixCoreBackend.Instance, diagnostics, builder.MetadataDefinitions);
     }
     var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
@@ -59,11 +69,13 @@ public static class AntlrSyntax {
   }
 
   private static void ValidateMetadata(IEnumerable<MetadataIr> metadata, HixMetadataKind target, string description,
-    HixBackend backend, ICollection<HixParseDiagnostic> diagnostics) {
+    HixBackend backend, ICollection<HixParseDiagnostic> diagnostics, IReadOnlyList<HixFunctionEntry> localDefinitions = null) {
     foreach (var item in metadata.Where(item => item.Name != null)) {
-      if (backend.Functions.ResolveMetadata(item.Name, target).Count == 0) {
+      var definitions = backend.Functions.ResolveMetadata(item.Name, target).Concat((localDefinitions ?? [])
+        .Where(definition => definition.Name == item.Name && (definition.Metadata & target) != 0)).ToArray();
+      if (definitions.Length == 0) {
         diagnostics.Add(new HixParseDiagnostic(item.Line, "unknown " + description + " metadata '%" + item.Name + "'"));
-      } else if (backend.Functions.ResolveMetadata(item.Name, target, item.Values.Count).Count == 0) {
+      } else if (!definitions.Any(definition => definition.MatchesArgumentCount(item.Values.Count))) {
         diagnostics.Add(new HixParseDiagnostic(item.Line, "metadata function '%" + item.Name +
           "' does not accept " + item.Values.Count + " arguments"));
       }
@@ -121,9 +133,19 @@ public static class AntlrSyntax {
     }
   }
 
-  private sealed class IrBuilder(IReadOnlyList<IToken> tokens, List<HixParseDiagnostic> diagnostics, HixBackend backend)
+  private sealed class IrBuilder(IReadOnlyList<IToken> tokens, List<HixParseDiagnostic> diagnostics, HixBackend backend, string source)
     : Generated.HixParserBaseVisitor<HixIrNode> {
     private IReadOnlyList<MetadataIr> declarationMetadata = [];
+    private readonly List<HixFunctionEntry> metadataDefinitions = [];
+    public IReadOnlyList<HixFunctionEntry> MetadataDefinitions => metadataDefinitions;
+    public void RegisterMetadata(MetadataDeclarationIr declaration) => metadataDefinitions.Add(
+      new HixFunctionEntry(declaration.Name, [declaration.Signature], metadata: declaration.Targets));
+    private IReadOnlyList<HixFunctionEntry> ResolveMetadata(string name, HixMetadataKind target, int? count = null) =>
+      backend.Functions.ResolveMetadata(name, target).Concat(MetadataDefinitions.Where(definition =>
+        definition.Name == name && (definition.Metadata & target) != 0))
+        .Where(definition => !count.HasValue || definition.MatchesArgumentCount(count.Value)).ToArray();
+    private readonly Dictionary<string, HixTypeParameter> typeParameters = new(StringComparer.Ordinal);
+    private string genericScopeIdentity;
     private IToken[] TokensIn(HixSourceRange range) {
       var low = 0;
       var high = tokens.Count;
@@ -168,6 +190,7 @@ public static class AntlrSyntax {
     private BlockStatementIr Block(Parser.StatementBlockContext context, string label = null) =>
       At(new BlockStatementIr(context.statement().Select(Statement).ToArray(), label), context);
     private BlockStatementIr FunctionBody(Parser.FunctionBodyContext context) {
+      if (context.KEYWORD_EXTERNAL() != null) return null;
       if (context.statementBlock() is { } block) return Block(block);
       var returned = At(new ControlFlowStatementIr(ControlFlowKind.Return, null, [Value(context.value())]), context);
       return At(new BlockStatementIr([returned]), context);
@@ -186,7 +209,7 @@ public static class AntlrSyntax {
         .Select(metadata => (MetadataIr)Visit(metadata)).ToArray() ?? [];
       try {
         return At(Visit(context.mixinDeclaration() ?? (ParserRuleContext)context.funcDeclaration() ??
-          context.typeDeclaration()), context);
+          context.typeDeclaration() ?? (ParserRuleContext)context.metaDeclaration()), context);
       } finally {
         declarationMetadata = previous;
       }
@@ -194,7 +217,21 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitMetadata(Parser.MetadataContext context) {
       if (context.metadataValue() is { } anonymous) return Visit(anonymous);
-      return At(new MetadataIr(context.IDENTIFIER().GetText(), Arguments(context.valueList())), context);
+      return At(new MetadataIr(context.IDENTIFIER().GetText(), context.argumentValue().Select(Value)
+        .Concat(Arguments(context.valueList())).ToArray()), context);
+    }
+
+    public override HixIrNode VisitMetaDeclaration(Parser.MetaDeclarationContext context) {
+      var targets = HixMetadataKind.None;
+      foreach (var target in context.metaTarget()) {
+        if (!HixMetadataTargets.TryParse(target.GetText(), out var kind))
+          diagnostics.Add(new HixParseDiagnostic(target.Start.Line, "unknown metadata target '" + target.GetText() + "'"));
+        else if ((targets & kind) != 0)
+          diagnostics.Add(new HixParseDiagnostic(target.Start.Line, "duplicate metadata target '" + target.GetText() + "'"));
+        else targets |= kind;
+      }
+      return At(new MetadataDeclarationIr(context.IDENTIFIER().GetText(),
+        context.patternParameterList().patternField().Select(SignatureField).ToArray(), targets, declarationMetadata), context);
     }
 
     public override HixIrNode VisitMetadataValue(Parser.MetadataValueContext context) =>
@@ -216,7 +253,7 @@ public static class AntlrSyntax {
         ? Pattern(term.patternPrimary()) : HixPatterns.Nullable(Pattern(term.patternPrimary()))));
 
     private HixPattern Pattern(Parser.PatternPrimaryContext context) {
-      if (context.patternIdentifier() != null) return HixPatterns.Named(context.patternIdentifier().GetText());
+      if (context.patternIdentifier() != null) return TypeName(context.patternIdentifier().GetText());
       if (context.tablePattern() != null)
         return new TableHixPattern(context.tablePattern().patternField().Select(field => PatternField(field)).ToArray());
       if (context.tuplePattern() != null)
@@ -250,18 +287,28 @@ public static class AntlrSyntax {
       // Prefix metadata composes from the pattern outwards: `%min %many<string> values`
       // means a minimum constraint over the many-pattern, not a discarded constraint over `any`.
       foreach (var metadata in values.Reverse()) {
+        metadata.IsPatternDirective = true;
         object Argument(int index) => index >= metadata.Values.Count ? null : metadata.Values[index] switch {
           StringExpressionIr text => text.Value, NumberExpressionIr number => number.Value,
           BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null,
           MissingExpressionIr => MissingHixValue.Instance, _ => null
         };
-        HixPattern PatternArgument(int index) => Argument(index) is string name ? HixPatterns.Named(name) : HixPattern.Any;
-        var definitions = backend.Functions.ResolveMetadata(metadata.Name, target);
+        HixPattern PatternArgument(int index) => index < metadata.Values.Count ? TypeArgument(metadata.Values[index]) : HixPattern.Any;
+        var constructors = backend.Functions.PatternConstructors.Where(item => item.Name == metadata.Name).ToArray();
+        if (constructors.Length != 0) {
+          if (constructors.Length != 1) {
+            diagnostics.Add(new HixParseDiagnostic(metadata.Line, "ambiguous pattern constructor '" + metadata.Name + "'"));
+            continue;
+          }
+          pattern = Construct(constructors[0], metadata.Values, metadata.Line);
+          continue;
+        }
+        var definitions = ResolveMetadata(metadata.Name, target);
         if (definitions.Count == 0) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown pattern directive '%" + metadata.Name + "'"));
           continue;
         }
-        if (backend.Functions.ResolveMetadata(metadata.Name, target, metadata.Values.Count).Count == 0) {
+        if (ResolveMetadata(metadata.Name, target, metadata.Values.Count).Count == 0) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "metadata function '%" + metadata.Name +
             "' does not accept " + metadata.Values.Count + " arguments"));
           continue;
@@ -297,6 +344,49 @@ public static class AntlrSyntax {
       return pattern;
     }
 
+    private HixPattern TypeName(string name) => typeParameters.TryGetValue(name, out var parameter)
+      ? parameter.Pattern : HixPatterns.Named(name);
+
+    private HixPattern TypeArgument(ExpressionIr expression) {
+      switch (expression) {
+        case StringExpressionIr text: return TypeName(text.Value);
+        case RootExpressionIr {IsSmart: false} root: return TypeName(root.Name);
+        case NullExpressionIr: return new KindHixPattern(HixValueKind.Null);
+        case MissingExpressionIr: return new KindHixPattern(HixValueKind.Missing);
+        case TupleExpressionIr tuple:
+          return new TupleHixPattern(tuple.Values.Select((value, index) =>
+            new HixPatternField(index.ToString(), TypeArgument(value))).ToArray());
+        case TableExpressionIr table:
+          return new TableHixPattern(table.Entries.Select(entry => new HixPatternField(entry.Key, TypeArgument(entry.Value))).ToArray());
+        case CallExpressionIr call:
+          if (call.ArgumentNames.Any(name => name != null)) {
+            diagnostics.Add(new HixParseDiagnostic(call.Line, "pattern constructors use positional type arguments"));
+            return HixPattern.Any;
+          }
+          if (call.Name == "union") return HixPatterns.Union(call.Arguments.Select(TypeArgument));
+          if (call.Name == "many" && call.Arguments.Count == 1) return new ManyHixPattern(TypeArgument(call.Arguments[0]));
+          if (call.Name == "map" && call.Arguments.Count == 2)
+            return new MapHixPattern(TypeArgument(call.Arguments[0]), TypeArgument(call.Arguments[1]));
+          var constructors = backend.Functions.PatternConstructors.Where(item => item.Name == call.Name).ToArray();
+          if (constructors.Length == 1) return Construct(constructors[0], call.Arguments, call.Line);
+          diagnostics.Add(new HixParseDiagnostic(call.Line, (constructors.Length == 0 ? "unknown" : "ambiguous") +
+            " pattern constructor '" + call.Name + "'"));
+          return HixPattern.Any;
+        default:
+          diagnostics.Add(new HixParseDiagnostic(expression.Line, "expected a type name or pattern-constructor call"));
+          return HixPattern.Any;
+      }
+    }
+
+    private HixPattern Construct(HixPatternConstructor constructor, IReadOnlyList<ExpressionIr> arguments, int line) {
+      if (arguments.Count != constructor.Arity) {
+        diagnostics.Add(new HixParseDiagnostic(line, "pattern constructor '" + constructor.Name + "' requires " +
+          constructor.Arity + " type argument(s)"));
+        return HixPattern.Any;
+      }
+      return constructor.Construct(arguments.Select(TypeArgument).ToArray());
+    }
+
     private static bool IsTrue(object value) => value is true ||
       string.Equals(Convert.ToString(value), "true", StringComparison.OrdinalIgnoreCase);
 
@@ -318,11 +408,11 @@ public static class AntlrSyntax {
       var name = context.IDENTIFIER().GetText();
       var pattern = Pattern(context.patternExpression());
       foreach (var metadata in declarationMetadata) {
-        if (backend.Functions.ResolveMetadata(metadata.Name, HixMetadataKind.TypeDefinition).Count == 0) {
+        if (ResolveMetadata(metadata.Name, HixMetadataKind.TypeDefinition).Count == 0) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown type metadata '%" + metadata.Name + "'"));
           continue;
         }
-        if (backend.Functions.ResolveMetadata(metadata.Name, HixMetadataKind.TypeDefinition, metadata.Values.Count).Count == 0) {
+        if (ResolveMetadata(metadata.Name, HixMetadataKind.TypeDefinition, metadata.Values.Count).Count == 0) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "metadata function '%" + metadata.Name +
             "' does not accept " + metadata.Values.Count + " arguments"));
           continue;
@@ -342,7 +432,7 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
-      ValidateMetadata(declarationMetadata, HixMetadataKind.MixinDefinition, "mixin", backend, diagnostics);
+      ValidateMetadata(declarationMetadata, HixMetadataKind.MixinDefinition, "mixin", backend, diagnostics, MetadataDefinitions);
       var identifier = context.mixinIdentifier();
       var parameters = context.patternParameterList()?.patternField().Select(SignatureField).ToArray() ?? [];
       return At(new MixinDeclarationIr(DeclarationName(identifier.IDENTIFIER() ?? identifier.NAMESPACE_IDENTIFIER(),
@@ -354,6 +444,9 @@ public static class AntlrSyntax {
     private SignatureField SignatureField(Parser.PatternFieldContext context) {
       var field = PatternField(context, signature: true);
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
+      foreach (var item in metadata)
+        item.IsPatternDirective = backend.Functions.PatternConstructors.Any(constructor => constructor.Name == item.Name) ||
+          backend.Functions.ResolveMetadata(item.Name, HixMetadataKind.Pattern | HixMetadataKind.PatternField).Count != 0;
       return new SignatureField(field.Name, field.Pattern, metadata.Any(item => item.Name == "variadic"),
         metadata, field.Optional, context.value() == null ? null : Value(context.value()));
     }
@@ -367,7 +460,37 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitFuncDeclaration(Parser.FuncDeclarationContext context) {
       Modifiers(context.funcModifier());
-      ValidateMetadata(declarationMetadata, HixMetadataKind.FunctionDefinition, "function", backend, diagnostics);
+      ValidateMetadata(declarationMetadata, HixMetadataKind.FunctionDefinition, "function", backend, diagnostics, MetadataDefinitions);
+      var previousParameters = typeParameters.ToArray();
+      var declaredParameters = new List<HixTypeParameter>();
+      foreach (var metadata in declarationMetadata.Where(item => item.Name == "generic")) {
+        if (metadata.Values.Count == 0 || metadata.Values[0] is not StringExpressionIr name ||
+            string.IsNullOrWhiteSpace(name.Value) || !name.Value.All(character => char.IsLetterOrDigit(character) || character == '_') ||
+            char.IsDigit(name.Value[0])) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "%generic requires a literal type-parameter name"));
+          continue;
+        }
+        if (declaredParameters.Any(parameter => parameter.Name == name.Value)) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "duplicate generic parameter '" + name.Value + "'"));
+          continue;
+        }
+        if (HixPatterns.Named(name.Value) is not NamedHixPattern ||
+            backend.Functions.PatternConstructors.Any(item => item.Name == name.Value)) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "generic parameter conflicts with type name '" + name.Value + "'"));
+          continue;
+        }
+        var bounds = metadata.Values.Skip(1).Select(TypeArgument).ToArray();
+        if (genericScopeIdentity == null) {
+          using var hash = SHA256.Create();
+          genericScopeIdentity = Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(source)));
+        }
+        var parameter = new HixTypeParameter("source:" + genericScopeIdentity + ":" + context.Start.StartIndex, name.Value, bounds.FirstOrDefault()) {
+          AdditionalBounds = bounds.Skip(1).ToArray()
+        };
+        typeParameters[name.Value] = parameter;
+        declaredParameters.Add(parameter);
+      }
+      try {
       var signatures = new List<FunctionSignature>();
       if (context.directFunctionSignature() is { } direct) {
         var parameters = direct.patternParameterList()?.patternField().Select(SignatureField).ToArray();
@@ -380,7 +503,12 @@ public static class AntlrSyntax {
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures.ToArray(),
-        FunctionBody(context.functionBody()), declarationMetadata), context);
+        FunctionBody(context.functionBody()), declarationMetadata, declaredParameters.ToArray(),
+        context.functionBody().IDENTIFIER()?.GetText()), context);
+      } finally {
+        typeParameters.Clear();
+        foreach (var parameter in previousParameters) typeParameters.Add(parameter.Key, parameter.Value);
+      }
     }
 
     public override HixIrNode VisitInlineBlockValue(Parser.InlineBlockValueContext context) {

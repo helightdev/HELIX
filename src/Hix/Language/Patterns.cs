@@ -16,7 +16,8 @@ public abstract record HixPattern {
 public static class HixPatterns {
   public static HixPattern Named(string name) {
     if (string.IsNullOrEmpty(name) || name == "any") return HixPattern.Any;
-    return Enum.TryParse<HixValueKind>(name, true, out var kind) && kind != HixValueKind.Any
+    return Enum.TryParse<HixValueKind>(name, true, out var kind) && kind != HixValueKind.Any &&
+      string.Equals(name, kind.ToString(), StringComparison.OrdinalIgnoreCase)
       ? new KindHixPattern(kind) : new NamedHixPattern(name);
   }
 
@@ -171,6 +172,10 @@ public static class HixPatternMatcher {
       return Matches(defined.Root, value, context, merged, path, active, out failure);
     }
     switch (pattern) {
+      case OpaqueHixPattern:
+        return Matches(new KindHixPattern(HixValueKind.Opaque), value, context, definitions, path, active, out failure);
+      case TypeParameterHixPattern parameter:
+        return Matches(parameter.Parameter.Bound ?? HixPattern.Any, value, context, definitions, path, active, out failure);
       case AnyHixPattern: return true;
       case KindHixPattern kind when value.Kind == kind.ValueKind: return true;
       case KindHixPattern kind:
@@ -298,6 +303,34 @@ public static class HixPatternRelations {
     if (expected is AnyHixPattern) return HixPatternRelation.Always;
     if (actual is AnyHixPattern) return HixPatternRelation.Maybe;
     if (actual.Equals(expected)) return HixPatternRelation.Always;
+    if (actual is TypeParameterHixPattern parameterActual)
+      return Relate(parameterActual.Parameter.Bound ?? HixPattern.Any, expected, definitions);
+    if (expected is TypeParameterHixPattern parameterExpected)
+      return Relate(actual, parameterExpected.Parameter.Bound ?? HixPattern.Any, definitions);
+    if (actual is OpaqueHixPattern opaqueActual && expected is OpaqueHixPattern opaqueExpected) {
+      if (opaqueActual.Definition.Identity != opaqueExpected.Definition.Identity ||
+          opaqueActual.Arguments.Count != opaqueExpected.Arguments.Count) return HixPatternRelation.Never;
+      return Merge(opaqueActual.Arguments.Zip(opaqueExpected.Arguments, (a, b) =>
+        a is AnyHixPattern || b is AnyHixPattern ? HixPatternRelation.Maybe :
+        HixGenericTypes.Equivalent(a, b) ? HixPatternRelation.Always : HixPatternRelation.Never));
+    }
+    if (actual is OpaqueHixPattern && expected is KindHixPattern kindExpected)
+      return kindExpected.ValueKind == HixValueKind.Opaque ? HixPatternRelation.Always :
+        Functions.KindDefinitions.CanImplicitConvert(HixValueKind.Opaque, kindExpected.ValueKind) ?
+          HixPatternRelation.Maybe : HixPatternRelation.Never;
+    if (expected is OpaqueHixPattern && actual is KindHixPattern kindActual)
+      return kindActual.ValueKind == HixValueKind.Opaque ? HixPatternRelation.Maybe : HixPatternRelation.Never;
+    if (actual is DelegateHixPattern && expected is KindHixPattern {ValueKind: HixValueKind.Function})
+      return HixPatternRelation.Always;
+    if (actual is DelegateHixPattern actualDelegate && expected is DelegateHixPattern expectedDelegate) {
+      if (expectedDelegate.Parameters.Count != 0 && actualDelegate.Parameters.Count != expectedDelegate.Parameters.Count)
+        return HixPatternRelation.Never;
+      return Merge(expectedDelegate.Parameters.Select((field, index) =>
+        Relate(field.Pattern, actualDelegate.Parameters[index].Pattern, definitions))
+        .Concat([Relate(actualDelegate.Result, expectedDelegate.Result, definitions)]));
+    }
+    if (actual is KindHixPattern {ValueKind: HixValueKind.Function} && expected is DelegateHixPattern)
+      return HixPatternRelation.Maybe;
     if (actual is DefinedHixPattern definedActual) return Relate(definedActual.Root, expected, definedActual.Definitions);
     if (expected is DefinedHixPattern definedExpected) return Relate(actual, definedExpected.Root, definedExpected.Definitions);
     if (actual is NamedHixPattern namedActual && definitions.TryGetValue(namedActual.Name, out var actualBody))

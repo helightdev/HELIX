@@ -27,6 +27,8 @@
              Link="HixStandaloneAnalysis\IoFunctions.cs" />
     <Compile Include="..\..\..\..\Hix.Standalone\CompilationFunctions.cs"
              Link="HixStandaloneAnalysis\CompilationFunctions.cs" />
+    <Compile Include="..\..\..\..\Hix.Standalone\ConcurrencyFunctions.cs"
+             Link="HixStandaloneAnalysis\ConcurrencyFunctions.cs" />
     <Compile Include="..\..\..\..\Hix\IsExternalInit.cs"
              Link="Compatibility\IsExternalInit.cs" />
   </ItemGroup>

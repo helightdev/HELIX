@@ -12,7 +12,7 @@ public sealed class HixAntlrGrammarTests {
   [Fact]
   public void RoslynCallsInsideGlobalFunctionsAndDerivationsArePreparedStatically() {
     var unit = Hix.Compiler.AntlrSyntax.Parse("""
-      func inspect(symbol value) -> symbol { return(param#value:type) }
+      func inspect(opaque value) -> opaque { return(param#value:type) }
       derivation mixin Base { expression { local inspected @= param:type; } }
       mixin Example { expression { } }
       """, Hix.HixMixinBackend.Instance);
@@ -21,7 +21,7 @@ public sealed class HixAntlrGrammarTests {
     var program = Hix.Compiler.HixCompiler.Compile(unit, "Example", Hix.HixMixinBackend.Instance);
     var dump = program.Disassemble();
 
-    Assert.Contains("static type(symbol 0) -> symbol", dump);
+    Assert.Contains("static type(opaque arg0) -> opaque", dump);
     Assert.DoesNotContain("dynamic type(", dump);
   }
 
@@ -85,6 +85,8 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("type NullableString = %union<string><null>\ntype Pair = @[string left, number right]\ntype Handler = delegate(string value) -> null\npure func typed(string value) -> null { return(null) }")]
   [InlineData("type Pet = %union<Dog><Cat>;\n%tagged type Dog = @{};\n%tagged type Cat = @{};\n%tagged type House = @{Pet pet,};")]
   [InlineData("type Pet = %union<Dog><Cat>\n%tagged type Dog = @{}\n%tagged type Cat = @{}\n%tagged type House = @{Pet pet}")]
+  [InlineData("pure func apply(delegate() -> number callback) -> number { return(call($callback)) }")]
+  [InlineData("pure func apply(delegate(number value) -> delegate() -> string callback) -> function { return($callback) }")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));

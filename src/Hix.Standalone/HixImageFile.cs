@@ -91,9 +91,11 @@ public static class HixImageFile {
     private static readonly Type[] Types = {
       typeof(AnyHixPattern), typeof(KindHixPattern), typeof(NamedHixPattern), typeof(UnionHixPattern), typeof(TupleHixPattern), typeof(TableHixPattern),
       typeof(ManyHixPattern), typeof(MapHixPattern), typeof(DefinedHixPattern), typeof(TaggedHixPattern), typeof(ConstantHixPattern), typeof(EnumHixPattern),
-      typeof(DocumentedHixPattern), typeof(ConstrainedHixPattern), typeof(DelegateHixPattern), typeof(SignatureHixPattern), typeof(HixPatternField)
+      typeof(DocumentedHixPattern), typeof(ConstrainedHixPattern), typeof(DelegateHixPattern), typeof(SignatureHixPattern), typeof(HixPatternField),
+      typeof(OpaqueHixPattern), typeof(HixOpaqueTypeDefinition), typeof(TypeParameterHixPattern), typeof(HixTypeParameter)
     };
-    public override bool CanConvert(Type type) => typeof(HixPattern).IsAssignableFrom(type) || type == typeof(HixPatternField);
+    public override bool CanConvert(Type type) => typeof(HixPattern).IsAssignableFrom(type) ||
+      type == typeof(HixPatternField) || type == typeof(HixOpaqueTypeDefinition) || type == typeof(HixTypeParameter);
     private static System.Reflection.ConstructorInfo Constructor(Type type) => type.GetConstructors().Single(c =>
       c.GetParameters().All(p => type.GetProperty(p.Name) != null));
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer) {
@@ -103,6 +105,9 @@ public static class HixImageFile {
       foreach (var parameter in Constructor(type).GetParameters()) {
         writer.WritePropertyName(parameter.Name); serializer.Serialize(writer, type.GetProperty(parameter.Name).GetValue(value));
       }
+      if (value is HixTypeParameter generic) {
+        writer.WritePropertyName("AdditionalBounds"); serializer.Serialize(writer, generic.AdditionalBounds);
+      }
       writer.WriteEndObject();
     }
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer) {
@@ -110,10 +115,12 @@ public static class HixImageFile {
       var json = JObject.Load(reader); var name = (string)json["PatternType"];
       var type = Types.SingleOrDefault(t => t.Name == name);
       if (type == null || !objectType.IsAssignableFrom(type)) throw new ArgumentException("Unsupported image pattern: " + name);
-      return Constructor(type).Invoke(Constructor(type).GetParameters().Select(p => {
+      var result = Constructor(type).Invoke(Constructor(type).GetParameters().Select(p => {
         var token = json[p.Name] ?? throw new ArgumentException("Missing pattern field: " + p.Name);
         return p.ParameterType == typeof(object) ? Untyped(token) : token.ToObject(p.ParameterType, serializer);
       }).ToArray());
+      return result is HixTypeParameter generic && json["AdditionalBounds"] is { } bounds
+        ? generic with { AdditionalBounds = bounds.ToObject<HixPattern[]>(serializer) } : result;
     }
     private static object Untyped(JToken token) => token switch {
       JValue value => value.Value,
@@ -140,7 +147,9 @@ public static class HixImageFile {
         case KindHixValue kind: json["ValueType"] = "kind"; json["Value"] = Token(kind.ValueKind); break;
         case PatternHixValue pattern: json["ValueType"] = "pattern"; json["Value"] = Token(pattern.Pattern); break;
         case FunctionReferenceHixValue function when value.GetType() == typeof(FunctionReferenceHixValue):
-          json["ValueType"] = "function"; json["Value"] = Token(function.Signature); break;
+          json["ValueType"] = "function"; json["Value"] = Token(function.Signature);
+          if (function.DeclarationSignature != null) json["DeclarationSignature"] = function.DeclarationSignature;
+          break;
         default: throw new ArgumentException("Unsupported bytecode image constant: " + value.GetType().Name);
       }
       json.WriteTo(writer);
@@ -155,7 +164,9 @@ public static class HixImageFile {
         "tuple" => new TupleHixValue(token.ToObject<IHixValue[]>(serializer)),
         "table" => new HixTableValue(((JArray)token).Select(e => new KeyValuePair<HixString, IHixValue>(HixString.Dynamic((string)e["Key"]), e["Value"].ToObject<IHixValue>(serializer)))),
         "kind" => new KindHixValue(token.ToObject<HixValueKind>()), "pattern" => new PatternHixValue(token.ToObject<HixPattern>(serializer)),
-        "function" => new FunctionReferenceHixValue(token.ToObject<SignatureHixPattern>(serializer)),
+        "function" => new FunctionReferenceHixValue(token.ToObject<SignatureHixPattern>(serializer)) {
+          DeclarationSignature = (string)json["DeclarationSignature"]
+        },
         _ => throw new ArgumentException("Unsupported bytecode image constant type")
       };
     }

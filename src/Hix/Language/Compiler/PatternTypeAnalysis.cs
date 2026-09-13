@@ -6,12 +6,68 @@ namespace Hix.Compiler;
 
 /// <summary>Conservative flow analysis: locals and parameters are typed; shared variables remain any.</summary>
 public static class PatternTypeAnalysis {
+  [ThreadStatic] private static HashSet<FunctionDeclarationIr> activeCallables;
+
+  public static DelegateHixPattern InferCallable(ExpressionIr expression, DelegateHixPattern context,
+    IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions, IReadOnlyDictionary<string, HixPattern> patterns,
+    HixBackend backend, out bool valid, bool invocationContext = false) {
+    valid = true;
+    BlockStatementIr body;
+    FunctionDeclarationIr function = null;
+    if (expression is LambdaExpressionIr lambda) body = lambda.Body;
+    else if (expression is RootExpressionIr {IsSmart: false} root && functions.TryGetValue(root.Name, out var methods)) {
+      if (invocationContext && methods.Any(method => method.Signatures.Count != 0)) {
+        var arguments = context.Parameters.Select((field, index) => (ExpressionIr)new RootExpressionIr(index.ToString()) {
+          InferredPattern = field.Pattern
+        }).ToArray();
+        var resolution = HixCallResolver.Resolve(new CallExpressionIr(root.Name, arguments), functions, backend, patterns,
+          argument => argument.InferredPattern, out var ambiguous);
+        if (resolution == null) {
+          valid = !ambiguous && methods.Any(method => method.Signatures.Count == 0);
+          return valid ? new DelegateHixPattern(context.Parameters, HixPattern.Any) : null;
+        }
+        return new DelegateHixPattern(context.Parameters, resolution.Signature.Result);
+      }
+      if (methods.Length != 1) return null;
+      function = methods[0];
+      if (function.Signatures.Count == 1) {
+        var signature = function.Signatures[0].Constant(function.Name);
+        var parameters = function.TypeParameters.Concat(function.Signatures[0].TypeParameters).Distinct().ToArray();
+        if (parameters.Length != 0 && context != null && context.Parameters.Count == signature.Parameters.Count) {
+          var substitutions = new Dictionary<HixTypeParameter, HixPattern>();
+          for (var index = 0; index < signature.Parameters.Count; index++)
+            if (!HixCallResolver.Unify(signature.Parameters[index].Pattern, context.Parameters[index].Pattern, substitutions, patterns)) {
+              valid = false; return null;
+            }
+          foreach (var parameter in parameters)
+            if (substitutions.TryGetValue(parameter, out var value) &&
+                !HixGenericTypes.SatisfiesBounds(value, parameter, substitutions, patterns)) {
+              valid = false; return null;
+            }
+          return new DelegateHixPattern(signature.Parameters.Select(field => field with {
+            Pattern = HixGenericTypes.Substitute(field.Pattern, substitutions, true) }).ToArray(),
+            HixGenericTypes.Substitute(signature.Result, substitutions, true));
+        }
+        return new DelegateHixPattern(signature.Parameters, signature.Result);
+      }
+      body = function.Body;
+      if (body == null) return new DelegateHixPattern(context?.Parameters ?? [], HixPattern.Any);
+    } else return null;
+    activeCallables ??= new();
+    if (function != null && !activeCallables.Add(function)) return new DelegateHixPattern(context?.Parameters ?? [], HixPattern.Any);
+    try {
+      var diagnostics = new List<HixParseDiagnostic>();
+      var result = InferResult(body, LocalEnvironment(body), context?.Parameters ?? [], functions, patterns, diagnostics, backend);
+      return new DelegateHixPattern(context?.Parameters ?? [], result);
+    } finally { if (function != null) activeCallables.Remove(function); }
+  }
+
   public static void Validate(IReadOnlyList<HixIrNode> declarations, IReadOnlyDictionary<string, HixPattern> patterns,
     ICollection<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
     var functions = declarations.OfType<FunctionDeclarationIr>().GroupBy(value => value.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-    foreach (var function in declarations.OfType<FunctionDeclarationIr>()) {
+    foreach (var function in declarations.OfType<FunctionDeclarationIr>().Where(function => !function.IsExternal)) {
       var parameters = ParameterPatterns(function);
       var expected = function.Signatures.Count == 1 && function.Signatures[0].IsPatternSyntax
         ? ReturnPattern(function.Signatures[0]) : HixPattern.Any;
@@ -22,7 +78,7 @@ public static class PatternTypeAnalysis {
       var nested = mixin.Declarations.OfType<FunctionDeclarationIr>().Concat(declarations.OfType<FunctionDeclarationIr>())
         .GroupBy(value => value.Name, StringComparer.Ordinal)
         .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-      foreach (var function in mixin.Declarations.OfType<FunctionDeclarationIr>())
+      foreach (var function in mixin.Declarations.OfType<FunctionDeclarationIr>().Where(function => !function.IsExternal))
         AnalyzeBlock(function.Body, LocalEnvironment(function.Body), ParameterPatterns(function),
           function.Signatures.Count == 1 && function.Signatures[0].IsPatternSyntax
             ? ReturnPattern(function.Signatures[0]) : HixPattern.Any,
@@ -131,6 +187,18 @@ public static class PatternTypeAnalysis {
         return Member(receiver, member.Member, patterns);
       case RootExpressionIr {IsSmart: true, Name: var name} when int.TryParse(name, out var index) && index < parameters.Count:
         return parameters[index].Pattern;
+      case RootExpressionIr {IsSmart: true} smart:
+        return locals.TryGetValue(smart.Name, out var smartLocal) ? smartLocal :
+          parameters.FirstOrDefault(parameter => parameter.Name == smart.Name)?.Pattern ?? HixPattern.Any;
+      case RootExpressionIr {IsSmart: false} root when functions.TryGetValue(root.Name, out var methods):
+        var method = methods.FirstOrDefault();
+        var signature = method?.Signatures.FirstOrDefault();
+        return signature == null ? new DelegateHixPattern([], HixPattern.Any) :
+          new DelegateHixPattern(signature.Constant(method.Name).Parameters, signature.Constant(method.Name).Result);
+      case LambdaExpressionIr lambda:
+        return new DelegateHixPattern([], InferResult(lambda.Body, new Dictionary<string, HixPattern>(),
+          [], functions, patterns, diagnostics, backend));
+      case RootExpressionIr {IsSmart: false} root when backend.Roots.TryGetValue(root.Name, out var hostRoot): return hostRoot.Pattern;
       case RootExpressionIr: return HixPattern.Any; // var, tar and host roots deliberately remain dynamic.
       case FallbackExpressionIr fallback:
         return Union([Infer(fallback.Value, locals, parameters, functions, patterns, diagnostics, backend),
@@ -166,35 +234,27 @@ public static class PatternTypeAnalysis {
           }
           return new NamedHixPattern(call.Name);
         }
-        if (!functions.TryGetValue(call.Name, out var overloads)) {
-          var builtins = backend.Functions.Enumerate().Where(definition => definition.Name == call.Name).ToArray();
-          if (builtins.Length == 0) return HixPattern.Any;
-          var signatures = builtins.SelectMany(definition => definition.Signatures).Where(signature =>
-            signature.MatchesArgumentCount(supplied.Length)).ToArray();
-          if (signatures.Length == 0) {
-            diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts " + supplied.Length + " argument(s)"));
-            return HixPattern.Any;
-          }
-          var compatible = signatures.Where(signature => supplied.Select((value, index) =>
-            HixPatternRelations.Relate(value, KindPattern(signature.GetArgumentType(index)), patterns))
-            .All(relation => relation != HixPatternRelation.Never)).ToArray();
-          if (compatible.Length == 0) {
-            diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts (" +
-              string.Join(", ", supplied.Select(value => value.Display)) + ")"));
-            return HixPattern.Any;
-          }
-          return Union(compatible.Select(signature => KindPattern(signature.ResultType)));
-        }
-        if (overloads.Any(function => function.Signatures.Count == 0)) return HixPattern.Any;
-        var candidates = overloads.SelectMany(function => function.Signatures)
-          .Where(signature => Accepts(call, signature, supplied, patterns)).ToArray();
-        if (candidates.Length == 0) {
-          diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts (" +
-            string.Join(", ", supplied.Select(value => value.Display)) + ")"));
+        var resolution = HixCallResolver.Resolve(call, functions, backend, patterns,
+          value => { var position = call.Arguments.ToList().IndexOf(value);
+            return position >= 0 ? supplied[position] : Infer(value, locals, parameters, functions, patterns, diagnostics, backend); }, out var ambiguous);
+        call.Resolution = resolution;
+        if (resolution != null) return resolution.Signature.Result;
+        if (ambiguous) {
+          if (supplied.All(value => value is not AnyHixPattern))
+            diagnostics.Add(new(call.Line, "ambiguous overload of '" + call.Name + "'"));
           return HixPattern.Any;
         }
-        var distinct = candidates.Select(ReturnPattern).Distinct().ToArray();
-        return Union(distinct);
+        if (functions.TryGetValue(call.Name, out var dynamicFunctions) && dynamicFunctions.Any(value => value.Signatures.Count == 0 || value.Signatures.Any(signature => signature.Inputs == null && signature.InputPattern == null)))
+          return HixPattern.Any;
+        if (!functions.ContainsKey(call.Name) && backend.Functions.Resolve(call.Name).Count != 0 &&
+            !backend.Functions.Resolve(call.Name).Any(definition => definition.MatchesArgumentCount(supplied.Length))) {
+          diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts " + supplied.Length + " argument(s)"));
+          return HixPattern.Any;
+        }
+        if (backend.Functions.Resolve(call.Name).Count != 0 || functions.ContainsKey(call.Name))
+          diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts (" +
+            string.Join(", ", supplied.Select(value => value.Display)) + ")"));
+        return HixPattern.Any;
       default: return HixPattern.Any;
     }
   }
@@ -234,7 +294,9 @@ public static class PatternTypeAnalysis {
         return Infer(invocation.Call, locals, parameters, functions, patterns, diagnostics, backend);
       case BlockStatementIr block:
         AnalyzeBlock(block, locals, parameters, HixPattern.Any, functions, patterns, diagnostics, backend);
-        return HixPattern.Any;
+        var returns = block.Statements.OfType<ControlFlowStatementIr>().Where(value => value.Operation == ControlFlowKind.Return)
+          .SelectMany(value => value.Values).Select(value => Infer(value, locals, parameters, functions, patterns, diagnostics, backend)).ToArray();
+        return returns.Length == 0 ? new KindHixPattern(HixValueKind.Null) : HixPatterns.Union(returns);
       default:
         foreach (var child in node.SemanticChildren)
           InferResult(child, locals, parameters, functions, patterns, diagnostics, backend);

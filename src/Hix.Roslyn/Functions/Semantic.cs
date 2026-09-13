@@ -7,9 +7,7 @@ using Hix.Runtime;
 
 namespace Hix.Functions;
 
-public sealed class TypeFunction() : RoslynFunctionDefinition("type", 0,
-  HixValueKind.Symbol, HixValueKind.Symbol) {
-  public override string Documentation => "Returns the type symbol associated with a semantic value, or null if unavailable.";
+public sealed class TypeFunction() : RoslynFunctionDefinition("type") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -23,9 +21,7 @@ public sealed class TypeFunction() : RoslynFunctionDefinition("type", 0,
   }
 }
 
-public sealed class FullNameFunction() : RoslynFunctionDefinition("fullName", 0,
-  HixValueKind.Symbol, HixValueKind.String) {
-  public override string Documentation => "Renders the associated type name with generic type parameters.";
+public sealed class FullNameFunction() : RoslynFunctionDefinition("fullName") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -47,9 +43,7 @@ public sealed class FullNameFunction() : RoslynFunctionDefinition("fullName", 0,
   }
 }
 
-public sealed class VisibilityFunction() : RoslynFunctionDefinition("visibility", 0,
-  HixValueKind.Symbol, HixValueKind.String) {
-  public override string Documentation => "Returns the declared accessibility of a symbol as lowercase text.";
+public sealed class VisibilityFunction() : RoslynFunctionDefinition("visibility") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -66,9 +60,7 @@ public sealed class VisibilityFunction() : RoslynFunctionDefinition("visibility"
   }
 }
 
-public sealed class MakeGenericFunction() : RoslynFunctionDefinition("makeGeneric", 1,
-  HixValueKind.Symbol, HixValueKind.Symbol, [HixValueKind.Symbol]) {
-  public override string Documentation => "Renders a generic type name using the supplied type arguments.";
+public sealed class MakeGenericFunction() : RoslynFunctionDefinition("makeGeneric") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -95,11 +87,8 @@ public sealed class MakeGenericFunction() : RoslynFunctionDefinition("makeGeneri
   }
 }
 
-public abstract class AttributeFunction(string name, int arguments)
-  : RoslynFunctionDefinition(name, arguments, HixValueKind.Symbol,
-    name == "attributeOf" ? HixValueKind.Any : HixValueKind.Tuple,
-    arguments == 0 ? [] : [HixValueKind.String]) {
-  public override IReadOnlyDictionary<int, string> ArgumentReferences => ArgumentCount == 1 ? new Dictionary<int, string>() : new Dictionary<int, string> {{1, "CSharpType"}};
+public abstract class AttributeFunction(string name)
+  : RoslynFunctionDefinition(name) {
   protected sealed override IHixValue Apply(
     HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -113,37 +102,31 @@ public abstract class AttributeFunction(string name, int arguments)
   protected abstract IHixValue Select(HixCoroutine context, IHixValue value, HixString type);
 }
 
-public sealed class AttributesFunction() : AttributeFunction("attributes", 0) {
-  public override string Documentation => "Returns attributes attached to a symbol.";
+public sealed class AttributesFunction() : AttributeFunction("attributes") {
   protected override IHixValue Select(HixCoroutine context, IHixValue value, HixString type) {
     return context.Attributes(value, default, false, false);
   }
 }
 
-public sealed class AttributesOfFunction() : AttributeFunction("attributesOf", 1) {
-  public override string Documentation => "Returns attributes assignable to the specified attribute type.";
+public sealed class AttributesOfFunction() : AttributeFunction("attributesOf") {
   protected override IHixValue Select(HixCoroutine context, IHixValue value, HixString type) {
     return context.Attributes(value, type, false, false);
   }
 }
 
-public sealed class AttributesOfExactFunction() : AttributeFunction("attributesOfExact", 1) {
-  public override string Documentation => "Returns attributes with exactly the specified attribute type.";
+public sealed class AttributesOfExactFunction() : AttributeFunction("attributesOfExact") {
   protected override IHixValue Select(HixCoroutine context, IHixValue value, HixString type) {
     return context.Attributes(value, type, true, false);
   }
 }
 
-public sealed class AttributeOfFunction() : AttributeFunction("attributeOf", 1) {
-  public override string Documentation => "Returns the first matching attribute, or null when absent.";
+public sealed class AttributeOfFunction() : AttributeFunction("attributeOf") {
   protected override IHixValue Select(HixCoroutine context, IHixValue value, HixString type) {
     return context.Attributes(value, type, false, true);
   }
 }
 
-public sealed class MembersFunction() : RoslynFunctionDefinition("members", 0,
-  HixValueKind.Symbol, HixValueKind.Tuple) {
-  public override string Documentation => "Returns the members of a named type as a tuple of semantic values.";
+public sealed class MembersFunction() : RoslynFunctionDefinition("members") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
@@ -166,9 +149,7 @@ public sealed class MembersFunction() : RoslynFunctionDefinition("members", 0,
   }
 }
 
-public sealed class ParametersFunction() : RoslynFunctionDefinition("parameters", 0,
-  HixValueKind.Symbol, HixValueKind.Tuple) {
-  public override string Documentation => "Returns the parameters of a method or delegate as a tuple.";
+public sealed class ParametersFunction() : RoslynFunctionDefinition("parameters") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
@@ -183,9 +164,7 @@ public sealed class ParametersFunction() : RoslynFunctionDefinition("parameters"
   }
 }
 
-public sealed class NullableTypeFunction() : RoslynFunctionDefinition("nullableType", 0,
-  HixValueKind.Symbol, HixValueKind.Symbol) {
-  public override string Documentation => "Renders a nullable form of the type represented by the value.";
+public sealed class NullableTypeFunction() : RoslynFunctionDefinition("nullableType") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
@@ -201,8 +180,7 @@ public sealed class NullableTypeFunction() : RoslynFunctionDefinition("nullableT
   }
 }
 
-public sealed class CSharpLiteralFunction() : RoslynFunctionDefinition("csharpLiteral", 0) {
-  public override string Documentation => "Renders a constant or scalar value as a valid C# literal.";
+public sealed class CSharpLiteralFunction() : RoslynFunctionDefinition("csharpLiteral") {
   protected override IHixValue Apply(
     HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {

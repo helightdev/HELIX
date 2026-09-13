@@ -11,20 +11,29 @@ namespace Hix.Standalone;
 
 internal static class JsonFunctions {
   public static void Register(FunctionSignatureRegistryBuilder functions) {
+    functions.AddLibrary("""
+      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind.>
+      pure func parseJson(string arg0) -> any external;
+      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind.>
+      pure func parseJson(string arg0, pattern arg1) -> any external;
+      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind.>
+      pure func parseJson(string arg0, kind arg1) -> any external;
+      %description<Writes a Hix value as compact JSON, optionally validating a pattern or kind.>
+      pure func writeJson(any arg0) -> string external;
+      %description<Writes a Hix value as compact JSON, optionally validating a pattern or kind.>
+      pure func writeJson(any arg0, pattern arg1) -> string external;
+      %description<Writes a Hix value as compact JSON, optionally validating a pattern or kind.>
+      pure func writeJson(any arg0, kind arg1) -> string external;
+      %description<Generates a JSON Schema for a Hix pattern.>
+      pure func generateJsonSchema(pattern arg0) -> string external;
+      %description<Imports a JSON Schema as a Hix pattern.>
+      pure func loadJsonSchema(string arg0) -> pattern external;
+      """);
     functions.Add(
-      new SimpleFunction("parseJson", [new FunctionSignature(K.Any, [K.String]),
-          new FunctionSignature(K.Any, [K.String, K.Pattern]), new FunctionSignature(K.Any, [K.String, K.Kind])],
-        (thread, args) => Parse(thread, args), documentation: "Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind."),
-      new SimpleFunction("writeJson", [new FunctionSignature(K.String, [K.Any]),
-          new FunctionSignature(K.String, [K.Any, K.Pattern]), new FunctionSignature(K.String, [K.Any, K.Kind])],
-        (thread, args) => Write(thread, args), acceptsErrors: true,
-        documentation: "Writes a Hix value as compact JSON, optionally validating a pattern or kind."),
-      new SimpleFunction("generateJsonSchema", [new FunctionSignature(K.String, [K.Pattern])],
-        (thread, args) => GenerateSchema(thread, (PatternHixValue)args[0]),
-        documentation: "Generates a JSON Schema for a Hix pattern."),
-      new SimpleFunction("loadJsonSchema", [new FunctionSignature(K.Pattern, [K.String])],
-        (thread, args) => LoadSchema(thread, thread.ResolveText(args[0])),
-        documentation: "Imports a JSON Schema as a Hix pattern.")
+      new SimpleFunction("parseJson", (thread, args) => Parse(thread, args)),
+      new SimpleFunction("writeJson", (thread, args) => Write(thread, args)),
+      new SimpleFunction("generateJsonSchema", (thread, args) => GenerateSchema(thread, (PatternHixValue)args[0])),
+      new SimpleFunction("loadJsonSchema", (thread, args) => LoadSchema(thread, thread.ResolveText(args[0])))
     );
   }
 
@@ -114,6 +123,10 @@ internal static class JsonFunctions {
       return new JObject { ["$ref"] = "#/$defs/" + EscapePointer(named.Name) };
     }
     switch (pattern) {
+      case OpaqueHixPattern opaque:
+        throw new InvalidOperationException("opaque type '" + opaque.Display + "' has no JSON representation");
+      case TypeParameterHixPattern:
+        throw new InvalidOperationException("unresolved type parameters have no JSON representation");
       case AnyHixPattern: return new JObject();
       case KindHixPattern kind: return KindSchema(kind.ValueKind);
       case UnionHixPattern union: return new JObject { ["anyOf"] = new JArray(union.Patterns.Select(item => SchemaFor(item, known, definitions, visiting))) };

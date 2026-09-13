@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hix.Runtime;
+using Hix.Roslyn;
 namespace Hix.Functions;
-public abstract class RoslynFunctionDefinition(string name, int argumentCount,
-  HixValueKind receiverType = HixValueKind.Any, HixValueKind resultType = HixValueKind.Any,
-  IReadOnlyList<HixValueKind> argumentTypes = null, bool variadic = false)
-  : EvaluatedFunctionDefinition(name, argumentCount, receiverType, resultType, argumentTypes, variadic) {
+public abstract class RoslynFunctionDefinition : EvaluatedFunctionDefinition {
+  protected RoslynFunctionDefinition(string name) : base(name) { }
   protected override IHixValue EvaluateValue(HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments) {
     if (context.Context is not HixRoslynContext roslyn || value is not RoslynHixValue source) return Apply(context, value, arguments);
     var key = ":" + Name + (arguments.Count == 0 ? "" : "\u001f" + string.Join("\u001f", arguments.Select(item => item.GetType().FullName + "=" + item.Render(context).Resolve(context.Strings))));

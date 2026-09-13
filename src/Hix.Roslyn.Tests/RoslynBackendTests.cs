@@ -59,7 +59,8 @@ public class RoslynBackendTests {
     public override HixContext CreateContext() => new ExtensionContext(this, compilation, type);
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
-      functions.Add(new SimpleFunction("customName", [new(HixValueKind.String, [])], (thread, _) => {
+      functions.AddLibrary("pure func customName() -> string external;");
+      functions.Add(new SimpleFunction("customName", (thread, _) => {
         Assert.Equal(callerThread, Environment.CurrentManagedThreadId);
         Assert.Same(callerContext, SynchronizationContext.Current);
         var roslyn = (HixRoslynContext)thread.Context;

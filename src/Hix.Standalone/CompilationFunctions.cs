@@ -10,26 +10,25 @@ namespace Hix.Standalone;
 internal static class CompilationFunctions {
   public static void Register(FunctionSignatureRegistryBuilder functions) {
     functions.Add(
-      Function("compile", [new(K.Table, []), new(K.Table, [K.String])], Compile),
-      Function("success", [new(K.Bool, [K.Table])], (thread, args) => Field(thread, args[0], "success")),
-      Function("diagnostics", [new(K.Tuple, [K.Table])], (thread, args) => Field(thread, args[0], "diagnostics")),
-      Function("functions", [new(K.Tuple, [K.Table])], (thread, args) => Field(thread, args[0], "functions")),
-      Function("function", [new(K.Table, [K.Table, K.String])], FindFunction),
-      Function("disassemble", [new(K.String, [K.Table])], (thread, args) => Field(thread, args[0], "disassembly")),
-      Function("instructions", [new(K.Tuple, [K.Table])], (thread, args) => Field(thread, args[0], "instructions")),
-      Function("marker", [new(K.Table, [K.Table, K.String])], FindMarker),
-      Function("opcode", [new(K.String, [K.Table])], (thread, args) => Field(thread, args[0], "opcode")),
-      Function("offset", [new(K.Number, [K.Table])], (thread, args) => Field(thread, args[0], "offset")),
-      Function("operands", [new(K.Tuple, [K.Table])], (thread, args) => Field(thread, args[0], "operands")),
-      Function("target", [new(K.Any, [K.Table])], (thread, args) => Field(thread, args[0], "target")),
-      Function("line", [new(K.Number, [K.Table])], (thread, args) => Field(thread, args[0], "line")),
-      Function("inferredType", [new(K.String, [K.Table])], (thread, args) => Field(thread, args[0], "type"))
+      Function("compile", Compile),
+      Function("success", (thread, args) => Field(thread, args[0], "success")),
+      Function("diagnostics", (thread, args) => Field(thread, args[0], "diagnostics")),
+      Function("functions", (thread, args) => Field(thread, args[0], "functions")),
+      Function("function", FindFunction),
+      Function("disassemble", (thread, args) => Field(thread, args[0], "disassembly")),
+      Function("instructions", (thread, args) => Field(thread, args[0], "instructions")),
+      Function("marker", FindMarker),
+      Function("opcode", (thread, args) => Field(thread, args[0], "opcode")),
+      Function("offset", (thread, args) => Field(thread, args[0], "offset")),
+      Function("operands", (thread, args) => Field(thread, args[0], "operands")),
+      Function("target", (thread, args) => Field(thread, args[0], "target")),
+      Function("line", (thread, args) => Field(thread, args[0], "line")),
+      Function("inferredType", (thread, args) => Field(thread, args[0], "type"))
     );
   }
 
-  private static SimpleFunction Function(string name, IReadOnlyList<FunctionSignature> signatures,
-    InlineFunction implementation) => new(name, signatures, implementation,
-      documentation: "Inspects standalone Hix compilation artifacts.");
+  private static SimpleFunction Function(string name, InlineFunction implementation) =>
+    new("standalone_" + name, implementation);
 
   private static IHixValue Compile(HixCoroutine thread, IHixValue[] args) {
     var backend = (HixStandaloneBackend)thread.Backend;

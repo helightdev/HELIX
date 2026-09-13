@@ -42,6 +42,11 @@ public sealed class LanguageAnalysis {
     foreach (var type in Program.Declarations.OfType<TypeDeclarationIr>())
       facts.Add(new(IdentifierRange(type, type.Name), type.Name,
         DeclarationDocumentation("pattern " + type.Name + " = " + type.Pattern.Display, type.Metadata), false));
+    foreach (var metadata in Program.Declarations.OfType<MetadataDeclarationIr>())
+      facts.Add(new(IdentifierRange(metadata, metadata.Name), "metadata", DeclarationDocumentation(
+        "meta " + metadata.Name + "(" + string.Join(", ", metadata.Arguments.Select(argument =>
+          (argument.Variadic ? "%variadic " : "") + argument.Pattern.Display + " " + argument.Name)) + ") for " +
+        string.Join(" ", HixMetadataTargets.Names(metadata.Targets)), metadata.Metadata), false));
     foreach (var mixin in Program.Declarations.OfType<MixinDeclarationIr>())
       facts.Add(new(IdentifierRange(mixin, mixin.Name), "mixin",
         DeclarationDocumentation("mixin " + mixin.Name + "(" + string.Join(", ", mixin.Parameters.Select(field =>
@@ -49,8 +54,21 @@ public sealed class LanguageAnalysis {
     foreach (var function in functions.Values.SelectMany(group => group))
       facts.Add(new(IdentifierRange(function, function.Name), FunctionResult(function), FunctionDocumentation(function), false));
     foreach (var function in functions.Values.SelectMany(group => group)) {
+      foreach (var parameter in function.TypeParameters) {
+        var bounds = (parameter.Bound == null ? Array.Empty<HixPattern>() : new[] {parameter.Bound})
+          .Concat(parameter.AdditionalBounds).ToArray();
+        var documentation = "generic " + parameter.Name + (bounds.Length == 0 ? " (unbounded)" :
+          " bounded by " + string.Join(" and ", bounds.Select(bound => bound.Display)));
+        foreach (var token in function.Tokens.Where(token => token.Text == parameter.Name))
+          facts.Add(new(HixSourceRange.FromToken(token), parameter.Name, documentation, false));
+        var metadata = function.Metadata.FirstOrDefault(item => item.Name == "generic" &&
+          item.Values.FirstOrDefault() is StringExpressionIr name && name.Value == parameter.Name);
+        if (metadata != null) facts.Add(new(StringContentRange(metadata.Values[0]), parameter.Name, documentation, false));
+      }
+    }
+    foreach (var function in functions.Values.SelectMany(group => group)) {
       var parameters = function.Signatures.Count == 1 ? function.Signatures[0].Inputs ?? [] : [];
-      Analyze(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), parameters);
+      if (!function.IsExternal) Analyze(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), parameters);
     }
     foreach (var expression in Program.Declarations.OfType<MixinDeclarationIr>()
                .SelectMany(mixin => mixin.Declarations.OfType<ExpressionDeclarationIr>()
@@ -109,7 +127,7 @@ public sealed class LanguageAnalysis {
             parameters.FirstOrDefault(parameter => parameter.Name == root.Name)?.Pattern ?? HixPattern.Any;
           break;
         case RootExpressionIr root when backend.Roots.TryGetValue(root.Name, out var hostRoot):
-          result = KindPattern(hostRoot.Kind); break;
+          result = hostRoot.Pattern; break;
         case SelectionExpressionIr selection:
           if (selection.Selector != null) Infer(selection.Selector, locals, parameters);
           var results = new List<HixPattern>();
@@ -123,6 +141,15 @@ public sealed class LanguageAnalysis {
               new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters));
           result = Union(results);
           break;
+        case RootExpressionIr {IsSmart: false} root when functions.TryGetValue(root.Name, out var methods):
+          var method = methods.FirstOrDefault();
+          var signature = method?.Signatures.FirstOrDefault();
+          result = signature == null ? new DelegateHixPattern([], HixPattern.Any) :
+            new DelegateHixPattern(signature.Constant(method.Name).Parameters, signature.Constant(method.Name).Result);
+          break;
+        case LambdaExpressionIr lambda:
+          result = new DelegateHixPattern([], InferResult(lambda.Body, new Dictionary<string, HixPattern>(), []));
+          break;
         case CallExpressionIr call:
           var argumentPatterns = call.Arguments.Select(argument => Infer(argument, locals, parameters)).ToArray();
           string documentation;
@@ -130,64 +157,31 @@ public sealed class LanguageAnalysis {
           if (patterns.ContainsKey(call.Name)) {
             result = new NamedHixPattern(call.Name);
             documentation = "Validate a value against pattern `" + call.Name + "`.";
-          } else if (functions.TryGetValue(call.Name, out var overloads)) {
-            documentation = string.Join("\n\n", overloads.Select(overload => {
-              var applicable = overload.Signatures.Where(signature => {
-                var fields = signature.Constant(call.Name).Parameters;
-                return fields.Count >= argumentPatterns.Length && argumentPatterns.Select((argument, index) =>
-                  fields[index].Pattern is KindHixPattern kind ? Conversion(argument, kind.ValueKind) >= 0 :
-                    HixPatternRelations.Relate(argument, fields[index].Pattern, patterns) != HixPatternRelation.Never).All(matches => matches);
-              }).ToArray();
-              return overload.Signatures.Count == 0 || applicable.Length != 0
-                ? FunctionDocumentation(overload, applicable) : null;
-            }).Where(text => text != null));
-            var candidates = overloads.SelectMany(overload => overload.Signatures).Where(signature =>
-                signature.Inputs != null && signature.Inputs.Count == argumentPatterns.Length)
-              .Select(signature => (Signature: signature, Relations: signature.Inputs.Select((field, index) =>
-                HixPatternRelations.Relate(argumentPatterns[index], field.Pattern, patterns)).ToArray()))
-              .Where(candidate => candidate.Relations.All(relation => relation != HixPatternRelation.Never)).ToArray();
-            var score = candidates.Length == 0 ? -1 : candidates.Max(candidate =>
-              candidate.Relations.Count(relation => relation == HixPatternRelation.Always));
-            var best = candidates.Where(candidate => candidate.Relations.Count(relation =>
-              relation == HixPatternRelation.Always) == score).ToArray();
-            var fallback = overloads.Any(overload => overload.Signatures.Count == 0);
-            var selected = best.Length == 1 && (!fallback || best[0].Relations.All(relation =>
-              relation == HixPatternRelation.Always)) ? best[0].Signature : null;
-            dynamic = selected == null;
-            result = selected == null ? HixPattern.Any : selected.Outputs == null
-              ? selected.OutputPattern ?? HixPattern.Any
-              : new TableHixPattern(selected.Outputs.Select(field => field.AsPatternField()).ToArray());
-            if (selected?.Inputs != null)
-              for (var index = 0; index < argumentPatterns.Length; index++)
-                if (selected.Inputs[index].Pattern is KindHixPattern target &&
-                    Conversion(argumentPatterns[index], target.ValueKind) > 0)
-                  facts.Add(new(call.Arguments[index].SourceRange, target.Display, "Implicitly coerced from " +
-                    argumentPatterns[index].Display + " to " + target.Display + ".", true, "Coercion"));
           } else {
-            var knownDefinitions = backend.Functions.Enumerate().Where(definition => definition.Name == call.Name).ToArray();
-            var definitions = knownDefinitions.Where(definition => definition.MatchesArgumentCount(call.Arguments.Count)).ToArray();
-            result = definitions.Length == 0 ? HixPattern.Any : Union(definitions.SelectMany(definition =>
-              definition.Signatures.Where(signature => signature.MatchesArgumentCount(call.Arguments.Count))
-                .Select(signature => KindPattern(signature.ResultType))));
-            var documented = knownDefinitions.SelectMany(definition => definition.Signatures
-                .Where(signature => (signature.IsVariadic || argumentPatterns.Length <= signature.ArgumentTypes.Count) &&
-                  argumentPatterns.Select((argument, index) => Conversion(argument, signature.GetArgumentType(index)))
-                    .All(conversion => conversion >= 0))
-                .Select(signature => DefinitionDocumentation(definition, signature))).Distinct().ToArray();
-            documentation = documented.Length == 0 ? call.Name : string.Join("\n\n", documented);
-            var signatures = definitions.SelectMany(definition => definition.Signatures)
-              .Where(signature => signature.MatchesArgumentCount(call.Arguments.Count)).ToArray();
-            var selected = signatures.Select(signature => (Signature: signature, Conversions: argumentPatterns
-                .Select((argument, index) => Conversion(argument, signature.GetArgumentType(index))).ToArray()))
-              .Where(candidate => candidate.Conversions.All(conversion => conversion >= 0))
-              .OrderBy(candidate => candidate.Conversions.Sum()).FirstOrDefault();
-            if (selected.Signature != null)
-              for (var index = 0; index < selected.Conversions.Length; index++)
-                if (selected.Conversions[index] > 0) {
-                  var target = selected.Signature.GetArgumentType(index).ToString().ToLowerInvariant();
-                  facts.Add(new(call.Arguments[index].SourceRange, target, "Implicitly coerced from " +
-                    argumentPatterns[index].Display + " to " + target + ".", true, "Coercion"));
-                }
+            var resolution = HixCallResolver.Resolve(call, functions, backend, patterns,
+              value => { var position = call.Arguments.ToList().IndexOf(value);
+                return position >= 0 ? argumentPatterns[position] : Infer(value, locals, parameters); }, out var ambiguous);
+            call.Resolution = resolution;
+            result = resolution?.Signature.Result ?? HixPattern.Any;
+            dynamic = ambiguous || resolution?.Binding.Kind == HixCallKind.Dynamic || resolution == null && functions.ContainsKey(call.Name);
+            documentation = resolution?.Signature.Display ?? call.Name;
+            if (resolution?.Binding.Function is { } languageFunction)
+              documentation = DeclarationDocumentation(documentation, languageFunction.Metadata);
+            if (resolution?.Binding.Backend is { } definition)
+              documentation = resolution.Signature.Name + "(" + string.Join(", ", resolution.Signature.Parameters.Select(field => field.Pattern.Display)) +
+                ") -> " + resolution.Signature.Result.Display + "\n" + definition.Documentation;
+            else if (resolution == null && !functions.ContainsKey(call.Name))
+              documentation = string.Join("\n", backend.Functions.Resolve(call.Name).SelectMany(definition =>
+                definition.Signatures.Select(signature => DefinitionDocumentation(definition, signature))));
+            if (resolution != null)
+              for (var position = 0; position < resolution.Arguments.Length; position++) {
+                var target = resolution.Signature.Parameters[Math.Min(position, resolution.Signature.Parameters.Count - 1)].Pattern;
+                var sourcePosition = call.Arguments.ToList().IndexOf(resolution.Arguments[position]);
+                var actual = sourcePosition >= 0 ? argumentPatterns[sourcePosition] : HixPattern.Any;
+                if (target is KindHixPattern targetKind && Conversion(actual, targetKind.ValueKind) > 0)
+                  facts.Add(new(resolution.Arguments[position].SourceRange, target.Display,
+                    "Implicitly coerced from " + actual.Display + " to " + target.Display + ".", true, "Coercion"));
+              }
           }
           facts.Add(new(TrailingIdentifierRange(call, call.Name), result.Display, documentation, false, "Call"));
           if (dynamic) facts.Add(new(TrailingIdentifierRange(call, call.Name), result.Display,
@@ -208,7 +202,9 @@ public sealed class LanguageAnalysis {
         case InvocationStatementIr invocation: return Infer(invocation.Call, locals, parameters);
         case BlockStatementIr block:
           Analyze(block, locals, parameters);
-          return HixPattern.Any;
+          var returns = block.Statements.OfType<ControlFlowStatementIr>().Where(value => value.Operation == ControlFlowKind.Return)
+            .SelectMany(value => value.Values).Select(value => Infer(value, locals, parameters)).ToArray();
+          return returns.Length == 0 ? KindPattern(HixValueKind.Null) : Union(returns);
         default:
           foreach (var child in node.SemanticChildren) InferResult(child, locals, parameters);
           return HixPattern.Any;
@@ -257,10 +253,10 @@ public sealed class LanguageAnalysis {
     var heading = string.IsNullOrEmpty(title) ? signature : title + "\n" + signature;
     return string.IsNullOrEmpty(documentation) ? heading : heading + "\n" + documentation;
   }
-  private static string DefinitionDocumentation(FunctionDefinition definition, global::Hix.FunctionSignature signature) =>
-    definition.Name + "(" + string.Join(", ", signature.ArgumentTypes.Select((type, index) =>
-      (signature.IsVariadic && index == signature.ArgumentTypes.Count - 1 ? "..." : "") + type.ToString().ToLowerInvariant())) +
-    ") -> " + signature.ResultType.ToString().ToLowerInvariant() +
+  private static string DefinitionDocumentation(HixFunctionEntry definition, global::Hix.FunctionSignature signature) =>
+    definition.Name + "(" + string.Join(", ", signature.ArgumentPatterns.Select((type, index) =>
+      (signature.IsVariadic && index == signature.ArgumentPatterns.Count - 1 ? "..." : "") + type.Display)) +
+    ") -> " + signature.ResultPattern.Display +
     (string.IsNullOrEmpty(definition.Documentation) ? "" : "\n" + definition.Documentation);
 
 
@@ -299,9 +295,20 @@ public sealed class LanguageAnalysis {
         declarations.Add(new Symbol(mixin.Name, "Mixin", IdentifierRange(mixin, mixin.Name),
           Scope(mixin.Parent), mixin));
         break;
+      case MetadataDeclarationIr metadata:
+        declarations.Add(new Symbol(metadata.Name, "Metadata", IdentifierRange(metadata, metadata.Name), Scope(metadata.Parent), metadata));
+        foreach (var argument in metadata.Arguments) AddPatternReferences(argument.Pattern, metadata, references);
+        break;
       case FunctionDeclarationIr function:
         declarations.Add(new Symbol(function.Name, "Function", IdentifierRange(function, function.Name),
           Scope(function.Parent), function));
+        foreach (var parameter in function.TypeParameters) {
+          var metadata = function.Metadata.FirstOrDefault(item => item.Name == "generic" &&
+            item.Values.FirstOrDefault() is StringExpressionIr name && name.Value == parameter.Name);
+          if (metadata != null)
+            declarations.Add(new Symbol(parameter.Name, "Pattern", StringContentRange(metadata.Values[0]),
+              function.SourceRange with {Start = function.Metadata.Min(item => item.SourceRange.Start)}, metadata));
+        }
         foreach (var signature in function.Signatures) {
           if (signature.InputPattern != null) AddPatternReferences(signature.InputPattern, function, references);
           foreach (var field in signature.Inputs ?? []) AddPatternReferences(field.Pattern, function, references);
@@ -335,12 +342,34 @@ public sealed class LanguageAnalysis {
       case RootExpressionIr root when IsFunctionReference(root.Name):
         references.Add(new Reference(root.Name, "Function", IdentifierRange(root, root.Name), root));
         break;
+      case MetadataIr metadata when metadata.Name == "generic":
+        foreach (var argument in metadata.Values.Skip(1)) AddTypeArgumentReferences(argument, references);
+        return;
+      case MetadataIr metadata when backend.Functions.PatternConstructors.Any(item => item.Name == metadata.Name) ||
+          metadata.Name is "many" or "map" or "union":
+        foreach (var argument in metadata.Values) AddTypeArgumentReferences(argument, references);
+        return;
     }
     foreach (var child in node.Children) Visit(child, declarations, references);
   }
 
+  private void AddTypeArgumentReferences(ExpressionIr expression, ICollection<Reference> references) {
+    switch (expression) {
+      case StringExpressionIr text when HixPatterns.Named(text.Value) is NamedHixPattern:
+        references.Add(new Reference(text.Value, "Pattern", StringContentRange(text), text)); break;
+      case RootExpressionIr root when HixPatterns.Named(root.Name) is NamedHixPattern:
+        references.Add(new Reference(root.Name, "Pattern", IdentifierRange(root, root.Name), root)); break;
+      case CallExpressionIr call:
+        foreach (var argument in call.Arguments) AddTypeArgumentReferences(argument, references); break;
+    }
+  }
+
   private void AddPatternReferences(HixPattern pattern, HixIrNode owner, ICollection<Reference> references) {
     switch (pattern) {
+      case TypeParameterHixPattern parameter:
+        references.Add(new Reference(parameter.Parameter.Name, "Pattern", IdentifierRange(owner, parameter.Parameter.Name), owner)); break;
+      case OpaqueHixPattern opaque:
+        foreach (var argument in opaque.Arguments) AddPatternReferences(argument, owner, references); break;
       case NamedHixPattern named:
         references.Add(new Reference(named.Name, "Pattern", IdentifierRange(owner, named.Name), owner)); break;
       case UnionHixPattern union:
@@ -388,7 +417,7 @@ public sealed class LanguageAnalysis {
   private bool IsFunctionReference(string name) => !backend.Roots.ContainsKey(name) && name is not
     ("local" or "var" or "tar" or
      "param" or "true" or "false" or "null" or "string" or "bool" or "number" or
-     "tuple" or "table" or "symbol" or "function" or "error" or "kind" or "pattern");
+     "tuple" or "table" or "opaque" or "function" or "error" or "kind" or "pattern");
 
   private HixSourceRange IdentifierRange(HixIrNode node, string name) {
     var token = node.Tokens.FirstOrDefault(item => item.Channel == Antlr4.Runtime.TokenConstants.DefaultChannel && item.Text == name);

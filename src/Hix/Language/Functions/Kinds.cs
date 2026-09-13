@@ -19,7 +19,7 @@ public abstract class KindDefinition(HixValueKind valueKind, params HixValueKind
 public static class KindDefinitions {
   private static readonly KindDefinition[] All = [
     new MissingKind(), new NullKind(), new StringKind(), new BoolKind(), new NumberKind(), new TupleKind(), new TableKind(),
-    new SymbolKind(), new FunctionKind(), new ErrorKind(), new KindKind()
+    new OpaqueKind(), new FunctionKind(), new ErrorKind(), new KindKind()
   ];
   private static readonly IReadOnlyDictionary<HixValueKind, KindDefinition> ByKind =
     All.ToDictionary(definition => definition.ValueKind);
@@ -48,7 +48,7 @@ public static class KindDefinitions {
     public override IHixValue Convert(HixCoroutine _, IHixValue value) => NullHixValue.Instance;
   }
   private sealed class StringKind() : KindDefinition(HixValueKind.String,
-    HixValueKind.Null, HixValueKind.Bool, HixValueKind.Number, HixValueKind.Symbol,
+    HixValueKind.Null, HixValueKind.Bool, HixValueKind.Number, HixValueKind.Opaque,
     HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind) {
     public override IHixValue New(HixCoroutine _) => String("");
     public override IHixValue Convert(HixCoroutine execution, IHixValue value) => execution.RenderText(value);
@@ -96,8 +96,8 @@ public static class KindDefinitions {
       return result;
     }
   }
-  private sealed class SymbolKind() : KindDefinition(HixValueKind.Symbol) {
-    public override IHixValue New(HixCoroutine execution) => execution.Error("not a symbol");
+  private sealed class OpaqueKind() : KindDefinition(HixValueKind.Opaque) {
+    public override IHixValue New(HixCoroutine execution) => execution.Error("not opaque");
     public override IHixValue Convert(HixCoroutine execution, IHixValue value) => Is(value) ? value : New(execution);
   }
   private sealed class FunctionKind() : KindDefinition(HixValueKind.Function, HixValueKind.String) {
