@@ -10,11 +10,11 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixExecutionTests {
   private static HixExecutionResult Run(string statements, string functions = "", string prelude = "",
-    IDictionary<string, object> variables = null, Hix.Runtime.HixThread context = null) {
+    IDictionary<string, object> variables = null, Hix.Runtime.HixCoroutine context = null) {
     var unit = AntlrSyntax.Parse(functions + "\nmixin Example {\nprelude expression {\n" + prelude +
       "\n}\nexpression {\n" + statements + "\n}\n}");
     Assert.Empty(unit.Diagnostics);
-    return HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), context ?? new HixThread(new Context()), variables);
+    return HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), context ?? new HixCoroutine(new Context()), variables);
   }
 
   [Theory]
@@ -270,7 +270,7 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void CompilerExpandsInlineFunctionsBeforeHoistingHostValues() {
-    var result = Run("emit(host())", "inline func host { return(this) }", context: new HixThread(new Context(new TestSymbol())));
+    var result = Run("emit(host())", "inline func host { return(this) }", context: new HixCoroutine(new Context(new TestSymbol())));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("TestSymbol", Assert.Single(result.Outputs).ReadText());
   }
@@ -304,7 +304,7 @@ public sealed class HixExecutionTests {
   public void StrictExpressionDisablesAutomaticHoisting() {
     var unit = AntlrSyntax.Parse("mixin Example { strict expression { emit(this) } }");
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context(new TestSymbol())));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context(new TestSymbol())));
     Assert.False(result.Success);
     Assert.Contains("prelude", result.Error.Resolve(result.Strings));
   }
@@ -347,7 +347,7 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"local string", "global number"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -374,7 +374,7 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"local", "local", "global"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -401,7 +401,7 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context(new TestSymbol())));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context(new TestSymbol())));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"initial:first:initial:second", "kept"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -425,7 +425,7 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context(new TestSymbol())));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context(new TestSymbol())));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("saved", Assert.Single(result.Outputs).ReadText());
   }
@@ -458,7 +458,7 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example"), new HixThread(new Context(new TestSymbol())));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example"), new HixCoroutine(new Context(new TestSymbol())));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"saved", "caller", "provider", "retry:derived", "caller"},
       result.Outputs.Select(output => output.ReadText()));
@@ -475,7 +475,7 @@ public sealed class HixExecutionTests {
       """);
     Assert.Empty(unit.Diagnostics);
     var variables = new Dictionary<string, object>();
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()), variables);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()), variables);
     Assert.False(result.Success);
     Assert.Equal("stop", result.Error.Resolve(result.Strings));
     Assert.Equal("first", Assert.Single(result.Outputs).ReadText());
@@ -485,7 +485,7 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void TargetStoragePersistsAcrossExecutionsButFailedWritesDoNot() {
-    var context = new HixThread(new Context());
+    var context = new HixCoroutine(new Context());
     HixExecutionResult Execute(string body) {
       var unit = AntlrSyntax.Parse("mixin Example { prelude expression { " + body + " } }");
       Assert.Empty(unit.Diagnostics);
@@ -525,13 +525,13 @@ public sealed class HixExecutionTests {
       """;
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"Ada", "", "2"}, result.Outputs.Select(output => output.ReadText()));
 
     var rejected = AntlrSyntax.Parse("type Positive = %min<1> number\nmixin Example { expression { emit(Positive(0)) } }");
     Assert.Empty(rejected.Diagnostics);
-    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.False(failure.Success);
     Assert.Contains("constraint failed", failure.Error.Resolve(failure.Strings));
   }
@@ -565,7 +565,7 @@ public sealed class HixExecutionTests {
     var vm = new HixVM([program]);
     // Constructor methods belong to the image and must work across independent invocations.
     for (var run = 0; run < 2; run++) {
-      var result = vm.Run(program, new HixThread(new Context()));
+      var result = vm.Run(program, new HixCoroutine(new Context()));
       Assert.True(result.Success, result.Error.Resolve(result.Strings));
       Assert.Equal(new[] {"Ada", "18", "ready", "21", "left", "4", "Existing", "Pet"},
         result.Outputs.Select(output => output.ReadText()));
@@ -606,7 +606,7 @@ public sealed class HixExecutionTests {
     Assert.Equal(2, HixInstruction.ReadAll(program.Bytecode)
       .Count(item => item.Instruction.Opcode == HixOpcode.CallDynamic));
     Assert.Contains("static emit(any", dump);
-    var result = HixVM.Execute(program, new HixThread(new Context()));
+    var result = HixVM.Execute(program, new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"string", "string"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -621,7 +621,7 @@ public sealed class HixExecutionTests {
       } }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"default", "named"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -642,7 +642,7 @@ public sealed class HixExecutionTests {
       """);
     Assert.Empty(unit.Diagnostics);
     Assert.Equal(2, unit.Declarations.SelectMany(DescendantsAndSelf).Count(node => node is MissingExpressionIr));
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"true", "false", "true", "true"}, result.Outputs.Select(output => output.ReadText()));
 
@@ -651,7 +651,7 @@ public sealed class HixExecutionTests {
       mixin Example { expression { absent(null) } }
       """);
     Assert.Empty(rejected.Diagnostics);
-    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.False(failure.Success);
     Assert.Contains("no matching signature", failure.Error.Resolve(failure.Strings));
   }
@@ -664,7 +664,7 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("ready", Assert.Single(result.Outputs).ReadText());
   }
@@ -698,7 +698,7 @@ public sealed class HixExecutionTests {
     Assert.Empty(valid.Diagnostics);
     var program = TestCompiler.Compile(valid, "Example", TestBackend.Instance);
     Assert.Contains("static combine(string left, string right) -> string", program.Disassemble());
-    var result = HixVM.Execute(program, new HixThread(new Context()));
+    var result = HixVM.Execute(program, new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("ab", Assert.Single(result.Outputs).ReadText());
   }
@@ -800,17 +800,17 @@ public sealed class HixExecutionTests {
     Assert.Contains(editor.Declarations, symbol => symbol is {Kind: "Mixin", Name: "Example"});
   }
 
-  private sealed class Context(IHixValue symbol = null) : HixContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
-    public override IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) => symbol ?? NullHixValue.Instance;
+  private sealed class Context(IHixValue symbol = null) : HixExpressionContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
+    public override IHixValue ResolveHost(HixCoroutine thread, HixExpressionRoot root, HixString member) => symbol ?? NullHixValue.Instance;
   }
 
   private sealed record TestSymbol : IHixValue {
     public HixValueKind Kind => HixValueKind.Symbol;
-    public bool IsTruthy(Hix.Runtime.HixThread context) => true;
-    public HixString Render(Hix.Runtime.HixThread context) => HixString.Dynamic("TestSymbol");
-    public void Fingerprint(HixFingerprintBuilder builder, Hix.Runtime.HixThread context) => builder.Append("TestSymbol");
-    public IHixValue Select(Hix.Runtime.HixThread context, HixString member) => NullHixValue.Instance;
-    public object Unlink(Hix.Runtime.HixThread context) => this;
+    public bool IsTruthy(Hix.Runtime.HixCoroutine context) => true;
+    public HixString Render(Hix.Runtime.HixCoroutine context) => HixString.Dynamic("TestSymbol");
+    public void Fingerprint(HixFingerprintBuilder builder, Hix.Runtime.HixCoroutine context) => builder.Append("TestSymbol");
+    public IHixValue Select(Hix.Runtime.HixCoroutine context, HixString member) => NullHixValue.Instance;
+    public object Unlink(Hix.Runtime.HixCoroutine context) => this;
     public bool Equals(IHixValue other) => other is TestSymbol;
   }
 }

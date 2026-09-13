@@ -57,7 +57,7 @@ public interface IMixinOutputContext {
 }
 
 /// <summary>Buffered generator emissions for hosts without Roslyn semantic data.</summary>
-public class MixinOutputContext(HixBackend backend, HixStringPool strings = null) : HixContext(backend, strings), IMixinOutputContext {
+public class MixinOutputContext(HixBackend backend, HixStringPool strings = null) : HixExpressionContext(backend, strings), IMixinOutputContext {
   public MixinOutputBuffer Emissions { get; } = new();
   public override void BeginExecution() => Emissions.Clear();
   public override int CaptureEffects() => Emissions.Count;

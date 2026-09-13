@@ -94,7 +94,7 @@ public static class HixTestRunner {
     try {
       var metadata = testCase?.Values.Select(Constant).ToArray() ?? [];
       var arguments = metadata.Length == 0 ? [] : metadata[0] is TupleHixValue tuple ? tuple.Values.ToArray() : [metadata[0]];
-      var thread = backend.CreateThread();
+      var thread = backend.CreateCoroutine();
       var invocation = vm.Invoke(program, thread, function, arguments);
       if (!invocation.Success) return new(file, name, false, invocation.Error.Resolve(invocation.Strings));
       if (metadata.Length == 2) {
@@ -107,7 +107,7 @@ public static class HixTestRunner {
   }
 
   private static IHixValue Constant(ExpressionIr expression) => expression switch {
-    StringExpressionIr text => HixThread.String(text.Value), NumberExpressionIr number => new NumberHixValue(number.Value),
+    StringExpressionIr text => HixCoroutine.String(text.Value), NumberExpressionIr number => new NumberHixValue(number.Value),
     BooleanExpressionIr boolean => BooleanHixValue.From(boolean.Value), NullExpressionIr => NullHixValue.Instance,
     MissingExpressionIr => MissingHixValue.Instance,
     TupleExpressionIr tuple => new TupleHixValue(tuple.Values.Select(Constant).ToArray()),

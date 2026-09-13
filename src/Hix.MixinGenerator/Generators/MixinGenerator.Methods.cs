@@ -21,7 +21,7 @@ using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
 using static Hix.Roslyn.GeneratorSource;
 using static Hix.Roslyn.GeneratorStrings;
-using HixThread = Hix.Runtime.HixThread;
+using HixCoroutine = Hix.Runtime.HixCoroutine;
 
 namespace HelixSourceGenerator.Generators;
 

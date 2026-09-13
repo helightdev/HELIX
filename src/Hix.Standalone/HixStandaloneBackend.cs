@@ -21,10 +21,11 @@ public class HixStandaloneBackend : HixBackend {
     HalFunctions.Register(functions);
     IoFunctions.Register(functions);
     CompilationFunctions.Register(functions);
+    ConcurrencyFunctions.Register(functions);
   }
   private sealed class PrintFunction() : FunctionDefinition("print", [new(HixValueKind.Null, [HixValueKind.Any], true)]) {
     public override bool HasEffects => true;
-    public override IHixValue Execute(HixThread context, IHixValue[] arguments, int line) {
+    public override IHixValue Execute(HixCoroutine context, IHixValue[] arguments, int line) {
       var output = ((HixStandaloneBackend)context.Backend).Output;
       for (var i = 0; i < arguments.Length; i++) {
         if (i != 0) output.Write(" ");

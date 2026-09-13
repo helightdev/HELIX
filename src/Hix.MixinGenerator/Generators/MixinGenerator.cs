@@ -21,7 +21,7 @@ using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
 using static Hix.Roslyn.GeneratorSource;
 using static Hix.Roslyn.GeneratorStrings;
-using HixThread = Hix.Runtime.HixThread;
+using HixCoroutine = Hix.Runtime.HixCoroutine;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -255,7 +255,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         group => new HixDebugFinalState(group.Last(), 0, 0),
         StringComparer.Ordinal
       );
-    var unlinkedContext = new HixThread(new UnlinkedHixContext(model.Render.StringPool));
+    var unlinkedContext = new HixCoroutine(new UnlinkedHixContext(model.Render.StringPool));
     var sharedVariables = model.Render.PrimaryVariables.ToDictionary(
       item => item.Key.Resolve(model.Render.StringPool),
       item => item.Value.Unlink(unlinkedContext), StringComparer.Ordinal
@@ -462,10 +462,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     var lateExpression = selectedProgram.Late;
 
     var expressionContext = HixMixinBackend.Instance.CreateContext(target, annotated, applied, compilation, targetDefinitions, preparedExpressions, hostValues);
-    var expressionThread = new HixThread(expressionContext);
+    var expressionThread = new HixCoroutine(expressionContext);
     var evaluated = HixVM.Execute(expression, expressionThread, expressionVariables);
-    var exportedVariables = expressionThread.ExportVariables();
-    var exportedCarries = expressionThread.ExportCarries();
+    var exportedVariables = expressionContext.ExportVariables(expressionThread);
+    var exportedCarries = expressionContext.ExportCarries(expressionThread);
     ReportExpressionLogs(context, location, evaluated.Logs, evaluated.Strings);
     if (!evaluated.Success) {
       ReportInvalidAttributeExpression(

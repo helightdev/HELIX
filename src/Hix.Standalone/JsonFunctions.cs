@@ -28,7 +28,7 @@ internal static class JsonFunctions {
     );
   }
 
-  private static IHixValue Parse(HixThread thread, IHixValue[] args) {
+  private static IHixValue Parse(HixCoroutine thread, IHixValue[] args) {
     try {
       var token = JToken.Parse(thread.ResolveText(args[0]), new JsonLoadSettings {
         DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error,
@@ -43,7 +43,7 @@ internal static class JsonFunctions {
     } catch (JsonException exception) { return thread.Error("invalid JSON: " + exception.Message); }
   }
 
-  private static IHixValue Write(HixThread thread, IHixValue[] args) {
+  private static IHixValue Write(HixCoroutine thread, IHixValue[] args) {
     var value = args[0];
     if (args.Length == 2 && Validate(thread, value, ToPattern(args[1])) is ErrorHixValue error) return error;
     try { return new LiteralHixValue(HixString.Dynamic(ToJson(value, thread).ToString(Formatting.None))); }
@@ -56,7 +56,7 @@ internal static class JsonFunctions {
     _ => HixPattern.Any
   };
 
-  private static IHixValue Validate(HixThread thread, IHixValue value, HixPattern pattern) =>
+  private static IHixValue Validate(HixCoroutine thread, IHixValue value, HixPattern pattern) =>
     thread.Matches(pattern, value, out var failure) ? value : thread.Error("JSON value does not match pattern: " + failure);
 
   private static IHixValue FromJson(JToken token) => token.Type switch {
@@ -70,7 +70,7 @@ internal static class JsonFunctions {
     _ => throw new JsonReaderException("unsupported JSON token " + token.Type)
   };
 
-  private static JToken ToJson(IHixValue value, HixThread thread) => value switch {
+  private static JToken ToJson(IHixValue value, HixCoroutine thread) => value switch {
     MissingHixValue => JValue.CreateNull(),
     NullHixValue => JValue.CreateNull(),
     BooleanHixValue boolean => new JValue(boolean.Value),
@@ -87,7 +87,7 @@ internal static class JsonFunctions {
     _ => throw new InvalidOperationException("cannot write Hix " + value.Kind.ToString().ToLowerInvariant() + " values as JSON")
   };
 
-  private static IHixValue GenerateSchema(HixThread thread, PatternHixValue value) {
+  private static IHixValue GenerateSchema(HixCoroutine thread, PatternHixValue value) {
     try {
       var definitions = new JObject();
       var visiting = new HashSet<string>(StringComparer.Ordinal);
@@ -268,7 +268,7 @@ internal static class JsonFunctions {
     _ => false
   };
 
-  private static IHixValue LoadSchema(HixThread thread, string json) {
+  private static IHixValue LoadSchema(HixCoroutine thread, string json) {
     try {
       var root = JObject.Parse(json);
       var definitions = new Dictionary<string, HixPattern>(StringComparer.Ordinal);
@@ -374,7 +374,7 @@ internal static class JsonFunctions {
   private static string EscapePointer(string value) => value.Replace("~", "~0").Replace("/", "~1");
   private static string UnescapePointer(string value) => value.Replace("~1", "/").Replace("~0", "~");
 
-  private static IHixValue ApplyDefaults(HixThread thread, IHixValue value, HixPattern pattern,
+  private static IHixValue ApplyDefaults(HixCoroutine thread, IHixValue value, HixPattern pattern,
     IReadOnlyDictionary<string, HixPattern> definitions) {
     if (pattern is DefinedHixPattern defined) {
       var merged = definitions.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);

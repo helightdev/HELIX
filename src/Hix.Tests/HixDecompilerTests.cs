@@ -20,7 +20,7 @@ public class HixDecompilerTests {
     Assert.Contains(HixInstruction.ReadAll(image.Bytecode), item => item.Instruction.Opcode == HixOpcode.LoadMissing);
     Assert.DoesNotContain(image.ConstantPool, value => value is MissingHixValue);
     Assert.Contains("push(missing)", image.Disassemble());
-    var result = new HixVM([image]).Invoke(image, new HixThread(), "main", []);
+    var result = new HixVM([image]).Invoke(image, new HixCoroutine(), "main", []);
     Assert.True(result.Success); var tuple = Assert.IsType<TupleHixValue>(result.Value);
     Assert.IsType<MissingHixValue>(tuple.Values[0]); Assert.IsType<NullHixValue>(tuple.Values[1]);
     RoundTrip("func main { return(missing, null) }");
@@ -100,7 +100,7 @@ public class HixDecompilerTests {
       var unit = HixDecompiler.Decompile(image, "Example");
       var roundtrip = HixCompiler.Compile(HixDecompiler.ToSource(unit), "Example", TestBackend.Instance);
       if (ReferenceEquals(image, baseline)) HixRoundTripAssertions.Equal(image, roundtrip);
-      var firstThread = new HixThread(); var secondThread = new HixThread();
+      var firstThread = new HixCoroutine(); var secondThread = new HixCoroutine();
       if (!image.Expressions.Any(entry => entry.IsPrelude)) {
         Assert.True(HixVM.Execute(baseline.ForPass(true), firstThread).Success);
         Assert.True(HixVM.Execute(baseline.ForPass(true), secondThread).Success);
@@ -119,7 +119,7 @@ public class HixDecompilerTests {
     var baseline = HixCompiler.Compile(source, "Example", TestBackend.Instance);
     var roundtrip = HixCompiler.Compile(HixDecompiler.ToSource(HixDecompiler.Decompile(baseline, "Example")), "Example", TestBackend.Instance);
     HixRoundTripAssertions.Equal(baseline, roundtrip);
-    var expected = HixVM.Execute(baseline, new HixThread()); var actual = HixVM.Execute(roundtrip, new HixThread());
+    var expected = HixVM.Execute(baseline, new HixCoroutine()); var actual = HixVM.Execute(roundtrip, new HixCoroutine());
     Assert.True(expected.Success); Assert.True(actual.Success);
     Assert.Equal(expected.Outputs.Select(output => output.ReadText()), actual.Outputs.Select(output => output.ReadText()));
   }
@@ -139,7 +139,7 @@ public class HixDecompilerTests {
   [InlineData(new byte[] {(byte)HixOpcode.Enter, 6, 0, (byte)HixOpcode.LoadTrue, (byte)HixOpcode.CastString, (byte)HixOpcode.End}, 5)]
   [InlineData(new byte[] {(byte)HixOpcode.Enter, 7, 0, (byte)HixOpcode.Interpolate, 1, 0, (byte)HixOpcode.End}, 3)]
   public void MalformedInstructionSequencesFailAtTheOffendingOffset(byte[] bytes, int offset) {
-    var image = new HixProgramImage(bytes, new(), [], new HixStringPoolBuilder().Freeze(), [new BytecodeExpression(0, false, 0)], [], new LanguageFunctionScope([]), new Dictionary<string,HixPattern>(), HixCoreBackend.Instance);
+    var image = new HixProgramImage(bytes, new(), [], new HixStringPoolBuilder().Freeze(), [new BytecodeExpression(new BytecodeFunction("", false, [], 0), false, 0)], [], new LanguageFunctionScope([]), new Dictionary<string,HixPattern>(), HixCoreBackend.Instance);
     Assert.Contains("offset " + offset, Assert.Throws<ArgumentException>(() => HixDecompiler.Decompile(image)).Message);
   }
 

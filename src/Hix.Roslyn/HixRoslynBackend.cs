@@ -38,15 +38,15 @@ public class HixRoslynBackend : HixBackend {
   }
   public virtual HixRoslynContext CreateContext(CSharpCompilation compilation, INamedTypeSymbol currentType = null,
     ISymbol target = null, AttributeData attribute = null) => new HixRoslynContext(currentType, target, attribute, compilation, backend: this);
-  public override IHixValue ResolveRoot(HixThread thread, string name) => thread.Context is HixRoslynContext roslyn
+  public override IHixValue ResolveRoot(HixCoroutine thread, string name) => thread.Context is HixRoslynContext roslyn
     ? roslyn.ResolveHostService(thread, name switch { "this" => HixExpressionRoot.This, "target" => HixExpressionRoot.Target, _ => HixExpressionRoot.Attribute }, HixString.Dynamic(""))
     : thread.Error("Roslyn semantic context is required");
-  public override object UnlinkSnapshot(HixThread thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.UnlinkSemanticSnapshot(thread, value) : base.UnlinkSnapshot(thread, value);
-  public override IHixValue DetachValue(HixThread thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.DetachSemanticValue(thread, value) : base.DetachValue(thread, value);
-  public override IHixValue Import(HixThread thread, object value) => value is DetachedSemanticData data ? DetachedSemanticHixValue.Materialize(data) : base.Import(thread, value);
-  public override HixString NameOf(HixThread thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.NameOfService(thread, value) : base.NameOf(thread, value);
-  public override IHixValue Unwrap(HixThread thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.UnwrapService(thread, value) : value;
-  public override bool IsType(HixThread thread, IHixValue value, HixString type) => thread.Context is HixRoslynContext roslyn && roslyn.IsTypeService(thread, value, type);
-  public override bool HasTrait(HixThread thread, IHixValue value, HixString trait) => thread.Context is HixRoslynContext roslyn && roslyn.HasTraitService(thread, value, trait);
-  public override IHixValue Attributes(HixThread thread, IHixValue value, HixString type, bool exact, bool first) => thread.Context is HixRoslynContext roslyn ? roslyn.AttributesService(thread, value, type, exact, first) : base.Attributes(thread, value, type, exact, first);
+  public override object UnlinkSnapshot(HixCoroutine thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.UnlinkSemanticSnapshot(thread, value) : base.UnlinkSnapshot(thread, value);
+  public override IHixValue DetachValue(HixCoroutine thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.DetachSemanticValue(thread, value) : base.DetachValue(thread, value);
+  public override IHixValue Import(HixCoroutine thread, object value) => value is DetachedSemanticData data ? DetachedSemanticHixValue.Materialize(data) : base.Import(thread, value);
+  public override HixString NameOf(HixCoroutine thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.NameOfService(thread, value) : base.NameOf(thread, value);
+  public override IHixValue Unwrap(HixCoroutine thread, IHixValue value) => thread.Context is HixRoslynContext roslyn ? roslyn.UnwrapService(thread, value) : value;
+  public override bool IsType(HixCoroutine thread, IHixValue value, HixString type) => thread.Context is HixRoslynContext roslyn && roslyn.IsTypeService(thread, value, type);
+  public override bool HasTrait(HixCoroutine thread, IHixValue value, HixString trait) => thread.Context is HixRoslynContext roslyn && roslyn.HasTraitService(thread, value, trait);
+  public override IHixValue Attributes(HixCoroutine thread, IHixValue value, HixString type, bool exact, bool first) => thread.Context is HixRoslynContext roslyn ? roslyn.AttributesService(thread, value, type, exact, first) : base.Attributes(thread, value, type, exact, first);
 }

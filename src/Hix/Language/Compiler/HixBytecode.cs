@@ -189,13 +189,16 @@ public sealed record BytecodeFunction(string Name, bool IsPure, IReadOnlyList<By
   int Body
 );
 
-public sealed record BytecodeExpression(int Body, bool IsPrelude, int Line);
+/// <summary>Pass metadata only. Executable bodies are ordinary anonymous functions.</summary>
+public sealed record BytecodeExpression(BytecodeFunction Function, bool IsPrelude, int Line);
 public sealed record BytecodeMarker(int Offset, int Line, string Type);
 
 public sealed record BytecodeDerivation(string Name, int Line, IReadOnlyList<BytecodeExpression> Expressions,
   LanguageFunctionScope Scope
 );
 
+/// <summary>A function and its lexical owner, independent of how the function is entered.</summary>
+public sealed record BytecodeFunctionEntry(BytecodeFunction Function, LanguageFunctionScope Scope);
 
 /// <summary>Immutable compiled image: instructions, constant pools and syntax-free entry-point metadata.</summary>
 public sealed class HixProgramImage {
@@ -205,6 +208,7 @@ public sealed class HixProgramImage {
   public HixStringPool StringPool { get; }
   public IReadOnlyList<BytecodeExpression> Expressions { get; }
   public IReadOnlyList<BytecodeDerivation> Derivations { get; }
+  public IReadOnlyList<BytecodeFunctionEntry> Functions { get; }
   public LanguageFunctionScope Scope { get; }
   public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
   public IReadOnlyList<BytecodeField> Parameters { get; }
@@ -232,6 +236,12 @@ public sealed class HixProgramImage {
       .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal));
     scope.Attach(this);
     foreach (var derivation in derivations) derivation.Scope.Attach(this);
+    Functions = Array.AsReadOnly(scope.Functions()
+      .Concat(expressions.Select(entry => new BytecodeFunctionEntry(entry.Function, scope)))
+      .Concat(derivations.SelectMany(derivation =>
+        derivation.Scope.Functions(false)
+          .Concat(derivation.Expressions.Select(entry => new BytecodeFunctionEntry(entry.Function, derivation.Scope)))))
+      .ToArray());
   }
 
   private HixProgramImage(HixProgramImage image, bool prelude) {
@@ -241,6 +251,7 @@ public sealed class HixProgramImage {
     StringPool = image.StringPool;
     Expressions = image.Expressions.Where(entry => entry.IsPrelude == prelude).ToArray();
     Derivations = image.Derivations;
+    Functions = image.Functions;
     Scope = image.Scope;
     Patterns = image.Patterns;
     Parameters = image.Parameters;
@@ -269,7 +280,7 @@ public sealed class HixProgramImage {
     AppendScopeIdentity(builder, Scope);
     builder.Append(Expressions.Count);
     foreach (var entry in Expressions) {
-      builder.Append(entry.Body);
+      builder.Append(entry.Function.Body);
       builder.Append(entry.IsPrelude);
       builder.Append(entry.Line);
     }
@@ -280,7 +291,7 @@ public sealed class HixProgramImage {
       AppendScopeIdentity(builder, derivation.Scope);
       builder.Append(derivation.Expressions.Count);
       foreach (var entry in derivation.Expressions) {
-        builder.Append(entry.Body);
+        builder.Append(entry.Function.Body);
         builder.Append(entry.IsPrelude);
         builder.Append(entry.Line);
       }

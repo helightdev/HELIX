@@ -10,7 +10,7 @@ namespace HELIX.SourceGen.Tests;
 public sealed class HixResultTests {
   [Fact]
   public void EmittedValuesKeepTheirTypesAndDetachNestedStorageAtEmission() {
-    var thread = TestBackend.Instance.CreateThread();
+    var thread = TestBackend.Instance.CreateCoroutine();
     var program = TestCompiler.Compile("""
       mixin Example { expression {
         local name = <before>
@@ -40,7 +40,7 @@ public sealed class HixResultTests {
 
     static string ReadName(IHixValue value) {
       var table = Assert.IsType<HixTableValue>(value);
-      Assert.True(table.TryGetValue(new HixThread(), HixString.Dynamic("name"), out var name));
+      Assert.True(table.TryGetValue(new HixCoroutine(), HixString.Dynamic("name"), out var name));
       var literal = Assert.IsType<LiteralHixValue>(name);
       Assert.False(literal.Value.IsInterned);
       return literal.Value.Resolve(null);
@@ -62,7 +62,7 @@ public sealed class HixResultTests {
 
   [Fact]
   public void OutputsDetachWhileLogsAndErrorsRetainTheirPool() {
-    var thread = TestBackend.Instance.CreateThread();
+    var thread = TestBackend.Instance.CreateCoroutine();
     var first = HixVM.Execute(TestCompiler.Compile("mixin Example { expression { log(<logged>); emit(<pooled>) } }", "Example"), thread);
     var output = Assert.Single(first.Outputs);
     Assert.False(Assert.IsType<LiteralHixValue>(output.Value).Value.IsInterned);
@@ -109,7 +109,7 @@ public sealed class HixResultTests {
     Assert.Empty(empty.Variables);
     Assert.Empty(empty.Carries);
     var program = TestCompiler.Compile("mixin Example { expression { emit(<ready>) } }", "Example");
-    var result = HixVM.Execute(program, TestBackend.Instance.CreateThread());
+    var result = HixVM.Execute(program, TestBackend.Instance.CreateCoroutine());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Same(empty.Variables, result.Variables);
     Assert.Same(empty.Carries, result.Carries);

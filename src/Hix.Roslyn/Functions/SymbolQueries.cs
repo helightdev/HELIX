@@ -12,7 +12,7 @@ public sealed class IsTypeFunction() : RoslynFunctionDefinition("is", 1, resultT
   public override string Documentation => "Tests whether the semantic value matches the specified C# type name.";
   public override IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string> { {1, "CSharpType"} };
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return BooleanHixValue.From(context.IsType(value, arguments[0].Render(context)));
@@ -22,7 +22,7 @@ public sealed class IsTypeFunction() : RoslynFunctionDefinition("is", 1, resultT
 public sealed class HasMemberFunction() : RoslynFunctionDefinition("has", 1, resultType: HixValueKind.Bool) {
   public override string Documentation => "Tests whether a semantic value exposes the specified member.";
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return BooleanHixValue.From(value.Select(context, arguments[0].Render(context)) is not NullHixValue);
@@ -73,7 +73,7 @@ public sealed class TraitFunction(string name) : RoslynFunctionDefinition(name, 
   };
 
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     if (context.HasTrait(value, context.ResolveString(Name))) return BooleanHixValue.From(true);

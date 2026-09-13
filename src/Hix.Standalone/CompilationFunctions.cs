@@ -31,7 +31,7 @@ internal static class CompilationFunctions {
     InlineFunction implementation) => new(name, signatures, implementation,
       documentation: "Inspects standalone Hix compilation artifacts.");
 
-  private static IHixValue Compile(HixThread thread, IHixValue[] args) {
+  private static IHixValue Compile(HixCoroutine thread, IHixValue[] args) {
     var backend = (HixStandaloneBackend)thread.Backend;
     var sources = args.Length == 0 ? backend.CompilationSources : [thread.ResolveText(args[0])];
     if (sources.Count == 0) return Failure("compile() requires an enclosing standalone compilation");
@@ -75,24 +75,24 @@ internal static class CompilationFunctions {
     ("functions", TupleHixValue.Empty), ("instructions", TupleHixValue.Empty),
     ("markers", HixTableValue.Empty), ("disassembly", Text("")));
 
-  private static IHixValue FindFunction(HixThread thread, IHixValue[] args) {
+  private static IHixValue FindFunction(HixCoroutine thread, IHixValue[] args) {
     var name = thread.ResolveText(args[1]);
     return ((TupleHixValue)Field(thread, args[0], "functions")).Values.FirstOrDefault(value =>
       thread.Equal(Field(thread, value, "name"), Text(name))) ?? thread.Error("unknown compiled function '" + name + "'");
   }
 
-  private static IHixValue FindMarker(HixThread thread, IHixValue[] args) {
+  private static IHixValue FindMarker(HixCoroutine thread, IHixValue[] args) {
     var markers = Field(thread, args[0], "markers");
     var name = thread.ResolveText(args[1]);
     var marker = ((HixTableValue)markers).Select(thread, HixString.Dynamic(name));
     return marker is MissingHixValue ? thread.Error("unknown bytecode marker '" + name + "'") : marker;
   }
 
-  private static IHixValue Field(HixThread thread, IHixValue value, string name) =>
+  private static IHixValue Field(HixCoroutine thread, IHixValue value, string name) =>
     value is HixTableValue table ? table.Select(thread, HixString.Dynamic(name))
       : thread.Error("expected compilation artifact");
   private static HixTableValue Table(params (string Name, IHixValue Value)[] entries) => new(entries.Select(entry =>
     new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(entry.Name), entry.Value)));
-  private static LiteralHixValue Text(string value) => HixThread.String(value);
+  private static LiteralHixValue Text(string value) => HixCoroutine.String(value);
   private static NumberHixValue Number(double value) => new(value);
 }

@@ -60,7 +60,7 @@ public class HixDecompilerLibraryTests {
             foreach (var testCase in cases) {
               var metadata = testCase?.Values.Select(Constant).ToArray() ?? [];
               var args = metadata.Length == 0 ? [] : metadata[0] is TupleHixValue tuple ? tuple.Values.ToArray() : [metadata[0]];
-              var thread = backend.CreateThread(); var result = vm.Invoke(image, thread, test.Name, args);
+              var thread = backend.CreateCoroutine(); var result = vm.Invoke(image, thread, test.Name, args);
               Assert.True(result.Success, test.Name + ": " + result.Error.Resolve(result.Strings));
               if (metadata.Length == 2) Assert.True(thread.Equal(result.Value, metadata[1]), test.Name);
             }
@@ -71,7 +71,7 @@ public class HixDecompilerLibraryTests {
     } finally { Directory.Delete(working, true); }
   }
   private static IHixValue Constant(ExpressionIr expression) => expression switch {
-    StringExpressionIr value => HixThread.String(value.Value), NumberExpressionIr value => new NumberHixValue(value.Value),
+    StringExpressionIr value => HixCoroutine.String(value.Value), NumberExpressionIr value => new NumberHixValue(value.Value),
     BooleanExpressionIr value => BooleanHixValue.From(value.Value), NullExpressionIr => NullHixValue.Instance, MissingExpressionIr => MissingHixValue.Instance,
     TupleExpressionIr value => new TupleHixValue(value.Values.Select(Constant).ToArray()),
     TableExpressionIr value => new HixTableValue(value.Entries.Select(item => new System.Collections.Generic.KeyValuePair<HixString, IHixValue>(HixString.Dynamic(item.Key), Constant(item.Value)))),

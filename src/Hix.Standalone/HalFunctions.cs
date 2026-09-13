@@ -17,7 +17,7 @@ internal static class HalFunctions {
         new FunctionSignature(K.String, [K.Any, K.Kind])], (thread, args) => Write(thread, args), acceptsErrors: true,
       documentation: "Writes a Hix value as a canonical single-section Hal asset."));
 
-  private static IHixValue Parse(HixThread thread, IHixValue[] args) {
+  private static IHixValue Parse(HixCoroutine thread, IHixValue[] args) {
     try {
       var document = HalDocumentSyntax.Parse(thread.ResolveText(args[0]));
       if (document.Diagnostics.Count != 0) throw new HalException(string.Join("; ", document.Diagnostics.Select(
@@ -26,24 +26,24 @@ internal static class HalFunctions {
     } catch (HalException exception) { return thread.Error("invalid Hal: " + exception.Message); }
   }
 
-  private static IHixValue Write(HixThread thread, IHixValue[] args) {
+  private static IHixValue Write(HixCoroutine thread, IHixValue[] args) {
     var pattern = args.Length == 1 ? Infer(args[0]) : args[1] switch {
       PatternHixValue value => value.Pattern, KindHixValue kind => new KindHixPattern(kind.ValueKind), _ => HixPattern.Any
     };
     if (!thread.Matches(pattern, args[0], out var failure)) return thread.Error("Hal value does not match pattern: " + failure);
     var text = new StringBuilder("--- ").Append(pattern is NamedHixPattern named ? named.Name : pattern.Display).AppendLine();
     if (args[0] is HixTableValue table) WriteEntries(text, table, thread, 0); else WriteValue(text, args[0], thread, 0);
-    return HixThread.String(text.ToString().TrimEnd() + "\n");
+    return HixCoroutine.String(text.ToString().TrimEnd() + "\n");
   }
 
   private static HixPattern Infer(IHixValue value) => new KindHixPattern(value.Kind);
-  private static void WriteEntries(StringBuilder text, HixTableValue table, HixThread thread, int depth) {
+  private static void WriteEntries(StringBuilder text, HixTableValue table, HixCoroutine thread, int depth) {
     foreach (var entry in table.Entries) {
       text.Append(' ', depth * 2).Append(entry.Key.Resolve(thread.Strings)).Append(" = ");
       WriteValue(text, entry.Value, thread, depth); text.AppendLine();
     }
   }
-  private static void WriteValue(StringBuilder text, IHixValue value, HixThread thread, int depth) {
+  private static void WriteValue(StringBuilder text, IHixValue value, HixCoroutine thread, int depth) {
     switch (value) {
       case NullHixValue: text.Append("null"); break;
       case BooleanHixValue flag: text.Append(flag.Value ? "true" : "false"); break;
@@ -72,14 +72,14 @@ internal static class HalFunctions {
       if (source.GroupBy(section => section.Id, StringComparer.Ordinal).Any(group => group.Count() > 1)) throw new HalException("duplicate section id");
       sections = source.ToDictionary(section => section.Id, StringComparer.Ordinal);
     }
-    public IHixValue Resolve(HixThread thread, string id) {
+    public IHixValue Resolve(HixCoroutine thread, string id) {
       if (values.TryGetValue(id, out var cached)) return cached;
       if (!sections.TryGetValue(id, out var section)) throw new HalException("unknown section '" + id + "'");
       if (!active.Add(id)) throw new HalException("cyclic section reference '" + id + "'");
       var value = Construct(thread, section.Type, Evaluate(thread, new HalTableSyntax(section.Fields)));
       active.Remove(id); return values[id] = value;
     }
-    private IHixValue Evaluate(HixThread thread, HalValueSyntax node) => node switch {
+    private IHixValue Evaluate(HixCoroutine thread, HalValueSyntax node) => node switch {
       HalScalarSyntax scalar => Host(scalar.Value),
       HalListSyntax sequence => new TupleHixValue(sequence.Values.Select(item => Evaluate(thread, item)).ToArray()),
       HalTableSyntax table => new HixTableValue(table.Fields.Select(item =>
@@ -93,7 +93,7 @@ internal static class HalFunctions {
     };
     private static string ScalarText(HalValueSyntax node) => node is HalScalarSyntax {Value: { } value}
       ? Convert.ToString(value, CultureInfo.InvariantCulture) : throw new HalException("reference id must be a scalar");
-    private static IHixValue Construct(HixThread thread, string type, IHixValue value) {
+    private static IHixValue Construct(HixCoroutine thread, string type, IHixValue value) {
       var pattern = HixPatterns.Named(type);
       if (pattern is NamedHixPattern named && !thread.PatternDefinitions.TryGetValue(named.Name, out pattern))
         throw new HalException("unknown pattern '" + type + "'");
@@ -103,13 +103,13 @@ internal static class HalFunctions {
     }
   }
 
-  private static IHixValue ApplyDefaults(HixThread thread, IHixValue value, HixPattern pattern,
+  private static IHixValue ApplyDefaults(HixCoroutine thread, IHixValue value, HixPattern pattern,
     IReadOnlyDictionary<string, HixPattern> definitions) {
     if (pattern is NamedHixPattern named && definitions.TryGetValue(named.Name, out var resolved)) return ApplyDefaults(thread, value, resolved, definitions);
     if (pattern is DefinedHixPattern defined) return ApplyDefaults(thread, value, defined.Root, defined.Definitions);
     if (pattern is TaggedHixPattern tagged && value is HixTableValue taggedTable) {
       var key = HixString.Dynamic(TaggedHixPattern.FieldName);
-      var result = taggedTable.TryGetValue(thread, key, out _) ? taggedTable : taggedTable.Put(thread, key, HixThread.String(tagged.Discriminator));
+      var result = taggedTable.TryGetValue(thread, key, out _) ? taggedTable : taggedTable.Put(thread, key, HixCoroutine.String(tagged.Discriminator));
       return ApplyDefaults(thread, result, tagged.Underlying, definitions);
     }
     if (pattern is DocumentedHixPattern documented) return ApplyDefaults(thread, value, documented.Underlying, definitions);
@@ -134,7 +134,7 @@ internal static class HalFunctions {
   }
   private static IHixValue Host(object value) => value switch {
     null => NullHixValue.Instance, bool flag => BooleanHixValue.From(flag), double number => new NumberHixValue(number),
-    string text => HixThread.String(text), _ => throw new HalException("unsupported scalar")
+    string text => HixCoroutine.String(text), _ => throw new HalException("unsupported scalar")
   };
   private sealed class HalException(string message) : Exception(message);
 }

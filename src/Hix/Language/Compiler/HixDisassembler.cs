@@ -24,11 +24,11 @@ public static class HixDisassembler {
       foreach (var item in derivation.Scope.DisassemblyFunctions("derivation::" + derivation.Name, false))
         Header(item.Function.Body, FunctionHeader(item.Scope, item.Function));
       for (var i = 0; i < derivation.Expressions.Count; i++)
-        Header(derivation.Expressions[i].Body, ".derivation " + derivation.Name + " expression " + (i + 1));
+        Header(derivation.Expressions[i].Function.Body, ".derivation " + derivation.Name + " expression " + (i + 1));
     }
     for (var i = 0; i < program.Expressions.Count; i++) {
       var entry = program.Expressions[i];
-      Header(entry.Body, ".entry " + (entry.IsPrelude ? "prelude" : "late") + " expression " + (i + 1));
+      Header(entry.Function.Body, ".entry " + (entry.IsPrelude ? "prelude" : "late") + " expression " + (i + 1));
     }
 
     var rows = new List<(int Address, string Instruction, string Pseudocode)>();

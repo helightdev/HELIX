@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Hix.Runtime;
-using static Hix.Runtime.HixThread;
+using static Hix.Runtime.HixCoroutine;
 
 namespace Hix.Functions;
 
@@ -11,8 +11,8 @@ public abstract class KindDefinition(HixValueKind valueKind, params HixValueKind
   public IReadOnlyCollection<HixValueKind> ImplicitSources { get; } = new HashSet<HixValueKind>(implicitSources);
   public KindHixValue Kind { get; } = KindHixValue.Get(valueKind);
   public HixValueKind ValueKind => valueKind;
-  public abstract IHixValue New(HixThread execution);
-  public abstract IHixValue Convert(HixThread execution, IHixValue value);
+  public abstract IHixValue New(HixCoroutine execution);
+  public abstract IHixValue Convert(HixCoroutine execution, IHixValue value);
   public bool Is(IHixValue value) => value.Kind == valueKind;
 }
 
@@ -29,7 +29,7 @@ public static class KindDefinitions {
   public static bool CanImplicitConvert(HixValueKind source, HixValueKind target) =>
     target == HixValueKind.Any || source == target || ByKind.TryGetValue(target, out var definition) &&
     definition.ImplicitSources.Contains(source);
-  public static bool TryImplicitConvert(HixThread execution, IHixValue value,
+  public static bool TryImplicitConvert(HixCoroutine execution, IHixValue value,
     HixValueKind target, out IHixValue converted) {
     if (value.Kind == target || target == HixValueKind.Any) { converted = value; return true; }
     if (!ByKind.TryGetValue(target, out var definition)) { converted = null; return false; }
@@ -39,28 +39,28 @@ public static class KindDefinitions {
   }
 
   private sealed class MissingKind() : KindDefinition(HixValueKind.Missing) {
-    public override IHixValue New(HixThread _) => MissingHixValue.Instance;
-    public override IHixValue Convert(HixThread execution, IHixValue value) =>
+    public override IHixValue New(HixCoroutine _) => MissingHixValue.Instance;
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) =>
       value is MissingHixValue ? value : execution.Error("cannot convert value to missing");
   }
   private sealed class NullKind() : KindDefinition(HixValueKind.Null, HixValueKind.String, HixValueKind.Missing) {
-    public override IHixValue New(HixThread _) => NullHixValue.Instance;
-    public override IHixValue Convert(HixThread _, IHixValue value) => NullHixValue.Instance;
+    public override IHixValue New(HixCoroutine _) => NullHixValue.Instance;
+    public override IHixValue Convert(HixCoroutine _, IHixValue value) => NullHixValue.Instance;
   }
   private sealed class StringKind() : KindDefinition(HixValueKind.String,
     HixValueKind.Null, HixValueKind.Bool, HixValueKind.Number, HixValueKind.Symbol,
     HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind) {
-    public override IHixValue New(HixThread _) => String("");
-    public override IHixValue Convert(HixThread execution, IHixValue value) => execution.RenderText(value);
+    public override IHixValue New(HixCoroutine _) => String("");
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) => execution.RenderText(value);
   }
   private sealed class BoolKind() : KindDefinition(HixValueKind.Bool, HixValueKind.String) {
-    public override IHixValue New(HixThread _) => BooleanHixValue.False;
-    public override IHixValue Convert(HixThread execution, IHixValue value) => Bool(value.IsTruthy(execution));
+    public override IHixValue New(HixCoroutine _) => BooleanHixValue.False;
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) => Bool(value.IsTruthy(execution));
   }
   private sealed class NumberKind() : KindDefinition(HixValueKind.Number,
     HixValueKind.String, HixValueKind.Bool, HixValueKind.Null) {
-    public override IHixValue New(HixThread _) => new NumberHixValue(0);
-    public override IHixValue Convert(HixThread execution, IHixValue value) {
+    public override IHixValue New(HixCoroutine _) => new NumberHixValue(0);
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) {
       if (value is NullHixValue) return New(execution);
       if (value is NumberHixValue) return value;
       if (value is BooleanHixValue boolean) return new NumberHixValue(boolean.Value ? 1 : 0);
@@ -73,8 +73,8 @@ public static class KindDefinitions {
   }
   private sealed class TupleKind() : KindDefinition(HixValueKind.Tuple,
     HixValueKind.String, HixValueKind.Null, HixValueKind.Table) {
-    public override IHixValue New(HixThread _) => TupleHixValue.Empty;
-    public override IHixValue Convert(HixThread execution, IHixValue value) => value switch {
+    public override IHixValue New(HixCoroutine _) => TupleHixValue.Empty;
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) => value switch {
       NullHixValue => New(execution), TupleHixValue => value,
       HixTableValue table => new TupleHixValue(table.Entries.Select(entry => (IHixValue)new TupleHixValue(
         [String(entry.Key.Resolve(execution.Strings)), entry.Value])).ToArray()),
@@ -83,8 +83,8 @@ public static class KindDefinitions {
   }
   private sealed class TableKind() : KindDefinition(HixValueKind.Table,
     HixValueKind.String, HixValueKind.Null, HixValueKind.Tuple) {
-    public override IHixValue New(HixThread _) => HixTableValue.Empty;
-    public override IHixValue Convert(HixThread execution, IHixValue value) {
+    public override IHixValue New(HixCoroutine _) => HixTableValue.Empty;
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) {
       if (value is HixTableValue) return value;
       if (value is not TupleHixValue tuple) return New(execution);
       var result = HixTableValue.Empty;
@@ -97,26 +97,26 @@ public static class KindDefinitions {
     }
   }
   private sealed class SymbolKind() : KindDefinition(HixValueKind.Symbol) {
-    public override IHixValue New(HixThread execution) => execution.Error("not a symbol");
-    public override IHixValue Convert(HixThread execution, IHixValue value) => Is(value) ? value : New(execution);
+    public override IHixValue New(HixCoroutine execution) => execution.Error("not a symbol");
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) => Is(value) ? value : New(execution);
   }
   private sealed class FunctionKind() : KindDefinition(HixValueKind.Function, HixValueKind.String) {
-    public override IHixValue New(HixThread _) => new NamedFunctionHixValue(HixString.Empty);
-    public override IHixValue Convert(HixThread execution, IHixValue value) {
+    public override IHixValue New(HixCoroutine _) => new NamedFunctionHixValue(HixString.Empty);
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) {
       if (value is NamedFunctionHixValue) return value;
       var rendered = execution.RenderText(value);
       return rendered is ErrorHixValue ? rendered : (IHixValue)execution.BindFunction(execution.Text(rendered)) ?? execution.Error("unknown function");
     }
   }
   private sealed class ErrorKind() : KindDefinition(HixValueKind.Error, HixValueKind.String) {
-    public override IHixValue New(HixThread execution) => execution.Error("unspecified error");
-    public override IHixValue Convert(HixThread execution, IHixValue value) {
+    public override IHixValue New(HixCoroutine execution) => execution.Error("unspecified error");
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) {
       var rendered = execution.RenderText(value);
       return rendered is ErrorHixValue ? rendered : execution.Error(execution.Text(rendered));
     }
   }
   private sealed class KindKind() : KindDefinition(HixValueKind.Kind) {
-    public override IHixValue New(HixThread _) => Kind;
-    public override IHixValue Convert(HixThread _, IHixValue value) => KindHixValue.Get(value.Kind);
+    public override IHixValue New(HixCoroutine _) => Kind;
+    public override IHixValue Convert(HixCoroutine _, IHixValue value) => KindHixValue.Get(value.Kind);
   }
 }

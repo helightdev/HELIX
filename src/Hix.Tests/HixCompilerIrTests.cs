@@ -47,7 +47,7 @@ public sealed class HixCompilerIrTests {
     var module = HixCompiler.PrepareIr(declaration, catalog);
     var emit = Assert.IsType<InvocationStatementIr>(module.Late[0].Body.Statements[2]).Call;
     Assert.Equal(HixCallKind.Static, Assert.IsType<CallExpressionIr>(emit.Arguments[0]).Binding.Kind);
-    var result = HixVM.Execute(HixCompiler.Compile(unit, "Test"), new HixThread());
+    var result = HixVM.Execute(HixCompiler.Compile(unit, "Test"), new HixCoroutine());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("number", Assert.Single(result.Outputs).ReadText());
   }

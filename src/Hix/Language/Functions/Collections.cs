@@ -1,23 +1,23 @@
 using System;
 using Hix.Runtime;
-using static Hix.Runtime.HixThread;
+using static Hix.Runtime.HixCoroutine;
 
 namespace Hix.Functions;
 
 public static class CollectionFunctions {
-  public static HixTableValue Put(HixThread context, HixTableValue table, string key, IHixValue value) =>
+  public static HixTableValue Put(HixCoroutine context, HixTableValue table, string key, IHixValue value) =>
     table.Put(context, HixString.Dynamic(key), value);
 
-  public static IHixValue Has(HixThread e, IHixValue[] a) => Bool(TrySelect(e, a[0], a[1], out _));
+  public static IHixValue Has(HixCoroutine e, IHixValue[] a) => Bool(TrySelect(e, a[0], a[1], out _));
 
-  public static IHixValue Get(HixThread e, IHixValue[] a) => TrySelect(e, a[0], a[1], out var value)
+  public static IHixValue Get(HixCoroutine e, IHixValue[] a) => TrySelect(e, a[0], a[1], out var value)
     ?
     value
     : a.Length == 3
       ? a[2]
       : MissingHixValue.Instance;
 
-  private static bool TrySelect(HixThread e, IHixValue collection, IHixValue key, out IHixValue value) {
+  private static bool TrySelect(HixCoroutine e, IHixValue collection, IHixValue key, out IHixValue value) {
     if (collection is HixTableValue table) {
       return table.TryGetValue(e, e.Text(key), out value);
     }
@@ -30,7 +30,7 @@ public static class CollectionFunctions {
 
   public enum TransformKind { Map, Where, Any, All, Reduce }
 
-  public static IHixValue Transform(HixThread e, IHixValue[] a, int line, TransformKind kind) {
+  public static IHixValue Transform(HixCoroutine e, IHixValue[] a, int line, TransformKind kind) {
     var tuple = (TupleHixValue)a[0];
     var values = tuple.Values;
     IHixValue[] results = null;

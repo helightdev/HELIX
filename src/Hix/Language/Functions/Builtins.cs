@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Hix.Runtime;
 using K = Hix.HixValueKind;
-using static Hix.Runtime.HixThread;
+using static Hix.Runtime.HixCoroutine;
 
 namespace Hix.Functions;
 
 public static class Builtins {
   public static void Register(FunctionSignatureRegistryBuilder definitions) {
-    static IHixValue NumberResult(HixThread execution, double value) =>
+    static IHixValue NumberResult(HixCoroutine execution, double value) =>
       double.IsNaN(value) || double.IsInfinity(value)
         ? execution.Error("invalid numeric operation")
         : new NumberHixValue(value);

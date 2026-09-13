@@ -8,14 +8,14 @@ namespace Hix;
 
 public sealed record NumberHixValue(double Value) : IHixValue {
   public HixValueKind Kind => HixValueKind.Number;
-  public bool IsTruthy(HixThread context) => Value != 0;
-  public HixString Render(HixThread context) => HixString.Dynamic(Value.ToString("R", CultureInfo.InvariantCulture));
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public bool IsTruthy(HixCoroutine context) => Value != 0;
+  public HixString Render(HixCoroutine context) => HixString.Dynamic(Value.ToString("R", CultureInfo.InvariantCulture));
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(NumberHixValue));
     builder.Append(Value.ToString("R", CultureInfo.InvariantCulture));
   }
-  public IHixValue Select(HixThread context, HixString member) => NullHixValue.Instance;
-  public object Unlink(HixThread context) => Value;
+  public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
+  public object Unlink(HixCoroutine context) => Value;
   public bool Equals(IHixValue other) => other is NumberHixValue number && Value.Equals(number.Value);
 }
 
@@ -51,18 +51,18 @@ public sealed record TupleHixValue(IReadOnlyList<IHixValue> Values) : IHixValue 
   }
 
   public HixValueKind Kind => HixValueKind.Tuple;
-  public bool IsTruthy(HixThread context) => Values.Count != 0;
-  public HixString Render(HixThread context) => HixString.Dynamic(
+  public bool IsTruthy(HixCoroutine context) => Values.Count != 0;
+  public HixString Render(HixCoroutine context) => HixString.Dynamic(
     string.Join(", ", Values.Select(value => value.Render(context).Resolve(context.Strings))));
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(TupleHixValue));
     builder.Append(Values.Count);
     foreach (var value in Values) value.Fingerprint(builder, context);
   }
-  public IHixValue Select(HixThread context, HixString member) =>
+  public IHixValue Select(HixCoroutine context, HixString member) =>
     int.TryParse(member.Resolve(context.Strings), NumberStyles.None, CultureInfo.InvariantCulture, out var index) &&
     index >= 0 && index < Values.Count ? Values[index] : MissingHixValue.Instance;
-  public object Unlink(HixThread context) => Values.Select(value => value.Unlink(context)).ToArray();
+  public object Unlink(HixCoroutine context) => Values.Select(value => value.Unlink(context)).ToArray();
   public bool Equals(IHixValue other) => other is TupleHixValue tuple && Values.SequenceEqual(tuple.Values);
 }
 
@@ -74,29 +74,29 @@ public sealed record KindHixValue(HixValueKind ValueKind) : IHixValue {
   public HixValueKind Kind => HixValueKind.Kind;
   public static KindHixValue Get(HixValueKind kind) => Kinds[kind.ToString().ToLowerInvariant()];
   public static bool TryGet(string name, out KindHixValue kind) => Kinds.TryGetValue(name, out kind);
-  public bool IsTruthy(HixThread context) => true;
-  public HixString Render(HixThread context) => Name;
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public bool IsTruthy(HixCoroutine context) => true;
+  public HixString Render(HixCoroutine context) => Name;
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(KindHixValue));
     builder.Append(Name, context.Strings);
   }
-  public IHixValue Select(HixThread context, HixString member) => NullHixValue.Instance;
-  public object Unlink(HixThread context) => this;
+  public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
+  public object Unlink(HixCoroutine context) => this;
   public bool Equals(IHixValue other) => other is KindHixValue kind && Name == kind.Name;
 }
 
 public sealed record NamedFunctionHixValue(HixString Name) : IHixValue {
   public LanguageFunctionScope Scope { get; init; }
   public HixValueKind Kind => HixValueKind.Function;
-  public bool IsTruthy(HixThread context) => true;
-  public HixString Render(HixThread context) => HixString.Dynamic("<function " + Name.Resolve(Scope?.Program.StringPool ?? context.Strings) + ">");
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public bool IsTruthy(HixCoroutine context) => true;
+  public HixString Render(HixCoroutine context) => HixString.Dynamic("<function " + Name.Resolve(Scope?.Program.StringPool ?? context.Strings) + ">");
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(NamedFunctionHixValue));
     builder.Append(Name, Scope?.Program.StringPool ?? context.Strings);
     Scope?.Fingerprint(builder);
   }
-  public IHixValue Select(HixThread context, HixString member) => NullHixValue.Instance;
-  public object Unlink(HixThread context) => this;
+  public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
+  public object Unlink(HixCoroutine context) => this;
   public bool Equals(IHixValue other) => other is NamedFunctionHixValue function && Name == function.Name &&
     ReferenceEquals(Scope, function.Scope);
 }
@@ -104,11 +104,11 @@ public sealed record NamedFunctionHixValue(HixString Name) : IHixValue {
 /// <summary>A signature-only function reference in a compiled constant pool.</summary>
 public record FunctionReferenceHixValue(SignatureHixPattern Signature) : IHixValue {
   public HixValueKind Kind => HixValueKind.Function;
-  public bool IsTruthy(HixThread context) => true;
-  public HixString Render(HixThread context) => HixString.Dynamic(Signature.Display);
-  public virtual void Fingerprint(HixFingerprintBuilder builder, HixThread context) => builder.Append(Signature.Display);
-  public IHixValue Select(HixThread context, HixString member) => NullHixValue.Instance;
-  public object Unlink(HixThread context) => this;
+  public bool IsTruthy(HixCoroutine context) => true;
+  public HixString Render(HixCoroutine context) => HixString.Dynamic(Signature.Display);
+  public virtual void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) => builder.Append(Signature.Display);
+  public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
+  public object Unlink(HixCoroutine context) => this;
   public bool Equals(IHixValue other) => Equals(other as FunctionReferenceHixValue);
 }
 
@@ -127,7 +127,7 @@ public sealed record ResolvedFunctionHixValue : FunctionReferenceHixValue {
     BackendSignature = backendSignature ?? throw new ArgumentNullException(nameof(backendSignature));
   }
 
-  public override void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public override void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     base.Fingerprint(builder, context);
     Language?.Owner.Fingerprint(builder);
   }

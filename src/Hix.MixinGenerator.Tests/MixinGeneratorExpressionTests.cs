@@ -13,7 +13,7 @@ public sealed class MixinGeneratorExpressionTests {
 
   [Fact]
   public void LateBackendPreservesPreparedInjectionIdentity() {
-    var context = new Hix.Runtime.HixThread(Hix.HixMixinBackend.Instance);
+    var context = new Hix.Runtime.HixCoroutine(Hix.HixMixinBackend.Instance);
     Assert.Equal("$Recompose", Hix.HixMixinBackend.Instance.ResolveInjectionTarget(context, "$Recompose"));
     Assert.Equal("^*Apply:SomeDelegate", Hix.HixMixinBackend.Instance.ResolveInjectionTarget(context, "^*Apply:SomeDelegate"));
   }

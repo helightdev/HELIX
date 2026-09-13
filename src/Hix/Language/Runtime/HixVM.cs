@@ -2,138 +2,276 @@ using Hix.Compiler;
 using Hix.Env;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace Hix.Runtime;
 
 /// <summary>A loaded bytecode VM. All loaded programs share immutable VM-wide string and constant pools.</summary>
-public sealed class HixVM {
-  private readonly Stack<HixValueDictionary> localPool = new();
+public sealed class HixVM : IDisposable {
+    private readonly HixThread[] workers;
+    private int nextWorker;
+    private readonly ConcurrentQueue<HixThread.Work> submissions = new();
+    private readonly CancellationTokenSource workerStop = new();
+    private readonly object workerGate = new();
+    private readonly HashSet<HixThread.Work> pendingWork = new();
+    private bool disposed;
+    // Loaded code and lookup maps are immutable; shared buffers and worker queues are synchronized.
+    private static readonly ConditionalWeakTable<HixProgramImage, HixVM> loadedImages = new();
+    private readonly HixProgramImage image;
+    private readonly Dictionary<(BytecodeFunction Function, LanguageFunctionScope Scope), BytecodeFunctionEntry> functionMap = new();
+    private readonly Dictionary<(LanguageFunctionScope Scope, string Name), IReadOnlyList<LanguageFunctionCandidate>> candidates = new();
 
-  internal HixValueDictionary RentLocals() {
-    lock (localPool) return localPool.Count == 0 ? new HixValueDictionary(mutable: true) : localPool.Pop();
-  }
-
-  internal void ReturnLocals(HixValueDictionary locals) {
-    locals.Clear();
-    lock (localPool) {
-      // Bound retained dictionaries even when a shared VM serves concurrent callers.
-      if (localPool.Count < 128) localPool.Push(locals);
+    public HixVM(IEnumerable<HixProgramImage> programs, int workerCount = 0) {
+        if (workerCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(workerCount));
+        using var profile = HixProfiler.Measure("vm.load");
+        var distinct = programs.Distinct().ToArray();
+        if (distinct.Length != 1)
+            throw new ArgumentException("A VM executes exactly one prepared program image", nameof(programs));
+        image = distinct[0];
+        Backend = image.Backend;
+        StringPool = image.StringPool;
+        Patterns = image.Patterns;
+        Functions = image.Functions;
+        foreach (var entry in Functions)
+            functionMap[(entry.Function, entry.Scope)] = entry;
+        foreach (var scope in Functions.Select(entry => entry.Scope).Append(image.Scope).Distinct())
+            foreach (var group in scope.AllCandidates().GroupBy(candidate => candidate.Function.Name, StringComparer.Ordinal))
+                candidates[(scope, group.Key)] = Array.AsReadOnly(group.ToArray());
+        ConstantPool = LoadConstants(image);
+        workers = new HixThread[workerCount];
+        for (var index = 0; index < workers.Length; index++)
+            workers[index] = new HixThread(submissions, workers, workerStop.Token);
+        foreach (var worker in workers)
+            worker.Start();
     }
-  }
 
-  // Loaded code and pools are immutable; only the synchronized local pool is shared.
-  private static readonly ConditionalWeakTable<HixProgramImage, HixVM> loadedImages = new();
+    public HixThread CurrentThread => HixThread.Current;
+    public HixStringPool StringPool { get; }
+    public HixBackend Backend { get; }
+    public IReadOnlyList<IHixValue> ConstantPool { get; }
+    public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
+    public IReadOnlyList<BytecodeFunctionEntry> Functions { get; }
+    internal LanguageFunctionScope GlobalScope => image.Scope;
 
-  private readonly HixProgramImage image;
-  public HixStringPool StringPool { get; }
-  public IReadOnlyList<IHixValue> ConstantPool { get; }
-
-  public HixVM(IEnumerable<HixProgramImage> programs) {
-    using var profile = HixProfiler.Measure("vm.load");
-    var distinct = programs.Distinct().ToArray();
-    if (distinct.Length != 1) throw new ArgumentException("A VM executes exactly one prepared program image", nameof(programs));
-    image = distinct[0];
-    StringPool = image.StringPool;
-    ConstantPool = LoadConstants(image);
-  }
-
-  internal IReadOnlyList<byte> Code(HixProgramImage program) =>
-    ReferenceEquals(image.Bytecode, program.Bytecode) ? program.Bytecode
-      : throw new ArgumentException("Execution state contains a function from another program image", nameof(program));
-  private static IReadOnlyList<IHixValue> LoadConstants(HixProgramImage program) {
-    var constants = program.ConstantPool.ToArray();
-    var scopes = new LanguageFunctionScope[constants.Length];
-    var ranges = ScopeRanges(program);
-    var rangeIndex = 0;
-    foreach (var (pc, instruction) in HixInstruction.ReadAll(program.Bytecode)) {
-      if (instruction.Opcode is not (HixOpcode.Call or HixOpcode.LoadConst) ||
-          constants[instruction.A] is not FunctionReferenceHixValue) continue;
-      while (rangeIndex < ranges.Length && pc >= ranges[rangeIndex].End) rangeIndex++;
-      var scope = rangeIndex < ranges.Length && pc >= ranges[rangeIndex].Start
-        ? ranges[rangeIndex].Scope : program.Scope;
-      if (scopes[instruction.A] is { } previous && !ReferenceEquals(previous, scope))
-        throw new ArgumentException("A function-reference constant cannot be shared across lexical scopes");
-      scopes[instruction.A] = scope;
+    public HixCoroutine CreateCoroutine(HixProgramImage program, HixContext context = null, string function = "main", params IHixValue[] arguments) {
+        return CreateCoroutine(program, new NamedFunctionHixValue(HixString.Dynamic(function)), context, arguments);
     }
-    var resolved = new Dictionary<(LanguageFunctionScope Scope, string Signature), ResolvedFunctionHixValue>();
-    for (var index = 0; index < constants.Length; index++) {
-      if (constants[index] is not FunctionReferenceHixValue reference) continue;
-      var signature = reference.Signature;
-      var owner = scopes[index] ?? program.Scope;
-      var key = (owner, signature.Display);
-      if (resolved.TryGetValue(key, out var cached)) { constants[index] = cached; continue; }
-      var candidate = owner.Resolve(signature);
-      if (candidate != null) {
-        constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, candidate);
-        continue;
-      }
-      var definitions = program.Backend.Functions.Resolve(signature.Name, signature.Parameters.Count)
-        .SelectMany(definition => definition.Signatures.Select(item => (definition, signature: item)))
-        .Where(item => BuiltinSignature(item.definition.Name, item.signature).Display == signature.Display).ToArray();
-      if (definitions.Length != 1) throw new ArgumentException("cannot bind signature '" + signature.Display + "' while loading program");
-      constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, definitions[0].definition, definitions[0].signature);
+
+    public HixCoroutine CreateCoroutine(HixProgramImage program, IHixValue function, HixContext context = null, params IHixValue[] arguments) {
+        Code(program);
+        var coroutine = new HixCoroutine(context ?? Backend.CreateContext());
+        coroutine.Prepare(this, program, function, arguments ?? Array.Empty<IHixValue>());
+        return coroutine;
     }
-    return Array.AsReadOnly(constants);
-  }
 
-  private static SignatureHixPattern BuiltinSignature(string name, FunctionSignature signature) => new(name,
-    signature.ArgumentTypes.Select((kind, index) => new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(),
-      kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind),
-      DefaultValue: signature.GetArgumentDefault(index),
-      HasDefault: signature.GetArgumentDefault(index) != null)).ToArray(),
-    signature.ResultType == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(signature.ResultType));
-
-  private readonly record struct ScopeRange(int Start, int End, LanguageFunctionScope Scope);
-
-  private static ScopeRange[] ScopeRanges(HixProgramImage program) {
-    var ranges = new Dictionary<int, ScopeRange>();
-    void Add(int body, LanguageFunctionScope scope) {
-      if (!ranges.ContainsKey(body))
-        ranges.Add(body, new(body, body + HixInstruction.Decode(program.Bytecode, body).A, scope));
+    /// <summary>Submit to the current OS thread's event queue; VM-pool submission is opt-in.</summary>
+    public HixTask<HixInvocationResult> InvokeAsync(HixProgramImage program, HixContext context = null, bool useThreadPool = false, string function = "main", params IHixValue[] arguments) {
+        return InvokeAsync(program, new NamedFunctionHixValue(HixString.Dynamic(function)), context, useThreadPool, arguments);
     }
-    foreach (var scope in new[] {program.Scope}.Concat(program.Derivations.Select(value => value.Scope)).Distinct())
-      foreach (var candidate in scope.AllCandidates()) Add(candidate.Function.Body, candidate.Owner);
-    foreach (var derivation in program.Derivations)
-      foreach (var expression in derivation.Expressions) Add(expression.Body, derivation.Scope);
-    return ranges.Values.OrderBy(range => range.Start).ToArray();
-  }
 
-  public string DisassemblePools() => HixProgramImage.DisassemblePools(StringPool, ConstantPool);
-  public string Disassemble(HixProgramImage program) => program.Disassemble(Code(program), StringPool, ConstantPool);
+    public HixTask<HixInvocationResult> InvokeAsync(HixProgramImage program, IHixValue function, HixContext context = null, bool useThreadPool = false, params IHixValue[] arguments) {
+        Code(program);
+        if (useThreadPool) {
+            if (workers.Length == 0)
+                throw new InvalidOperationException("This VM has no background worker pool");
+            context ??= Backend.CreateContext();
+            if (!context.SupportsWorkerExecution)
+                throw new InvalidOperationException("This context does not support VM thread-pool submission");
+            var work = new HixThread.Work(() => CreateCoroutine(program, function, context, arguments), canSteal: true);
+            HixThread[] pool;
+            lock (workerGate) {
+                if (disposed)
+                    throw new ObjectDisposedException(nameof(HixVM));
+                pool = workers;
+                pendingWork.Add(work);
+                submissions.Enqueue(work);
+                work.Completion.OnCompleted(() => {
+                    lock (workerGate)
+                        pendingWork.Remove(work);
+                });
+            }
 
-  /// <summary>Invoke a global bytecode function using the normal Hix argument and signature rules.</summary>
-  public HixInvocationResult Invoke(HixProgramImage program, HixThread thread,
-    string function = "main", params IHixValue[] arguments) {
-    Code(program);
-    thread.Start(this, program);
-    try {
-      var result = thread.InvokeGlobal(function, arguments ?? Array.Empty<IHixValue>());
-      return result;
+            var start = (uint)Interlocked.Increment(ref nextWorker) % (uint)pool.Length;
+            var selected = pool[start];
+            for (var offset = 0; offset < pool.Length; offset++) {
+                var candidate = pool[(start + (uint)offset) % (uint)pool.Length];
+                if (candidate.IsIdle) {
+                    selected = candidate;
+                    break;
+                }
+            }
+
+            selected.Notify();
+            return work.Completion;
+        }
+
+        return CurrentThread.Enqueue(() => CreateCoroutine(program, function, context, arguments));
     }
-    finally { thread.Stop(); }
-  }
 
-  public HixExecutionResult Run(HixProgramImage program, HixThread thread,
-    IDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null) {
-    using var profile = HixProfiler.Measure("vm.run");
-    if (program == null) throw new ArgumentNullException(nameof(program));
-    Code(program);
-    thread.Start(this, program);
-    try {
-      var result = thread.Execute(program.Expressions, variables, carries);
-      if (variables != null)
-        foreach (var item in thread.ExportVariables()) variables[item.Key] = item.Value;
-      return result;
-    } finally { thread.Stop(); }
-  }
+    public HixTask<HixInvocationResult> InvokeAsync(HixThread worker, HixProgramImage program, HixContext context = null, string function = "main", params IHixValue[] arguments) {
+        if (worker == null)
+            throw new ArgumentNullException(nameof(worker));
+        Code(program);
+        return worker.Enqueue(() => CreateCoroutine(program, context, function, arguments));
+    }
 
-  public static HixExecutionResult Execute(HixProgramImage program, HixThread thread,
-    IDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null) {
-    using var profile = HixProfiler.Measure("vm.execute.total");
-    if (program == null) throw new ArgumentNullException(nameof(program));
-    var machine = loadedImages.GetValue(program, image => new HixVM(new[] {image}));
-    return machine.Run(program, thread, variables, carries);
-  }
+    public void Dispose() {
+        HixThread[] pool;
+        lock (workerGate) {
+            if (disposed)
+                return;
+            disposed = true;
+            workerStop.Cancel();
+            pool = workers;
+        }
+
+        foreach (var worker in pool)
+            worker.Join();
+        HixThread.Work[] abandoned;
+        lock (workerGate) {
+            abandoned = pendingWork.ToArray();
+            pendingWork.Clear();
+        }
+
+        foreach (var work in abandoned) {
+            try {
+                work.Coroutine?.Dispose();
+            } catch (Exception error) {
+                work.Completion.TrySetException(error);
+            } finally {
+                work.Completion.TrySetCanceled();
+            }
+        }
+
+        while (submissions.TryDequeue(out _)) {
+        }
+    }
+
+    public string DisassemblePools() => HixProgramImage.DisassemblePools(StringPool, ConstantPool);
+
+    public string Disassemble(HixProgramImage program) => program.Disassemble(Code(program), StringPool, ConstantPool);
+
+    /// <summary>Invoke a global bytecode function using the normal Hix argument and signature rules.</summary>
+    public HixInvocationResult Invoke(HixProgramImage program, HixCoroutine thread, string function = "main", params IHixValue[] arguments) {
+        Code(program);
+        thread.Prepare(this, program, function, arguments ?? Array.Empty<IHixValue>());
+        while (!thread.Resume(int.MaxValue)) {
+            if (thread.PendingOperation is { } pending) {
+                try {
+                    CurrentThread.RunUntil(pending);
+                } catch {
+                }
+            }
+        }
+
+        return thread.Result;
+    }
+
+    public HixExecutionResult Run(HixProgramImage program, HixCoroutine thread, IDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null) {
+        using var profile = HixProfiler.Measure("vm.run");
+        if (program == null)
+            throw new ArgumentNullException(nameof(program));
+        Code(program);
+        if (thread.Context is not HixExpressionContext context)
+            throw new InvalidOperationException("Expression execution requires an expression context");
+        thread.Start(this, program);
+        try {
+            var result = context.Execute(thread, variables, carries);
+            if (variables != null)
+                foreach (var item in result.Variables)
+                    variables[item.Key.Resolve(thread.Strings)] = thread.UnlinkSnapshot(item.Value);
+            return result;
+        } finally {
+            thread.Stop();
+        }
+    }
+
+    public static HixExecutionResult Execute(HixProgramImage program, HixCoroutine thread, IDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null) {
+        using var profile = HixProfiler.Measure("vm.execute.total");
+        if (program == null)
+            throw new ArgumentNullException(nameof(program));
+        var machine = loadedImages.GetValue(program, image => new HixVM(new[] { image }));
+        return machine.Run(program, thread, variables, carries);
+    }
+
+    internal BytecodeFunctionEntry Function(BytecodeFunction function, LanguageFunctionScope scope) => functionMap.TryGetValue((function, scope), out var entry) ? entry : throw new ArgumentException("Execution state contains a function from another program image");
+
+    internal IReadOnlyList<LanguageFunctionCandidate> Candidates(LanguageFunctionScope scope, string name) => candidates.TryGetValue((scope, name), out var result) ? result : ReferenceEquals(scope.Program.Bytecode, image.Bytecode) ? Array.Empty<LanguageFunctionCandidate>() : scope.Candidates(name);
+
+    internal bool Contains(LanguageFunctionScope scope, string name) => Candidates(scope, name).Count != 0;
+
+    internal NamedFunctionHixValue Bind(LanguageFunctionScope scope, string name) => Contains(scope, name) ? new NamedFunctionHixValue(StringPool.Get(name)) {
+        Scope = scope
+    }
+
+    : null;
+
+    internal IReadOnlyList<byte> Code(HixProgramImage program) {
+        if (Volatile.Read(ref disposed))
+            throw new ObjectDisposedException(nameof(HixVM));
+        return ReferenceEquals(image.Bytecode, program.Bytecode) ? program.Bytecode : throw new ArgumentException("Execution state contains a function from another program image", nameof(program));
+    }
+
+    private IReadOnlyList<IHixValue> LoadConstants(HixProgramImage program) {
+        var constants = program.ConstantPool.ToArray();
+        var scopes = new LanguageFunctionScope[constants.Length];
+        var ranges = ScopeRanges(program);
+        var rangeIndex = 0;
+        foreach (var(pc, instruction)in HixInstruction.ReadAll(program.Bytecode)) {
+            if (instruction.Opcode is not (HixOpcode.Call or HixOpcode.LoadConst) || constants[instruction.A] is not FunctionReferenceHixValue)
+                continue;
+            while (rangeIndex < ranges.Length && pc >= ranges[rangeIndex].End)
+                rangeIndex++;
+            var scope = rangeIndex < ranges.Length && pc >= ranges[rangeIndex].Start ? ranges[rangeIndex].Scope : program.Scope;
+            if (scopes[instruction.A] is { } previous && !ReferenceEquals(previous, scope))
+                throw new ArgumentException("A function-reference constant cannot be shared across lexical scopes");
+            scopes[instruction.A] = scope;
+        }
+
+        var resolved = new Dictionary<(LanguageFunctionScope Scope, string Signature), ResolvedFunctionHixValue>();
+        for (var index = 0; index < constants.Length; index++) {
+            if (constants[index] is not FunctionReferenceHixValue reference)
+                continue;
+            var signature = reference.Signature;
+            var owner = scopes[index] ?? program.Scope;
+            var key = (owner, signature.Display);
+            if (resolved.TryGetValue(key, out var cached)) {
+                constants[index] = cached;
+                continue;
+            }
+
+            var candidate = owner.Resolve(signature);
+            if (candidate != null) {
+                constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, candidate);
+                continue;
+            }
+
+            var definitions = Backend.Functions.Resolve(signature.Name, signature.Parameters.Count).SelectMany(definition => definition.Signatures.Select(item => (definition, signature: item))).Where(item => BuiltinSignature(item.definition.Name, item.signature).Display == signature.Display).ToArray();
+            if (definitions.Length != 1)
+                throw new ArgumentException("cannot bind signature '" + signature.Display + "' while loading program");
+            constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, definitions[0].definition, definitions[0].signature);
+        }
+
+        return Array.AsReadOnly(constants);
+    }
+
+    private static SignatureHixPattern BuiltinSignature(string name, FunctionSignature signature) => new(name, signature.ArgumentTypes.Select((kind, index) => new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(), kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind), DefaultValue: signature.GetArgumentDefault(index), HasDefault: signature.GetArgumentDefault(index) != null)).ToArray(), signature.ResultType == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(signature.ResultType));
+
+    private static ScopeRange[] ScopeRanges(HixProgramImage program) {
+        var ranges = new Dictionary<int, ScopeRange>();
+        void Add(int body, LanguageFunctionScope scope) {
+            if (!ranges.ContainsKey(body))
+                ranges.Add(body, new(body, body + HixInstruction.Decode(program.Bytecode, body).A, scope));
+        }
+
+        foreach (var entry in program.Functions)
+            Add(entry.Function.Body, entry.Scope);
+        return ranges.Values.OrderBy(range => range.Start).ToArray();
+    }
+
+    private readonly record struct ScopeRange(int Start, int End, LanguageFunctionScope Scope);
 }

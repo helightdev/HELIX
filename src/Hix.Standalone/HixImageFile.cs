@@ -16,7 +16,7 @@ public static class HixImageFile {
     public Dictionary<int, int> SourceLines { get; set; }
     public BytecodeFunction[] Globals { get; set; }
     public BytecodeFunction[] Functions { get; set; }
-    public BytecodeExpression[] Expressions { get; set; }
+    public Expression[] Expressions { get; set; }
     public Derivation[] Derivations { get; set; }
     public Dictionary<string, HixPattern> Patterns { get; set; }
     public BytecodeField[] Parameters { get; set; }
@@ -26,8 +26,18 @@ public static class HixImageFile {
   private sealed class Derivation {
     public string Name { get; set; }
     public int Line { get; set; }
-    public BytecodeExpression[] Expressions { get; set; }
+    public Expression[] Expressions { get; set; }
     public BytecodeFunction[] Functions { get; set; }
+  }
+  // Keep the version-one storage layout; raw body offsets belong to the file format, not runtime entries.
+  private sealed class Expression {
+    public int Body { get; set; }
+    public bool IsPrelude { get; set; }
+    public int Line { get; set; }
+    public static Expression From(BytecodeExpression entry) => new() {
+      Body = entry.Function.Body, IsPrelude = entry.IsPrelude, Line = entry.Line
+    };
+    public BytecodeExpression ToEntry() => new(new BytecodeFunction("", false, [], Body), IsPrelude, Line);
   }
   private static JsonSerializer Serializer(HixStringPool strings = null) => JsonSerializer.Create(new JsonSerializerSettings {
     Formatting = Formatting.Indented, MaxDepth = 256,
@@ -39,9 +49,9 @@ public static class HixImageFile {
       Constants = image.ConstantPool.ToArray(), SourceLines = image.SourceLines.ToDictionary(p => p.Key, p => p.Value),
       Globals = image.Scope.DisassemblyFunctions("mixin").Where(p => p.Scope == "global").Select(p => p.Function).ToArray(),
       Functions = image.Scope.DisassemblyFunctions("mixin", false).Select(p => p.Function).ToArray(),
-      Expressions = image.Expressions.ToArray(), Parameters = image.Parameters.ToArray(), Entry = entry,
+      Expressions = image.Expressions.Select(Expression.From).ToArray(), Parameters = image.Parameters.ToArray(), Entry = entry,
       Patterns = image.Patterns.ToDictionary(p => p.Key, p => p.Value), Markers = image.Markers.ToDictionary(p => p.Key, p => p.Value),
-      Derivations = image.Derivations.Select(d => new Derivation { Name = d.Name, Line = d.Line, Expressions = d.Expressions.ToArray(),
+      Derivations = image.Derivations.Select(d => new Derivation { Name = d.Name, Line = d.Line, Expressions = d.Expressions.Select(Expression.From).ToArray(),
         Functions = d.Scope.DisassemblyFunctions("derivation", false).Select(p => p.Function).ToArray() }).ToArray()
     };
     // Serialize completely before opening the destination: unsupported constants cannot truncate a file.
@@ -64,9 +74,9 @@ public static class HixImageFile {
       var strings = new HixStringPool(d.Strings, ids);
       var globals = new LanguageFunctionScope(d.Globals);
       var scope = new LanguageFunctionScope(d.Functions, globals);
-      var derivations = d.Derivations.Select(x => new BytecodeDerivation(x.Name, x.Line, x.Expressions,
+      var derivations = d.Derivations.Select(x => new BytecodeDerivation(x.Name, x.Line, x.Expressions.Select(expression => expression.ToEntry()).ToArray(),
         new LanguageFunctionScope(x.Functions, globals))).ToArray();
-      var image = new HixProgramImage(d.Bytecode, d.SourceLines, d.Constants, strings, d.Expressions, derivations, scope, d.Patterns, backend, d.Parameters, d.Markers);
+      var image = new HixProgramImage(d.Bytecode, d.SourceLines, d.Constants, strings, d.Expressions.Select(expression => expression.ToEntry()).ToArray(), derivations, scope, d.Patterns, backend, d.Parameters, d.Markers);
       // Validate instruction boundaries, references, stack reconstruction and declaration bodies before use.
       HixDecompiler.Decompile(image);
       entry = d.Entry;

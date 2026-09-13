@@ -1,0 +1,59 @@
+func concurrencyWorker {
+  yield()
+  sleep(0)
+  return(workerId())
+}
+
+%test
+func concurrencyStaysOnMainWorker {
+  local worker = workerId()
+  local task = spawn(concurrencyWorker)
+  assert(not(taskDone(local#task)))
+  assert(eq(awaitTask(local#task), local#worker))
+  assert(taskDone(local#task))
+}
+
+%test
+func concurrencyLambdasAndOrderedJoins {
+  local first = spawn(func => plus($0, 1), @[41])
+  local second = spawn(func => uppercase($0), @[<hello>])
+  assert(eq(awaitAll(@[local#first, local#second]), @[42, <HELLO>]))
+  assert(eq(awaitAll(@[]), @[]))
+  local ready = awaitAny(@[local#first, local#second])
+  assert(eq(local#ready#index, 0))
+  assert(eq(local#ready#value, 42))
+}
+
+func concurrencyProducer(symbol channel) -> null {
+  send($channel, <first>)
+  send($channel, <second>)
+  closeChannel($channel)
+}
+
+%test
+func concurrencyChannelBackpressureAndClosure {
+  local channel = channel(1)
+  local producer = spawn(concurrencyProducer, @[local#channel])
+  assert(eq(receive(local#channel), <first>))
+  assert(eq(receive(local#channel), <second>))
+  awaitTask(local#producer)
+  assert(is([receive(local#channel)?], error))
+  assert(not(closeChannel(local#channel)))
+}
+
+%test
+func concurrencySemaphoreLimits {
+  local semaphore = semaphore(1, 1)
+  acquire(local#semaphore)
+  release(local#semaphore)
+  assert(is([release(local#semaphore)?], error))
+  assert(is([semaphore(2, 1)?], error))
+}
+
+%test
+func concurrencyFailuresAreCheckable {
+  assert(is([sleep(-1)?], error))
+  assert(is([channel(0.5)?], error))
+  assert(is([awaitAny(@[])?], error))
+  assert(is([spawn(func => 1, useThreadPool = true)?], error))
+}

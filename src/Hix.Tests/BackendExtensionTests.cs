@@ -14,7 +14,7 @@ public sealed class BackendExtensionTests {
   public void ExternalBackendCanRegisterFunctionsRootsAndCompilerTransforms() {
     var backend = new ExtensionBackend();
     var program = HixCompiler.CompileFunctions(["pure func main { return(publish(plus(7, extension))) }"], backend);
-    var thread = backend.CreateThread();
+    var thread = backend.CreateCoroutine();
     var result = new HixVM([program]).Invoke(program, thread);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(11, Assert.IsType<NumberHixValue>(result.Value).Value);
@@ -34,15 +34,15 @@ public sealed class BackendExtensionTests {
       base.RegisterRoots(roots);
       roots.Add("extension", new("extension", HixValueKind.Number, HasEffects: false));
     }
-    public override IHixValue ResolveRoot(HixThread thread, string name) => name == "extension"
+    public override IHixValue ResolveRoot(HixCoroutine thread, string name) => name == "extension"
       ? new NumberHixValue(3) : base.ResolveRoot(thread, name);
 
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
       base.RegisterFunctions(functions);
       functions.Add(new SimpleFunction("publish", [new(HixValueKind.Number, [HixValueKind.Number])],
         (thread, arguments) => {
-          thread.Emit(arguments[0]);
-          thread.Logs.Add(new(HixString.Dynamic("extension")));
+          thread.Context.Emit(thread, arguments[0]);
+          thread.Context.Logs.Add(new(HixString.Dynamic("extension")));
           return arguments[0];
         }));
     }

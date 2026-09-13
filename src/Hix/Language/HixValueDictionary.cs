@@ -56,7 +56,7 @@ public sealed class HixValueDictionary :
     return ValuesMap.GetEnumerator();
   }
 
-  public void Store(HixThread context, HixString key, IHixValue value) {
+  public void Store(HixCoroutine context, HixString key, IHixValue value) {
     StoreIsolated(key, context.DetachValue(value));
   }
 

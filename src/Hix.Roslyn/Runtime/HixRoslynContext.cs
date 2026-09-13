@@ -13,7 +13,8 @@ using Hix.Roslyn;
 namespace Hix.Runtime;
 
 /// <summary>Roslyn host services for an already lowered mixin program.</summary>
-public partial class HixRoslynContext : HixContext {
+public partial class HixRoslynContext : HixExpressionContext {
+  public override bool SupportsWorkerExecution => false;
   private readonly AttributeData _attribute;
   private readonly RoslynValueCache _attributeValues;
   private readonly HixValueDictionary _committedTargetVariables;
@@ -48,7 +49,7 @@ public partial class HixRoslynContext : HixContext {
 
   public void CommitTargetVariables() => _committedTargetVariables.ReplaceWith(TargetVariables);
 
-  public override IHixValue ResolveMixinParameter(HixThread thread, BytecodeField parameter, int index) {
+  public override IHixValue ResolveMixinParameter(HixCoroutine thread, BytecodeField parameter, int index) {
     if (_attribute == null) return base.ResolveMixinParameter(thread, parameter, index);
     object value = SelectMember(_attribute, parameter.Name);
     if (value == null) return base.ResolveMixinParameter(thread, parameter, index);
@@ -81,7 +82,7 @@ public partial class HixRoslynContext : HixContext {
     RegisterOwner(value, cache);
   }
 
-  public IHixValue SelectValue(HixThread thread, RoslynHixValue source, HixString member) {
+  public IHixValue SelectValue(HixCoroutine thread, RoslynHixValue source, HixString member) {
     var name = member.Resolve(thread.Strings);
     var key = "#" + name;
     if (TryGetDerived(source, key, out var cached)) return cached;
@@ -105,7 +106,7 @@ public partial class HixRoslynContext : HixContext {
     }
   }
 
-  public IMethodSymbol Callable(HixThread thread, IHixValue value) {
+  public IMethodSymbol Callable(HixCoroutine thread, IHixValue value) {
     value = thread.Evaluate(value);
     if (value is RoslynHixValue { Value: IMethodSymbol method }) return method;
     var text = value.Render(thread).Resolve(thread.Strings);
@@ -116,7 +117,7 @@ public partial class HixRoslynContext : HixContext {
     return methods.Length == 1 ? methods[0] : null;
   }
 
-  public HixString NameOfService(HixThread thread, IHixValue value) {
+  public HixString NameOfService(HixCoroutine thread, IHixValue value) {
     return value is RoslynHixValue roslyn
       ? thread.ResolveString(
         (roslyn.Value as ISymbol)?.Name ??
@@ -127,7 +128,7 @@ public partial class HixRoslynContext : HixContext {
         : value.Render(thread);
   }
 
-  public bool IsTypeService(HixThread thread, IHixValue value, HixString requested) {
+  public bool IsTypeService(HixCoroutine thread, IHixValue value, HixString requested) {
     using var profile = HixProfiler.Measure("roslyn.is_type");
     if (value is DetachedSemanticHixValue detached) {
       var expected = requested.Resolve(thread.Strings).Replace("global::", "");
@@ -150,20 +151,20 @@ public partial class HixRoslynContext : HixContext {
     candidate.Name == name || candidate.ToDisplayString() == name ||
     candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) == name);
 
-  public bool HasTraitService(HixThread thread, IHixValue value, HixString requested) {
+  public bool HasTraitService(HixCoroutine thread, IHixValue value, HixString requested) {
     using var profile = HixProfiler.Measure("roslyn.has_trait");
     var name = requested.Resolve(thread.Strings);
     if (value is DetachedSemanticHixValue) return false;
     return value is RoslynHixValue roslyn && SemanticTraits(roslyn.Value).Contains(name, StringComparer.Ordinal);
   }
 
-  public object UnlinkSemanticSnapshot(HixThread thread, IHixValue value) {
+  public object UnlinkSemanticSnapshot(HixCoroutine thread, IHixValue value) {
     if (value is not RoslynHixValue roslyn) return value.Unlink(thread);
     if (!_valueOwners.TryGetValue(roslyn.Value, out var cache)) cache = _targetValues;
     return cache.Snapshot(roslyn, () => roslyn.Unlink(thread));
   }
 
-  public IHixValue DetachSemanticValue(HixThread thread, IHixValue value) {
+  public IHixValue DetachSemanticValue(HixCoroutine thread, IHixValue value) {
     value = thread.Evaluate(value);
     if (value is RoslynHixValue roslyn) {
       var detached = thread.UnlinkSnapshot(roslyn);
@@ -207,7 +208,7 @@ public partial class HixRoslynContext : HixContext {
     return result;
   }
 
-  public IHixValue UnwrapService(HixThread thread, IHixValue value) {
+  public IHixValue UnwrapService(HixCoroutine thread, IHixValue value) {
     using var profile = HixProfiler.Measure("roslyn.unwrap");
     switch (value) {
       // Defaults recovered from a referenced attribute declaration are CLR constants rather
@@ -245,7 +246,7 @@ public partial class HixRoslynContext : HixContext {
     }
   }
 
-  public IHixValue AttributesService(HixThread thread, IHixValue value, HixString requested, bool exact, bool first) {
+  public IHixValue AttributesService(HixCoroutine thread, IHixValue value, HixString requested, bool exact, bool first) {
     using var profile = HixProfiler.Measure("roslyn.attributes");
     if (value is not RoslynHixValue roslyn) return first ? NullHixValue.Instance : TupleHixValue.Empty;
     var expected = requested.IsInterned || requested.DynamicValue is not null
@@ -299,7 +300,7 @@ public partial class HixRoslynContext : HixContext {
     );
   }
 
-  public IHixValue ResolveHostService(HixThread thread, HixExpressionRoot root, HixString member) {
+  public IHixValue ResolveHostService(HixCoroutine thread, HixExpressionRoot root, HixString member) {
     using var profile = HixProfiler.Measure("roslyn.resolve_host");
     var memberName = member.Resolve(thread.Strings);
     var name = memberName;

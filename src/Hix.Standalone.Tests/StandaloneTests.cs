@@ -10,10 +10,258 @@ using Newtonsoft.Json.Linq;
 using Xunit;
 namespace Hix.Standalone.Tests;
 public class StandaloneTests {
+  private sealed class DeferredFunction : FunctionDefinition {
+    public readonly HixTask<IHixValue> Completion = new();
+    public int ExecutionThread;
+    public bool UsedPoolThread;
+    public DeferredFunction() : base("deferred", 0, HixValueKind.Any, HixValueKind.Number, []) { }
+    public override HixTask<IHixValue> ExecuteAsync(HixCoroutine coroutine, IHixValue[] arguments, int line) {
+      ExecutionThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
+      UsedPoolThread = System.Threading.Thread.CurrentThread.IsThreadPoolThread;
+      return Completion;
+    }
+  }
+  private sealed class ThreadIdFunction() : FunctionDefinition("threadId", 0, HixValueKind.Any, HixValueKind.Number, []) {
+    public override IHixValue Execute(HixCoroutine coroutine, IHixValue[] arguments, int line) =>
+      new NumberHixValue(System.Threading.Thread.CurrentThread.ManagedThreadId);
+  }
+  private sealed class OrderFunction : FunctionDefinition {
+    public readonly System.Collections.Concurrent.ConcurrentQueue<double> Order = new();
+    public readonly System.Threading.ManualResetEventSlim Started = new();
+    public readonly System.Threading.ManualResetEventSlim Release = new();
+    public OrderFunction() : base("mark", 1, HixValueKind.Any, HixValueKind.Null, [HixValueKind.Number]) { }
+    public override IHixValue Execute(HixCoroutine coroutine, IHixValue[] arguments, int line) {
+      var value = ((NumberHixValue)arguments[0]).Value;
+      Order.Enqueue(value);
+      if (value == 1) {
+        Started.Set();
+        if (!Release.Wait(TimeSpan.FromSeconds(5))) throw new ArgumentException("test release timed out");
+      }
+      return NullHixValue.Instance;
+    }
+  }
+  private sealed class OrderBackend(OrderFunction mark) : HixBackend {
+    protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
+      base.RegisterFunctions(functions);
+      functions.Add(mark);
+    }
+  }
+  private sealed class SpawnBackend(Action spawn) : HixBackend {
+    protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
+      base.RegisterFunctions(functions);
+      functions.Add(new ThreadIdFunction());
+      functions.Add(new SimpleFunction("spawn", [new(HixValueKind.Null, [])], (_, _) => {
+        spawn();
+        return NullHixValue.Instance;
+      }));
+    }
+  }
+
+  [Fact] public void NestedDefaultSubmissionsUseTheActiveWorkerAcrossVms() {
+    var worker = new HixThread();
+    HixVM nestedVm = null;
+    HixProgramImage program = null;
+    HixTask<HixInvocationResult> nested = null;
+    var backend = new SpawnBackend(() => {
+      Assert.Same(worker, HixThread.Current);
+      Assert.Same(worker, nestedVm.CurrentThread);
+      nested = nestedVm.InvokeAsync(program, function: "other");
+    });
+    program = HixCompiler.CompileFunctions([
+      "func main { spawn(); return(threadId()) } func other { return(threadId()) }"
+    ], backend);
+    using var vm = new HixVM([program]);
+    using var otherVm = new HixVM([program]);
+    nestedVm = otherVm;
+    var caller = System.Threading.Thread.CurrentThread.ManagedThreadId;
+    var main = vm.InvokeAsync(worker, program);
+    worker.RunUntilIdle(1);
+    Assert.Equal(caller, Assert.IsType<NumberHixValue>(main.Result.Value).Value);
+    Assert.NotNull(nested);
+    Assert.True(nested.IsCompletedSuccessfully);
+    Assert.Equal(caller, Assert.IsType<NumberHixValue>(nested.Result.Value).Value);
+  }
+
+  [Fact] public void BusySingleWorkerInterleavesNewSubmissionsBetweenSlices() {
+    var mark = new OrderFunction();
+    var backend = new OrderBackend(mark);
+    var source = "func main { mark(1); " + string.Concat(Enumerable.Range(0, 2000).Select(index => $"local x{index} = 1; ")) +
+      "mark(3) } func other { mark(2) }";
+    var program = HixCompiler.CompileFunctions([source], backend);
+    using var vm = new HixVM([program], workerCount: 1);
+    var first = vm.InvokeAsync(program, useThreadPool: true);
+    try {
+      Assert.True(mark.Started.Wait(TimeSpan.FromSeconds(5)));
+      var second = vm.InvokeAsync(program, useThreadPool: true, function: "other");
+      mark.Release.Set();
+      Assert.True(System.Threading.Tasks.Task.WaitAll([first.AsTask(), second.AsTask()], TimeSpan.FromSeconds(5)));
+      Assert.Equal(new double[] { 1, 2, 3 }, mark.Order.ToArray());
+    } finally { mark.Release.Set(); }
+  }
+  private sealed class DeferredBackend(DeferredFunction deferred) : HixBackend {
+    protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
+      base.RegisterFunctions(functions);
+      functions.Add(deferred);
+      functions.Add(new ThreadIdFunction());
+    }
+  }
+
+  [Theory]
+  [InlineData(false)]
+  [InlineData(true)]
+  public void OneWorkerEventLoopWakesAndRunsOtherCoroutinesWhileWaiting(bool pooled) {
+    var deferred = new DeferredFunction();
+    var backend = new DeferredBackend(deferred);
+    var program = HixCompiler.CompileFunctions([
+      "func main { local value = deferred(); return(threadId()) } func other { return(threadId()) }"
+    ], backend);
+    using var vm = new HixVM([program], workerCount: pooled ? 1 : 0);
+    var worker = new HixThread();
+    using var stop = new System.Threading.CancellationTokenSource();
+    var native = new System.Threading.Thread(() => worker.Run(stop.Token));
+    if (!pooled) native.Start();
+    try {
+      var waiting = pooled ? vm.InvokeAsync(program, useThreadPool: true) : vm.InvokeAsync(worker, program);
+      var other = pooled ? vm.InvokeAsync(program, useThreadPool: true, function: "other") :
+        vm.InvokeAsync(worker, program, function: "other");
+      Assert.True(other.Wait(TimeSpan.FromSeconds(5)));
+      Assert.False(waiting.IsCompleted);
+      var owner = Assert.IsType<NumberHixValue>(other.Result.Value).Value;
+      Assert.Equal(owner, deferred.ExecutionThread);
+      Assert.False(deferred.UsedPoolThread);
+      Assert.NotEqual(System.Threading.Thread.CurrentThread.ManagedThreadId, owner);
+      deferred.Completion.TrySetResult(new NumberHixValue(42));
+      Assert.True(waiting.Wait(TimeSpan.FromSeconds(5)));
+      Assert.Equal(owner, Assert.IsType<NumberHixValue>(waiting.Result.Value).Value);
+    } finally {
+      stop.Cancel();
+      if (!pooled) Assert.True(native.Join(TimeSpan.FromSeconds(5)));
+    }
+  }
+
+  [Theory]
+  [InlineData(false)]
+  [InlineData(true)]
+  public async System.Threading.Tasks.Task BackendWaitsParkWithoutBlockingTheDriver(bool pooled) {
+    var deferred = new DeferredFunction();
+    var backend = new DeferredBackend(deferred);
+    var program = HixCompiler.CompileFunctions([
+      "func main { return(deferred()) } func other { return(7) }"
+    ], backend);
+    using var vm = new HixVM([program], workerCount: pooled ? 2 : 0);
+    var waiting = vm.InvokeAsync(program, useThreadPool: pooled);
+    var worker = vm.CurrentThread;
+    var otherTask = vm.InvokeAsync(program, useThreadPool: pooled, function: "other");
+    if (!pooled) worker.RunUntilIdle();
+    var other = await otherTask.AsTask();
+    Assert.Equal(7, Assert.IsType<NumberHixValue>(other.Value).Value);
+    Assert.False(waiting.IsCompleted);
+    deferred.Completion.TrySetResult(new NumberHixValue(42));
+    if (!pooled) worker.RunUntilIdle();
+    var result = await waiting.AsTask();
+    Assert.True(result.Success);
+    Assert.Equal(42, Assert.IsType<NumberHixValue>(result.Value).Value);
+  }
+  [Fact] public void CoroutinesPreserveNestedFramesAcrossSingleInstructionSlices() {
+    var backend = new HixStandaloneBackend(new StringWriter());
+    var program = HixCompiler.CompileFunctions([
+      "pure func child { return(42) } func main { return(child()) }"
+    ], backend);
+    var vm = new HixVM([program]);
+    var first = vm.CreateCoroutine(program);
+    var second = vm.CreateCoroutine(program);
+    var slices = 0;
+    while (!first.IsCompleted || !second.IsCompleted) {
+      if (!first.IsCompleted) first.Resume(1);
+      if (!second.IsCompleted) second.Resume(1);
+      Assert.True(++slices < 100);
+    }
+    Assert.True(slices > 1);
+    Assert.Equal(42, Assert.IsType<NumberHixValue>(first.Result.Value).Value);
+    Assert.Equal(42, Assert.IsType<NumberHixValue>(second.Result.Value).Value);
+    Assert.False(first.IsRunning);
+  }
+
+  [Fact] public void ManualWorkerRunsItsQueueInline() {
+    var backend = new HixStandaloneBackend(new StringWriter());
+    var program = HixCompiler.CompileFunctions(["func main { return(42) }"], backend);
+    var vm = new HixVM([program]);
+    var worker = new HixThread();
+    var first = worker.Enqueue(vm.CreateCoroutine(program));
+    var second = worker.Enqueue(vm.CreateCoroutine(program));
+    Assert.False(first.IsCompleted);
+    var ticks = 0;
+    while (worker.Tick(1)) Assert.True(++ticks < 100);
+    Assert.True(first.IsCompletedSuccessfully);
+    Assert.True(second.IsCompletedSuccessfully);
+    Assert.Equal(42, Assert.IsType<NumberHixValue>(first.Result.Value).Value);
+  }
+
+  [Fact] public void InvokeAsyncWithoutAHostLoopOnlyQueuesWork() {
+    var previous = System.Threading.SynchronizationContext.Current;
+    System.Threading.SynchronizationContext.SetSynchronizationContext(new System.Threading.SynchronizationContext());
+    try {
+      var backend = new HixStandaloneBackend(new StringWriter());
+      var program = HixCompiler.CompileFunctions(["func main { return(42) }"], backend);
+      using var vm = new HixVM([program]);
+      Assert.Same(HixThread.Current, vm.CurrentThread);
+      Action submitToPool = () => {
+        _ = vm.InvokeAsync(program, useThreadPool: true);
+      };
+      Assert.Throws<InvalidOperationException>(submitToPool);
+      var completion = vm.InvokeAsync(program);
+      Assert.False(completion.IsCompleted);
+      vm.CurrentThread.RunUntilIdle(1);
+      Assert.True(completion.IsCompletedSuccessfully);
+      Assert.Equal(42, Assert.IsType<NumberHixValue>(completion.Result.Value).Value);
+      foreach (var method in typeof(HixVM).GetMethods().Where(method => method.Name == "InvokeAsync"))
+        Assert.Empty(method.GetCustomAttributes(typeof(System.Runtime.CompilerServices.AsyncStateMachineAttribute), false));
+    } finally { System.Threading.SynchronizationContext.SetSynchronizationContext(previous); }
+  }
+
+  [Theory]
+  [InlineData(false)]
+  [InlineData(true)]
+  public async System.Threading.Tasks.Task AsyncInvocationsCanOptionallyUseWorkers(bool pooled) {
+    var backend = new HixStandaloneBackend(new StringWriter());
+    var program = HixCompiler.CompileFunctions(["func main { return(42) }"], backend);
+    using var vm = new HixVM([program], workerCount: pooled ? 2 : 0);
+    var tasks = Enumerable.Range(0, 32).Select(_ => vm.InvokeAsync(program, useThreadPool: pooled)).ToArray();
+    if (!pooled) vm.CurrentThread.RunUntilIdle();
+    foreach (var result in await System.Threading.Tasks.Task.WhenAll(tasks.Select(task => task.AsTask()))) {
+      Assert.True(result.Success);
+      Assert.Equal(42, Assert.IsType<NumberHixValue>(result.Value).Value);
+    }
+  }
+  [Fact] public void FunctionExecutionDoesNotCreateExpressionStorageOrOutputBuffers() {
+    var output = new StringWriter();
+    var backend = new HixStandaloneBackend(output);
+    var program = HixCompiler.CompileFunctions([
+      "pure func identity { return(param) } func main { print(<hello>); return(identity(42)) }"
+    ], backend);
+    var thread = backend.CreateCoroutine();
+    Assert.IsAssignableFrom<HixContext>(thread.Context);
+    var state = typeof(HixExpressionContext).GetField("state",
+      System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    Assert.Null(state.GetValue(thread.Context));
+    for (var index = 0; index < 2; index++) {
+      var result = new HixVM([program]).Invoke(program, thread);
+      Assert.True(result.Success, result.Error.Resolve(result.Strings));
+      Assert.Equal(42, Assert.IsType<NumberHixValue>(result.Value).Value);
+      Assert.Empty(result.Execution.Outputs);
+      Assert.Null(state.GetValue(thread.Context));
+    }
+    Assert.Null(typeof(HixCoroutine).GetProperty("Outputs"));
+    Assert.Null(typeof(HixCoroutine).GetProperty("Logs"));
+    Assert.Null(typeof(HixContext).GetField("logs",
+      System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(thread.Context));
+    foreach (var name in new[] {"Variables", "Carries", "TargetVariables"})
+      Assert.Null(typeof(HixContext).GetProperty(name));
+  }
   private static HixInvocationResult Run(string source, HixBackend backend = null, string entry = "main", params IHixValue[] args) {
     backend ??= new HixStandaloneBackend(new StringWriter());
     var program = HixCompiler.CompileFunctions(new[] {source}, backend);
-    return new HixVM(new[] {program}).Invoke(program, backend.CreateThread(), entry, args);
+    return new HixVM(new[] {program}).Invoke(program, backend.CreateCoroutine(), entry, args);
   }
   [Fact] public void HixAuthoredFunctionSuitesPass() {
     var output = new StringWriter();
@@ -171,7 +419,7 @@ public class StandaloneTests {
     var parsed = Run("func main { return(parseJson(param, table)) }", args: new IHixValue[] {json});
     Assert.True(parsed.Success, parsed.Error.Resolve(parsed.Strings));
     var table = Assert.IsType<HixTableValue>(parsed.Value);
-    Assert.Equal("Ada", Assert.IsType<LiteralHixValue>(table.Select(new HixThread(new HixStandaloneBackend().CreateContext()), HixString.Dynamic("name"))).Value.Resolve(null));
+    Assert.Equal("Ada", Assert.IsType<LiteralHixValue>(table.Select(new HixCoroutine(new HixStandaloneBackend().CreateContext()), HixString.Dynamic("name"))).Value.Resolve(null));
 
     var written = Run("func main { return(writeJson(param, table)) }", args: new[] {parsed.Value});
     Assert.True(written.Success, written.Error.Resolve(written.Strings));
@@ -186,7 +434,7 @@ public class StandaloneTests {
       "{\"name\":\"Ada\",\"age\":37,\"role\":\"admin\",\"alias\":null}"))});
     Assert.True(valid.Success, valid.Error.Resolve(valid.Strings));
     var validTable = Assert.IsType<HixTableValue>(valid.Value);
-    Assert.IsType<MissingHixValue>(validTable.Select(new HixThread(new HixStandaloneBackend().CreateContext()),
+    Assert.IsType<MissingHixValue>(validTable.Select(new HixCoroutine(new HixStandaloneBackend().CreateContext()),
       HixString.Dynamic("nickname")));
     var invalid = Run(source, args: new IHixValue[] {new LiteralHixValue(HixString.Dynamic("{\"name\":\"Ada\",\"age\":0,\"role\":\"admin\"}"))});
     Assert.False(invalid.Success);
@@ -214,7 +462,7 @@ public class StandaloneTests {
     Assert.NotNull(property?["not"]);
 
     var imported = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
-      HixThread.String(ReadText(generated)), HixThread.String("{}")
+      HixCoroutine.String(ReadText(generated)), HixCoroutine.String("{}")
     });
     Assert.True(imported.Success, imported.Error.Resolve(imported.Strings));
     Assert.IsType<MissingHixValue>(Assert.IsType<HixTableValue>(imported.Value).Entries.Single().Value);
@@ -233,7 +481,7 @@ public class StandaloneTests {
       .Select(item => item["type"]?.Value<string>()).ToArray());
 
     var imported = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
-      HixThread.String(ReadText(generated)), HixThread.String("{\"requiredName\":null}")
+      HixCoroutine.String(ReadText(generated)), HixCoroutine.String("{\"requiredName\":null}")
     });
     Assert.True(imported.Success, imported.Error.Resolve(imported.Strings));
 
@@ -244,7 +492,7 @@ public class StandaloneTests {
   [Fact] public void TaggedTypesInsertAndEnforceDiscriminators() {
     const string tagged = "%tagged\ntype Person = @{string name}\nfunc main { return(Person(param)) }";
     var constructed = Run(tagged, args: new IHixValue[] {new HixTableValue([
-      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixThread.String("Ada"))
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixCoroutine.String("Ada"))
     ])});
     Assert.True(constructed.Success, constructed.Error.Resolve(constructed.Strings));
     var table = Assert.IsType<HixTableValue>(constructed.Value);
@@ -252,13 +500,13 @@ public class StandaloneTests {
       entry.Key.Resolve(constructed.Strings) == "$type").Value).Value.Resolve(constructed.Strings));
 
     var matching = Run(tagged, args: new IHixValue[] {new HixTableValue([
-      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixThread.String("Ada")),
-      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("$type"), HixThread.String("Person"))
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixCoroutine.String("Ada")),
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("$type"), HixCoroutine.String("Person"))
     ])});
     Assert.True(matching.Success, matching.Error.Resolve(matching.Strings));
     var conflicting = Run(tagged, args: new IHixValue[] {new HixTableValue([
-      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixThread.String("Ada")),
-      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("$type"), HixThread.String("Other"))
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixCoroutine.String("Ada")),
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("$type"), HixCoroutine.String("Other"))
     ])});
     Assert.False(conflicting.Success);
     Assert.Contains("constant mismatch", conflicting.Error.Resolve(conflicting.Strings));
@@ -379,7 +627,7 @@ public class StandaloneTests {
     Assert.Equal("Arlington", Assert.IsType<LiteralHixValue>(primary.Entries.Single(entry =>
       entry.Key.Resolve(result.Strings) == "favoriteCity").Value).Value.Resolve(result.Strings));
 
-    var parsed = Run(definitions + "\nfunc main { return(parseHal(param, <grace>)) }", args: new IHixValue[] {HixThread.String(hal)});
+    var parsed = Run(definitions + "\nfunc main { return(parseHal(param, <grace>)) }", args: new IHixValue[] {HixCoroutine.String(hal)});
     Assert.True(parsed.Success, parsed.Error.Resolve(parsed.Strings));
     var grace = Assert.IsType<HixTableValue>(parsed.Value);
     Assert.Equal("Grace Hopper", Assert.IsType<LiteralHixValue>(grace.Entries.Single(entry =>
@@ -414,7 +662,7 @@ public class StandaloneTests {
     });
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     var house = Assert.IsType<HixTableValue>(result.Value);
-    var thread = new HixThread(new HixStandaloneBackend().CreateContext());
+    var thread = new HixCoroutine(new HixStandaloneBackend().CreateContext());
     var inhabitants = Assert.IsType<TupleHixValue>(house.Select(thread, HixString.Dynamic("inhabitants")));
     Assert.Equal(2, inhabitants.Values.Count);
     Assert.Equal("Ada Lovelace", Assert.IsType<LiteralHixValue>(Assert.IsType<HixTableValue>(inhabitants.Values[0])
@@ -437,7 +685,7 @@ public class StandaloneTests {
       ]
       """;
     var result = Run(definitions + "\nfunc main { return(parseHal(param)) }", args: new IHixValue[] {
-      HixThread.String(hal)
+      HixCoroutine.String(hal)
     });
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     var pets = Assert.IsType<TupleHixValue>(Assert.IsType<HixTableValue>(result.Value).Entries.Single(entry =>
@@ -535,11 +783,11 @@ public class StandaloneTests {
   [Fact] public void JsonSchemaTypeArraysImportAsFlattenedNullableUnions() {
     const string schema = "{\"type\":[\"string\",\"null\"]}";
     var accepted = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
-      HixThread.String(schema), HixThread.String("null")
+      HixCoroutine.String(schema), HixCoroutine.String("null")
     });
     Assert.True(accepted.Success, accepted.Error.Resolve(accepted.Strings));
     var rejected = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
-      HixThread.String(schema), HixThread.String("12")
+      HixCoroutine.String(schema), HixCoroutine.String("12")
     });
     Assert.False(rejected.Success);
   }
@@ -583,9 +831,9 @@ public class StandaloneTests {
   private sealed class CustomBackend : HixBackend {
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) { base.RegisterFunctions(functions); functions.Add(new CustomFunction()); }
     protected override void RegisterRoots(IDictionary<string,HixBackendRoot> roots) => roots.Add("environment", new("environment", HixValueKind.Number));
-    public override IHixValue ResolveRoot(HixThread context, string name) => new NumberHixValue(7);
+    public override IHixValue ResolveRoot(HixCoroutine context, string name) => new NumberHixValue(7);
   }
   private sealed class CustomFunction() : FunctionDefinition("custom", new[] {new Hix.FunctionSignature(HixValueKind.Any, new[] {HixValueKind.Function})}) {
-    public override IHixValue Execute(HixThread context, IHixValue[] args, int line) => context.Invoke(args[0], Array.Empty<IHixValue>(), line);
+    public override IHixValue Execute(HixCoroutine context, IHixValue[] args, int line) => context.Invoke(args[0], Array.Empty<IHixValue>(), line);
   }
 }

@@ -19,7 +19,7 @@ automatically printed. `print` writes to the backend's injectable `TextWriter`.
 ```csharp
 var backend = new HixStandaloneBackend(Console.Out);
 var program = HixCompiler.CompileFunctions(new[] { source }, backend);
-var result = new HixVM(new[] { program }).Invoke(program, backend.CreateThread());
+var result = new HixVM(new[] { program }).Invoke(program, backend.CreateCoroutine());
 ```
 
 Execution remains bytecode-only. `Program.Run` returns 0 for success, 1 for
@@ -134,3 +134,86 @@ direction remains independent. Rider currently links only the analyzer implement
 into its backend because the generator embeds Hix types. The same implementation is part of the
 standalone assembly and can later be exposed through JSON-RPC/LSP without relocating analysis
 back into an IDE plugin.
+
+Coroutine execution uses `vm.CreateCoroutine(program, context)` and bounded
+`coroutine.Resume(instructionBudget)` slices. Dispose abandoned coroutines to release
+frames and the context lease. `Invoke` drains the same coroutine synchronously.
+`InvokeAsync` only submits an event and returns a `HixTask<HixInvocationResult>`;
+it does not use C# async/await.
+
+`HixTask<T>` owns completion, failure, cancellation, and wakeups without .NET tasks.
+Its awaiter posts continuations to the awaiting Hix worker's event queue. Use
+`.AsTask()` or `.AsHixTask()` explicitly at .NET host boundaries.
+
+By default all submissions enter `HixThread.Current`, the
+current OS thread's event queue (or the worker currently executing a callback).
+Pump this queue with `Run` or `Tick`; no synchronization-context dispatch or
+implicit thread-pool scheduling is performed. Default submissions are pinned to
+that worker and cannot be stolen. Unsupported contexts throw on pool submission.
+Use `vm.InvokeAsync(worker, program)` to target an explicit single-thread event loop.
+Opt into `useThreadPool: true` to use VM-owned dedicated `HixThread` event loops.
+`workerCount: 0` (the default) creates no background pool; pool submission throws.
+Positive worker counts eagerly start the configured threads, which sleep until notified.
+Submissions enter a shared queue and wake an idle worker; busy workers pick them up
+when free. Local runnable queues support work stealing. Dispose the VM to stop its
+workers and cancel outstanding pooled work. Roslyn contexts
+reject worker execution. Override `FunctionDefinition.ExecuteAsync` for a nonblocking
+backend operation; waiting coroutines leave the runnable queues until completion.
+Use `new HixThread().Enqueue(coroutine)` and `worker.Tick(budget)` for a manually
+driven single-threaded queue. Synchronous C# callbacks and derivation coordination
+still run to completion within a slice.
+
+## Concurrency functions
+
+The entrypoint is the main worker on the calling OS thread, independently of the
+background pool. `spawn(function, arguments = @[], useThreadPool = false)` creates
+an independent coroutine/context and returns an opaque `symbol` task handle.
+Functions and lambdas are supported; host-function references are not entrypoints.
+The arguments tuple supplies positional arguments and is snapshotted at submission.
+Lambdas do not capture the caller's locals: pass shared values explicitly.
+
+```hix
+func calculate(number value) -> number {
+  yield()
+  return(plus($value, 1))
+}
+
+func main {
+  local first = spawn(calculate, @[41])
+  local second = spawn(func => uppercase($0), @[<hello>])
+  return(awaitAll(@[local#first, local#second]))
+}
+```
+
+`awaitTask(task)` returns its value or propagates its error. `awaitAll(tasks)` waits
+for all tasks, preserving input order; failures propagate after every task finishes.
+An empty tuple completes immediately. `awaitAny(tasks)` returns a table containing
+the zero-based `index` and `value` of the first completion; it rejects empty input
+and does not cancel the other tasks. `taskDone(task)` checks completion without waiting.
+
+`yield()` yields to the current worker's event queue. `sleep(milliseconds)` uses a
+timer to publish completion without blocking the worker; timers do not execute Hix
+code. `workerId()` reports the executing OS thread ID. Explicit
+`useThreadPool = true` requires a VM constructed with a positive `workerCount`;
+otherwise `spawn` returns a Hix error. Main and default-spawned coroutines remain
+on the calling worker even when the VM has a pool.
+
+`channel(capacity = 0)` creates a FIFO channel. Zero capacity means rendezvous;
+positive capacity buffers that many values. `send(channel, value)` and
+`receive(channel)` suspend when no counterpart or buffer space is available.
+Values are detached before transfer. `closeChannel(channel)` wakes blocked senders
+and receivers with an error and preserves messages already buffered; receiving from
+a closed, drained channel returns an error. Closing again returns false.
+
+`semaphore(permits = 1, maximum = 2147483647)` creates a FIFO semaphore.
+`acquire(semaphore)` suspends when no permit is available, while `release(semaphore)`
+wakes the oldest waiter or increments the permit count. Exceeding the maximum is an
+error. Use `semaphore(1, 1)` as a mutex, and explicitly release acquired permits on
+all control-flow paths. Handles can be shared between same-worker and pooled tasks.
+
+Synchronous `vm.Invoke(...)` keeps main on the calling thread and pumps its event
+queue during waits. For queued entrypoints, use `vm.CurrentThread.RunUntil(vm.InvokeAsync(program))`
+to run an event loop until completion, or manage `Run`/`Tick` yourself. Pool size zero
+supports all single-threaded concurrency operations without creating background workers.
+Pending waits inside synchronous C# host callbacks are rejected rather than blocking
+or attempting to preserve a native C# stack. Completed waits remain usable there.

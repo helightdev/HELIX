@@ -137,13 +137,13 @@ public sealed record SignatureHixPattern(string Name, IReadOnlyList<HixPatternFi
 
 public sealed record PatternHixValue(HixPattern Pattern) : IHixValue {
   public HixValueKind Kind => HixValueKind.Pattern;
-  public bool IsTruthy(HixThread context) => true;
-  public HixString Render(HixThread context) => HixString.Dynamic(Pattern.Display);
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public bool IsTruthy(HixCoroutine context) => true;
+  public HixString Render(HixCoroutine context) => HixString.Dynamic(Pattern.Display);
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(PatternHixValue)); builder.Append(Pattern.Display);
   }
-  public IHixValue Select(HixThread context, HixString member) => NullHixValue.Instance;
-  public object Unlink(HixThread context) => this;
+  public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
+  public object Unlink(HixCoroutine context) => this;
   public bool Equals(IHixValue other) => other is PatternHixValue value && Equals(Pattern, value.Pattern);
   public override string ToString() => Pattern?.Display ?? "any";
 }
@@ -154,14 +154,14 @@ public sealed record HixPatternFailure(string Path, string Expected, string Actu
 }
 
 public static class HixPatternMatcher {
-  public static bool Matches(HixPattern pattern, IHixValue value, HixThread context,
+  public static bool Matches(HixPattern pattern, IHixValue value, HixCoroutine context,
     IReadOnlyDictionary<string, HixPattern> definitions, out HixPatternFailure failure) =>
     Matches(pattern ?? HixPattern.Any, value, context, definitions ?? Empty, "value", new HashSet<string>(), out failure);
 
   private static readonly IReadOnlyDictionary<string, HixPattern> Empty =
     new Dictionary<string, HixPattern>(StringComparer.Ordinal);
 
-  private static bool Matches(HixPattern pattern, IHixValue value, HixThread context,
+  private static bool Matches(HixPattern pattern, IHixValue value, HixCoroutine context,
     IReadOnlyDictionary<string, HixPattern> definitions, string path, ISet<string> active,
     out HixPatternFailure failure) {
     failure = null;
@@ -250,7 +250,7 @@ public static class HixPatternMatcher {
     }
   }
 
-  private static bool ConstantEquals(object expected, IHixValue value, HixThread context) => value switch {
+  private static bool ConstantEquals(object expected, IHixValue value, HixCoroutine context) => value switch {
     LiteralHixValue text => Equals(Convert.ToString(expected, CultureInfo.InvariantCulture), text.Value.Resolve(context.Strings)),
     NumberHixValue number => double.TryParse(Convert.ToString(expected, CultureInfo.InvariantCulture),
       NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && parsed.Equals(number.Value),
@@ -259,7 +259,7 @@ public static class HixPatternMatcher {
     _ => false
   };
 
-  private static bool ConstraintMatches(ConstrainedHixPattern pattern, IHixValue value, HixThread context) {
+  private static bool ConstraintMatches(ConstrainedHixPattern pattern, IHixValue value, HixCoroutine context) {
     var argument = Convert.ToString(pattern.Argument, CultureInfo.InvariantCulture);
     var number = value is NumberHixValue numeric ? numeric.Value : double.NaN;
     var length = IsMany(pattern.Underlying) && value is TupleHixValue many ? many.Values.Count : -1;

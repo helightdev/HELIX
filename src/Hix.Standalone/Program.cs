@@ -37,7 +37,7 @@ public static class Program {
       var sources = project == null ? HixFileImports.Load(entryFile) : project.MainSources().Select(file => file.Source).ToArray();
       backend.SetCompilationSources(sources);
       var program = HixCompiler.CompileFunctions(sources, backend);
-      var result = new HixVM([program]).Invoke(program, backend.CreateThread(), entry, arguments.ToArray());
+      var result = new HixVM([program]).Invoke(program, backend.CreateCoroutine(), entry, arguments.ToArray());
       if (result.Success) return 0;
       error.WriteLine(result.Error.Resolve(result.Strings)); return 1;
     } catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException) {
@@ -70,7 +70,7 @@ public static class Program {
       var runtimeBackend = new HixStandaloneBackend(output, Path.GetDirectoryName(input));
       var image = HixImageFile.Read(input, runtimeBackend, out var defaultEntry);
       if (command == "run") {
-        var result = new HixVM([image]).Invoke(image, runtimeBackend.CreateThread(), entry ?? defaultEntry, arguments.ToArray());
+        var result = new HixVM([image]).Invoke(image, runtimeBackend.CreateCoroutine(), entry ?? defaultEntry, arguments.ToArray());
         if (result.Success) return 0;
         error.WriteLine(result.Error.Resolve(result.Strings)); return 1;
       }

@@ -71,7 +71,7 @@ public sealed class HixBytecodeCompiler {
     if (pool.Count > ushort.MaxValue + 1 || constants.Count > ushort.MaxValue + 1)
       throw new ArgumentException("Bytecode pools cannot exceed 65536 entries (u16 indices)");
     BytecodeFunction MapFunction(BytecodeFunction function) => function with {Body = offsets[function.Body]};
-    BytecodeExpression MapExpression(BytecodeExpression expression) => expression with {Body = offsets[expression.Body]};
+    BytecodeExpression MapExpression(BytecodeExpression expression) => expression with {Function = MapFunction(expression.Function)};
     var global = new LanguageFunctionScope(globalFunctions.Select(MapFunction).ToArray());
     var scope = new LanguageFunctionScope(localFunctions.Select(MapFunction).ToArray(), global);
     var derivations = derivationBodies.Select(item => new BytecodeDerivation(item.Name, item.Line,
@@ -84,7 +84,7 @@ public sealed class HixBytecodeCompiler {
       globals.Patterns, globals.Backend, Fields(parameters), mappedMarkers);
   }
   private BytecodeExpression Expression(ExpressionDeclarationIr expression) =>
-    new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
+    new(new BytecodeFunction("", false, [], EntryBlock(expression.Body)), expression.IsPrelude, expression.Line);
   private BytecodeFunction Function(FunctionDeclarationIr function) {
     var start = EntryBlock(function.Body);
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(

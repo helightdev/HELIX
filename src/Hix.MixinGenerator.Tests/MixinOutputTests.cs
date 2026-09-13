@@ -24,7 +24,7 @@ public sealed class MixinOutputTests {
         expression { inject(<doomed>, <body>); fail<stop> }
       }
       """, "Test", backend);
-    var thread = backend.CreateThread();
+    var thread = backend.CreateCoroutine();
     var context = Assert.IsType<MixinOutputContext>(thread.Context);
     for (var run = 0; run < 2; run++) {
       var result = HixVM.Execute(program, thread);

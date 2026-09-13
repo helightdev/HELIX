@@ -84,7 +84,7 @@ public sealed class FunctionSignatureRegistry {
   public IEnumerable<FunctionDefinition> Enumerate() => _all;
 }
 
-public delegate IHixValue InlineFunction(HixThread execution, IHixValue[] arguments);
+public delegate IHixValue InlineFunction(HixCoroutine execution, IHixValue[] arguments);
 
 public sealed class FunctionSignatureRegistryBuilder {
   private readonly List<FunctionDefinition> _definitions = [];
@@ -111,7 +111,7 @@ public sealed class SimpleFunction(
   public override bool HasEffects => effects;
   public override bool RequiresPrelude => requiresPrelude;
   public override bool AcceptsErrors => acceptsErrors;
-  public override IHixValue Execute(HixThread execution, IHixValue[] arguments, int line) { return implementation(execution, arguments); }
+  public override IHixValue Execute(HixCoroutine execution, IHixValue[] arguments, int line) { return implementation(execution, arguments); }
 }
 
 public class FunctionDefinition {
@@ -178,7 +178,7 @@ public class FunctionDefinition {
       values.Select((value, index) => signature.GetArgumentType(index) is var expected &&
         (expected == HixValueKind.Any || value.Kind == expected)).All(match => match));
   }
-  public bool TryConvertValues(HixThread execution, IHixValue[] values,
+  public bool TryConvertValues(HixCoroutine execution, IHixValue[] values,
     out IHixValue[] converted, out int conversionCount) {
     converted = null;
     conversionCount = int.MaxValue;
@@ -204,7 +204,7 @@ public class FunctionDefinition {
     }
     return converted != null;
   }
-  public static bool TryConvertValues(HixThread execution, FunctionSignature signature, IHixValue[] values,
+  public static bool TryConvertValues(HixCoroutine execution, FunctionSignature signature, IHixValue[] values,
     out IHixValue[] converted) {
     converted = values;
     if (!signature.MatchesArgumentCount(values.Length)) return false;
@@ -217,8 +217,10 @@ public class FunctionDefinition {
     }
     return true;
   }
-  public virtual IHixValue Execute(HixThread context, IHixValue[] arguments, int line) =>
+  public virtual IHixValue Execute(HixCoroutine context, IHixValue[] arguments, int line) =>
     context.Error("metadata function '" + Name + "' cannot be invoked");
+  /// <summary>Optional nonblocking implementation. Null selects the synchronous Execute path.</summary>
+  public virtual HixTask<IHixValue> ExecuteAsync(HixCoroutine context, IHixValue[] arguments, int line) => null;
 }
 
 public abstract class EvaluatedFunctionDefinition(
@@ -233,7 +235,7 @@ public abstract class EvaluatedFunctionDefinition(
   null, variadic
 ) {
 
-  public sealed override IHixValue Execute(HixThread execution, IHixValue[] supplied, int line) {
+  public sealed override IHixValue Execute(HixCoroutine execution, IHixValue[] supplied, int line) {
     var context = execution;
     var instance = supplied[0];
     IReadOnlyList<IHixValue> arguments = supplied.Skip(1).ToArray();
@@ -251,10 +253,10 @@ public abstract class EvaluatedFunctionDefinition(
     return result;
   }
 
-  protected virtual IHixValue EvaluateValue(HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments) => Apply(context, value, arguments);
+  protected virtual IHixValue EvaluateValue(HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments) => Apply(context, value, arguments);
 
   protected abstract IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   );
 }

@@ -21,7 +21,7 @@ using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
 using static Hix.Roslyn.GeneratorSource;
 using static Hix.Roslyn.GeneratorStrings;
-using HixThread = Hix.Runtime.HixThread;
+using HixCoroutine = Hix.Runtime.HixCoroutine;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -273,7 +273,7 @@ public sealed partial class MixinGenerator {
       AppendOutputCollection(outputs, render.Usings);
 
       var variables = new HixFingerprintBuilder();
-      var fingerprintContext = new HixThread(new UnlinkedHixContext(render.StringPool));
+      var fingerprintContext = new HixCoroutine(new UnlinkedHixContext(render.StringPool));
       variables.Append(render.PrimaryVariables.Count);
       foreach (var variable in render.PrimaryVariables
         .OrderBy(item => item.Key.Id)
@@ -473,7 +473,7 @@ public sealed partial class MixinGenerator {
   private sealed class UnlinkedHixContext : MixinOutputContext {
     internal UnlinkedHixContext(HixStringPool strings) : base(HixMixinBackend.Instance, strings) { }
 
-    public override IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) {
+    public override IHixValue ResolveHost(HixCoroutine thread, HixExpressionRoot root, HixString member) {
       return thread.Error("late expressions cannot resolve host values");
     }
   }

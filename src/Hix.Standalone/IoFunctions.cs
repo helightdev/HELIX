@@ -75,12 +75,12 @@ internal static class IoFunctions {
   private static SimpleFunction Effect(string name, IReadOnlyList<FunctionSignature> signatures, InlineFunction implementation) =>
     new(name, signatures, implementation, effects: true);
   private static LiteralHixValue Text(string value) => new(HixString.Dynamic(value ?? ""));
-  private static HixStandaloneBackend Backend(HixThread thread) => (HixStandaloneBackend)thread.Backend;
+  private static HixStandaloneBackend Backend(HixCoroutine thread) => (HixStandaloneBackend)thread.Backend;
   private static string Native(string path) => path.Replace('/', Path.DirectorySeparatorChar);
   private static string Forward(string path) => path.Replace('\\', '/');
-  private static string Resolve(HixThread thread, IHixValue value) => Forward(Path.GetFullPath(Path.Combine(
+  private static string Resolve(HixCoroutine thread, IHixValue value) => Forward(Path.GetFullPath(Path.Combine(
     Backend(thread).WorkingDirectory, Native(thread.ResolveText(value)))));
-  private static string ResolveNative(HixThread thread, IHixValue value) => Native(Resolve(thread, value));
+  private static string ResolveNative(HixCoroutine thread, IHixValue value) => Native(Resolve(thread, value));
 
   private static string Normalize(string value) {
     if (string.IsNullOrEmpty(value)) return "";
@@ -103,10 +103,10 @@ internal static class IoFunctions {
     var path = Normalize(value).TrimEnd('/'); var index = path.LastIndexOf('/');
     return index < 0 ? path : path.Substring(index + 1);
   }
-  private static Encoding EncodingOf(HixThread thread, IHixValue[] args, int index) =>
+  private static Encoding EncodingOf(HixCoroutine thread, IHixValue[] args, int index) =>
     thread.ResolveText(args[index]) is var name && string.Equals(name, "utf8", StringComparison.OrdinalIgnoreCase)
       ? new UTF8Encoding(false) : Encoding.GetEncoding(name);
-  private static IHixValue ReadFile(HixThread thread, IHixValue[] args) => Try(thread, () => {
+  private static IHixValue ReadFile(HixCoroutine thread, IHixValue[] args) => Try(thread, () => {
     var path = ResolveNative(thread, args[0]);
     if (args.Length < 3) return (IHixValue)Text(File.ReadAllText(path, EncodingOf(thread, args, 1)));
     var offset = ExactInt(thread, args[1], "offset"); var length = ExactInt(thread, args[2], "length");
@@ -117,18 +117,18 @@ internal static class IoFunctions {
     while (read < bytes.Length) { var count = stream.Read(bytes, read, bytes.Length - read); if (count == 0) break; read += count; }
     return Text(EncodingOf(thread, args, 3).GetString(bytes, 0, read));
   });
-  private static IHixValue WriteFile(HixThread thread, IHixValue[] args) => Mutate(() => {
+  private static IHixValue WriteFile(HixCoroutine thread, IHixValue[] args) => Mutate(() => {
     var path = ResolveNative(thread, args[0]); var text = thread.ResolveText(args[1]); var encoding = EncodingOf(thread, args, 2);
     var append = ((BooleanHixValue)args[3]).Value;
     if (append) File.AppendAllText(path, text, encoding); else File.WriteAllText(path, text, encoding);
   });
-  private static int ExactInt(HixThread thread, IHixValue value, string name) {
+  private static int ExactInt(HixCoroutine thread, IHixValue value, string name) {
     var number = ((NumberHixValue)value).Value;
     if (number != Math.Truncate(number) || number < int.MinValue || number > int.MaxValue)
       throw new ArgumentOutOfRangeException(name + " must be an integer");
     return (int)number;
   }
-  private static IHixValue Try(HixThread thread, Func<IHixValue> action) {
+  private static IHixValue Try(HixCoroutine thread, Func<IHixValue> action) {
     try { return action(); }
     catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) {
       return thread.Error(exception.Message);

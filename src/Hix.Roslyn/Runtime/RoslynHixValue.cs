@@ -9,11 +9,11 @@ using Hix.Roslyn;
 
 namespace Hix.Runtime;
 
-/// <summary>Immutable handle to a Roslyn semantic value; all services come from HixThread.</summary>
+/// <summary>Immutable handle to a Roslyn semantic value; all services come from HixCoroutine.</summary>
 public sealed record RoslynHixValue(object Value, HixExpressionRoot Root = HixExpressionRoot.Null)
   : IHixValue {
   public HixValueKind Kind => HixValueKind.Symbol;
-  public bool IsTruthy(HixThread context) {
+  public bool IsTruthy(HixCoroutine context) {
     return Value switch {
       null => false, bool boolean => boolean,
       TypedConstant constant => constant.Kind != TypedConstantKind.Error && !constant.IsNull &&
@@ -22,7 +22,7 @@ public sealed record RoslynHixValue(object Value, HixExpressionRoot Root = HixEx
     };
   }
 
-  public HixString Render(HixThread context) {
+  public HixString Render(HixCoroutine context) {
     using var profile = HixProfiler.Measure("roslyn.value.render");
     if (Root is HixExpressionRoot.This or HixExpressionRoot.Target && Value is INamedTypeSymbol)
       return HixString.Dynamic("this");
@@ -39,16 +39,16 @@ public sealed record RoslynHixValue(object Value, HixExpressionRoot Root = HixEx
     return HixString.Dynamic(HixRoslynContext.ComparableText(Value));
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(RoslynHixValue));
     builder.Append(Render(context).Resolve(context.Strings));
   }
 
-  public IHixValue Select(HixThread context, HixString member) {
+  public IHixValue Select(HixCoroutine context, HixString member) {
     return context.Context is HixRoslynContext roslyn ? roslyn.SelectValue(context, this, member) : NullHixValue.Instance;
   }
 
-  public object Unlink(HixThread context) {
+  public object Unlink(HixCoroutine context) {
     return Value switch {
       TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
       TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
@@ -124,11 +124,11 @@ public sealed record DetachedSemanticHixValue(
   HixString Namespace, HixString TypeName
 ) : IHixValue {
   public HixValueKind Kind => HixValueKind.Symbol;
-  public bool IsTruthy(HixThread context) {
+  public bool IsTruthy(HixCoroutine context) {
     return true;
   }
 
-  public HixString Render(HixThread context) {
+  public HixString Render(HixCoroutine context) {
     var name = TypeName.Resolve(context.Strings);
     var typeNamespace = Namespace.Resolve(context.Strings);
     if (string.IsNullOrEmpty(name)) return HixString.Dynamic("");
@@ -137,17 +137,17 @@ public sealed record DetachedSemanticHixValue(
     );
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
     builder.Append(nameof(DetachedSemanticHixValue));
     builder.Append(Namespace.Resolve(context.Strings));
     builder.Append(TypeName.Resolve(context.Strings));
   }
 
-  public IHixValue Select(HixThread context, HixString member) {
+  public IHixValue Select(HixCoroutine context, HixString member) {
     return NullHixValue.Instance;
   }
 
-  public object Unlink(HixThread context) {
+  public object Unlink(HixCoroutine context) {
     return new DetachedSemanticData(
       Namespace.Resolve(context.Strings), TypeName.Resolve(context.Strings)
     );

@@ -366,7 +366,7 @@ public static class HixDecompiler {
     private FunctionDeclarationIr Function(BytecodeFunction function) => Located(new FunctionDeclarationIr(function.Name, function.IsPure,
       false, true, function.Signatures.Select(signature => new FunctionSignature(signature.InputPattern, Fields(signature.Inputs),
         signature.OutputPattern, Fields(signature.Outputs))).ToArray(), Block(function.Body)), function.Body);
-    private ExpressionDeclarationIr Expression(BytecodeExpression expression) => Located(new ExpressionDeclarationIr(expression.IsPrelude, false, Block(expression.Body)), expression.Body);
+    private ExpressionDeclarationIr Expression(BytecodeExpression expression) => Located(new ExpressionDeclarationIr(expression.IsPrelude, false, Block(expression.Function.Body)), expression.Function.Body);
     private BlockStatementIr Block(int offset) {
       var instruction = Instruction(offset);
       if (instruction.Opcode != HixOpcode.Enter || instruction.A <= instruction.Size) throw Error(offset, "expected a bounded Enter block");

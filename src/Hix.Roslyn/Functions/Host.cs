@@ -6,7 +6,7 @@ namespace Hix.Functions;
 public sealed class WireFunction() : RoslynFunctionDefinition("wire", 1, resultType: HixValueKind.String) {
   public override string Documentation => "Renders a semantic value for wiring into generated source. Methods cannot be wired directly.";
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return context.Context is HixRoslynContext roslyn &&
@@ -19,7 +19,7 @@ public sealed class WireFunction() : RoslynFunctionDefinition("wire", 1, resultT
 public sealed class SignatureFunction() : RoslynFunctionDefinition("signature", 1, resultType: HixValueKind.Bool) {
   public override string Documentation => "Renders the backend signature of a semantic value.";
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return BooleanHixValue.From(
@@ -32,7 +32,7 @@ public sealed class SignatureFunction() : RoslynFunctionDefinition("signature", 
 public sealed class WireableFunction() : RoslynFunctionDefinition("wireable", 1, resultType: HixValueKind.Bool) {
   public override string Documentation => "Tests whether a semantic value can be wired into generated code.";
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return BooleanHixValue.From(
@@ -49,7 +49,7 @@ public sealed class CollectAnnotatedTypesFunction() : FunctionDefinition("collec
   public override bool HasEffects => true;
   public override bool RequiresPrelude => true;
   public override IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string> { {0, "CSharpType"} };
-  public override IHixValue Execute(HixThread execution, IHixValue[] arguments, int line) { return execution.IsPrelude && execution.Context is HixRoslynContext context
+  public override IHixValue Execute(HixCoroutine execution, IHixValue[] arguments, int line) { return HixExpressionContext.IsPrelude(execution) && execution.Context is HixRoslynContext context
       ? context.CollectAnnotatedTypes(execution, arguments[0].Render(execution).Resolve(execution.Strings))
       : execution.Error("collectAnnotatedTypes requires the Roslyn prelude host"); }
 }
@@ -57,7 +57,7 @@ public sealed class CollectAnnotatedTypesFunction() : FunctionDefinition("collec
 public sealed class NamespaceFunction() : RoslynFunctionDefinition("namespace", 0,
   HixValueKind.Symbol, HixValueKind.String) {
   public override string Documentation => "Returns the namespace of a type symbol.";
-  protected override IHixValue Apply(HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments) =>
+  protected override IHixValue Apply(HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments) =>
     value is RoslynHixValue symbol && HixRoslynContext.TypeOf(symbol.Value) is { } type
       ? new LiteralHixValue(context.ResolveString(type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString()))
       : context.Error("namespace requires a type symbol");

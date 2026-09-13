@@ -12,7 +12,7 @@ public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier"
   HixValueKind.String, HixValueKind.String) {
   public override string Documentation => "Escapes a name so it can be used as a C# identifier.";
   protected override IHixValue Apply(
-    HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments
+    HixCoroutine context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
     return new LiteralHixValue(
       HixString.Dynamic(
@@ -28,7 +28,7 @@ public sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime", 
   HixValueKind.Any, HixValueKind.String) {
   public override string Documentation => "Parses a time value and renders its numeric representation for generated code.";
   protected override IHixValue Apply(
-    HixThread context, IHixValue value,
+    HixCoroutine context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     var text = context.Unwrap(value).Render(context).Resolve(context.Strings);

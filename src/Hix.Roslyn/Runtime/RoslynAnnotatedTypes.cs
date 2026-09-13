@@ -13,7 +13,7 @@ public partial class HixRoslynContext {
 
   public bool IsAccessible(ISymbol symbol) => _compilation.IsSymbolAccessibleWithin(symbol, CurrentType);
 
-  public IHixValue CollectAnnotatedTypes(HixThread thread, string name) {
+  public IHixValue CollectAnnotatedTypes(HixCoroutine thread, string name) {
     using var profile = HixProfiler.Measure("roslyn.collect_annotated_types");
     var attribute = ResolveType(name) ?? ResolveType(name + "Attribute");
     if (attribute is not INamedTypeSymbol type) return thread.Error("unknown attribute type '" + name + "'");

@@ -19,7 +19,7 @@ registration methods to retain inherited definitions. Catalogs are initialized l
 immutable. Function definitions expose signatures, effects, prelude requirements, and optional
 editor reference categories. `HasEffects` and `RequiresPrelude` are independent.
 
-Implement `FunctionDefinition.Execute(HixThread, IHixValue[], int)` to expose a host
+Implement `FunctionDefinition.Execute(HixCoroutine, IHixValue[], int)` to expose a host
 function, or register a `SimpleFunction` with explicit signatures and an `InlineFunction` delegate.
 Use `thread.Invoke` for Hix callbacks, `thread.BindFunction` for lexical function binding, and
 `thread.Outputs` / `thread.Logs` for emissions. Threads own invocation state and must not be
@@ -48,14 +48,14 @@ bytecode emission consumes the bound references and calls. Custom steps receive 
 which owns the module, catalog, and diagnostics.
 
 Roslyn extensions can construct `RoslynHixValue`, subclass `HixRoslynContext`, and reuse its semantic
-services and explicit cache lookup/store methods. `HixThread` is public and sealed: supply a context with `new HixThread(context)` and retrieve it
+services and explicit cache lookup/store methods. `HixCoroutine` is public and sealed: supply a context with `new HixCoroutine(context)` and retrieve it
 inside host functions through `thread.Context`. Override `HixBackend.CreateContext()` to supply
-custom data when callers use `backend.CreateThread()`. Services receive the thread explicitly
+custom data when callers use `backend.CreateCoroutine()`. Services receive the thread explicitly
 when they need runtime values or its pool; contexts retain no execution back-reference.
 Target changes are committed as detached values so a context can be reused with a fresh thread
 and program image. Use separate contexts for concurrent target work.
 No friend-assembly access or source inclusion is needed. VM lifecycle coordination, local pooling, and prepared-call bookkeeping remain internal;
-operand frames and completion state remain private to `HixThread`.
+operand frames and completion state remain private to `HixCoroutine`.
 
 ## Generic mixins and host results
 
@@ -65,7 +65,7 @@ record constraints through `HixBackend.ValidateDerivationRecord`; the generator 
 `symbol`, while the core VM does not.
 
 `emit(value)` publishes an arbitrary `IHixValue`; `emit(destination, value)` adds an opaque destination name.
-`HixOutput.Value` preserves the value type. `HixThread.Emit` detaches values and destination names at
+`HixOutput.Value` preserves the value type. `HixCoroutine.Emit` detaches values and destination names at
 emission time, so collections and storage views remain stable after mutation or thread reuse.
 Backends can consume structured output directly; the mixin generator owns its text rendering policy.
 `HixExecutionResult` contains execution status, `HixOutput` values, `HixLog` entries, storage snapshots,
@@ -146,11 +146,11 @@ an independent VM pool with `ResolvedFunctionHixValue` values bound to language 
 backend overloads. `Call` indexes that pool directly; no call-site binding dictionary is retained.
 Function references use distinct slots where lexical scopes may resolve equal signatures differently.
 The VM uses operand stacks and interprets opcodes, with bytecode entry points for calls and blocks.
-Each VM owns one prepared image and its immutable string and constant pools. `HixThread`
-owns invocation state, call frames, locals, outputs, and logs.
-Host functions receive the active thread directly. `HixThread.Strings` resolves through its
+Each VM owns one prepared image and its immutable string and constant pools. `HixCoroutine`
+owns invocation state, heap call frames, and locals. Its context owns outputs and logs.
+Host functions receive the active thread directly. `HixCoroutine.Strings` resolves through its
 VM while loaded; runtime strings remain dynamic and never mutate either pool.
-Create `HixVM(programs)` and pass a thread from `backend.CreateThread()` to `Run` or `Invoke`.
+Create `HixVM(programs)` and pass a thread from `backend.CreateCoroutine()` to `Run` or `Invoke`.
 The static `Execute` convenience method caches VMs by prepared program identity. Different
 threads can use a VM concurrently; restarting an active thread is rejected. Sequential thread
 reuse resets invocation state. The subclassable `HixContext` owns persistent variables, carries, target storage, and
@@ -212,3 +212,31 @@ Profiling separates `vm.execute.total` (static invocation, including loading), `
 Normal generation and state keys do not disassemble programs; formatting is confined to explicit
 disassembly requests and debug rendering. Timings are inclusive/nested and must not be added together.
 No per-instruction tracing is added.
+
+Coroutine execution uses `vm.CreateCoroutine(program, context)` and bounded
+`coroutine.Resume(instructionBudget)` slices. Dispose abandoned coroutines to release
+frames and the context lease. `Invoke` drains the same coroutine synchronously.
+`InvokeAsync` only submits an event and returns a `HixTask<HixInvocationResult>`;
+it does not use C# async/await.
+
+`HixTask<T>` owns completion, failure, cancellation, and wakeups without .NET tasks.
+Its awaiter posts continuations to the awaiting Hix worker's event queue. Use
+`.AsTask()` or `.AsHixTask()` explicitly at .NET host boundaries.
+
+By default all submissions enter `HixThread.Current`, the
+current OS thread's event queue (or the worker currently executing a callback).
+Pump this queue with `Run` or `Tick`; no synchronization-context dispatch or
+implicit thread-pool scheduling is performed. Default submissions are pinned to
+that worker and cannot be stolen. Unsupported contexts throw on pool submission.
+Use `vm.InvokeAsync(worker, program)` to target an explicit single-thread event loop.
+Opt into `useThreadPool: true` to use VM-owned dedicated `HixThread` event loops.
+`workerCount: 0` (the default) creates no background pool; pool submission throws.
+Positive worker counts eagerly start the configured threads, which sleep until notified.
+Submissions enter a shared queue and wake an idle worker; busy workers pick them up
+when free. Local runnable queues support work stealing. Dispose the VM to stop its
+workers and cancel outstanding pooled work. Roslyn contexts
+reject worker execution. Override `FunctionDefinition.ExecuteAsync` for a nonblocking
+backend operation; waiting coroutines leave the runnable queues until completion.
+Use `new HixThread().Enqueue(coroutine)` and `worker.Tick(budget)` for a manually
+driven single-threaded queue. Synchronous C# callbacks and derivation coordination
+still run to completion within a slice.

@@ -58,10 +58,10 @@ internal static class HixRoundTripAssertions {
       }
     }
     Scope(image.Scope, "mixin", true);
-    foreach (var expression in image.Expressions) text.Append("entry|").Append(positions[expression.Body]).Append('|').Append(expression.IsPrelude).Append('\n');
+    foreach (var expression in image.Expressions) text.Append("entry|").Append(positions[expression.Function.Body]).Append('|').Append(expression.IsPrelude).Append('\n');
     foreach (var derivation in image.Derivations) {
       text.Append("derive|").Append(derivation.Name).Append('\n'); Scope(derivation.Scope, "derivation", false);
-      foreach (var expression in derivation.Expressions) text.Append(positions[expression.Body]).Append('|').Append(expression.IsPrelude).Append('\n');
+      foreach (var expression in derivation.Expressions) text.Append(positions[expression.Function.Body]).Append('|').Append(expression.IsPrelude).Append('\n');
     }
     foreach (var pattern in image.Patterns.OrderBy(item => item.Key, StringComparer.Ordinal)) text.Append("pattern|").Append(pattern.Key).Append('|').Append(pattern.Value.Display).Append('\n');
     foreach (var marker in image.Markers.OrderBy(item => item.Key, StringComparer.Ordinal)) text.Append("marker|").Append(marker.Key).Append('|').Append(positions[marker.Value.Offset]).Append('|').Append(marker.Value.Type).Append('\n');

@@ -9,5 +9,5 @@ internal static class TestCompiler {
 }
 
 internal static class TestOutputText {
-  internal static string ReadText(this HixOutput output) => new HixThread().Text(output.Value).Resolve(null);
+  internal static string ReadText(this HixOutput output) => new HixCoroutine().Text(output.Value).Resolve(null);
 }

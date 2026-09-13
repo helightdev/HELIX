@@ -31,7 +31,7 @@ public sealed class HixAssemblyTests {
       } }
       """], [library], "Main"));
     var vm = new HixVM([application, library]);
-    var result = vm.Run(application, new HixThread());
+    var result = vm.Run(application, new HixCoroutine());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"application", "library", "application", "2", "1"}, result.Outputs.Select(output => output.ReadText()));
     Assert.Null(vm.BindAssemblyFunction("application", "origin"));
@@ -56,7 +56,7 @@ public sealed class HixAssemblyTests {
     var application = RoundTrip(HixCompiler.CompileAssembly("application", ["""
       mixin Main { expression { emit(describe()); emit(describe(record = @{name=<named>, note=null})) } }
       """], [library], "Main"));
-    var result = new HixVM([application, library]).Run(application, new HixThread());
+    var result = new HixVM([application, library]).Run(application, new HixCoroutine());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"default", "named"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -80,13 +80,13 @@ public sealed class HixAssemblyTests {
       """], [library], "Main");
     Assert.DoesNotContain(application.Scope.AllCandidates(), candidate => candidate.Function.Name == "describe");
     var vm = new HixVM([application, library]);
-    var result = vm.Run(application, new HixThread());
+    var result = vm.Run(application, new HixCoroutine());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"library37", "application"}, result.Outputs.Select(output => output.ReadText()));
     Assert.Equal(2, vm.Assemblies.Count);
     // Loading another VM must not mutate the portable scope or string identities.
     var other = new HixVM([library, application]);
-    var repeated = other.Run(application, new HixThread());
+    var repeated = other.Run(application, new HixCoroutine());
     Assert.Equal(result.Outputs.Select(output => output.ReadText()), repeated.Outputs.Select(output => output.ReadText()));
     Assert.DoesNotContain(application.Scope.AllCandidates(), candidate => candidate.Function.Name == "describe");
   }
