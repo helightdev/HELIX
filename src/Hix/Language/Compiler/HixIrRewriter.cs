@@ -9,10 +9,10 @@ public class HixIrRewriter {
   protected virtual HixIrNode RewriteNode(HixIrNode node) {
     if (node is null) return null;
     HixIrNode rewritten = node switch {
-      MetadataIr value => new MetadataIr(value.Name, value.Values.Select(Rewrite).ToArray()) { IsPatternDirective = value.IsPatternDirective },
+      MetadataIr value => new MetadataIr(value.Name, value.Values.Select(Rewrite).ToArray()) { IsPatternDirective = value.IsPatternDirective, Retention = value.Retention },
       MetadataDeclarationIr value => new MetadataDeclarationIr(value.Name, value.Arguments.Select(argument =>
         new SignatureField(argument.Name, argument.Pattern, argument.Variadic, argument.Metadata.Select(Rewrite).ToArray(),
-          argument.Optional, Rewrite(argument.DefaultValue))).ToArray(), value.Targets, value.Metadata.Select(Rewrite).ToArray()),
+          argument.Optional, Rewrite(argument.DefaultValue))).ToArray(), value.Targets, value.Metadata.Select(Rewrite).ToArray(), value.Retention),
       ExpressionDeclarationIr value => new ExpressionDeclarationIr(value.IsPrelude, value.IsStrict, Rewrite(value.Body)),
       FunctionDeclarationIr value => new FunctionDeclarationIr(value.Name, value.IsPure, value.IsInline,
         value.IsNoinline, value.Signatures, Rewrite(value.Body), value.Metadata.Select(Rewrite).ToArray(), value.TypeParameters, value.ExternalName),
@@ -62,6 +62,11 @@ public class HixIrRewriter {
   protected static T CopyLocation<T>(HixIrNode source, T target) where T : HixIrNode {
     if (source is CallExpressionIr sourceCall && target is CallExpressionIr targetCall)
       targetCall.DispatchConstraint = sourceCall.DispatchConstraint;
+    target.UsingImports = source.UsingImports;
+    if (source is RootExpressionIr originalRoot && target is RootExpressionIr copiedRoot)
+      copiedRoot.OriginalName = originalRoot.OriginalName;
+    if (source is CallExpressionIr originalCall && target is CallExpressionIr copiedCall)
+      copiedCall.OriginalName = originalCall.OriginalName;
     target.SourceRange = source.SourceRange;
     target.Tokens = source.Tokens;
     return target;

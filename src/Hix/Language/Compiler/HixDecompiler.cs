@@ -70,7 +70,7 @@ public static class HixDecompiler {
           depth++; foreach (var declaration in mixin.Declarations) Write(declaration); depth--; Line("}"); break;
         case MetadataDeclarationIr metadata:
           Metadatas(metadata.Metadata);
-          Line("meta " + metadata.Name + Fields(metadata.Arguments) + " for " +
+          Line(metadata.Retention.ToString().ToLowerInvariant() + " meta " + metadata.Name + Fields(metadata.Arguments) + " for " +
             string.Join(" ", HixMetadataTargets.Names(metadata.Targets)) + ";");
           break;
         case FunctionDeclarationIr function:
@@ -300,7 +300,9 @@ public static class HixDecompiler {
     AnyHixPattern or KindHixPattern or NamedHixPattern or TypeParameterHixPattern => Quote(pattern.Display),
     _ => throw new NotSupportedException("Cannot render type argument " + pattern.GetType().Name)
   };
-  private static string PatternField(HixPatternField field) => (field.Optional ? "%optional " : "") +
+  private static string PatternField(HixPatternField field) => string.Concat(field.Metadata.Select(item =>
+    "%" + item.Name + (item.Values.Count == 0 ? "" : "(" + string.Join(", ", item.Values.Select(value => ObjectSource(value))) + ")") + " ")) +
+    (field.Optional ? "%optional " : "") +
     (field.Graph == null ? "" : "%graph(" + Quote(field.Graph.Value.ToString().ToLowerInvariant()) + ") ") + Pattern(field.Pattern) +
     (string.IsNullOrEmpty(field.Name) ? "" : " " + field.Name) + (field.HasDefault ? " = [" + ObjectSource(field.DefaultValue) + "]" : "");
   private static string ObjectSource(object value) => value switch {
@@ -362,7 +364,10 @@ public static class HixDecompiler {
     }
     public CompilationUnitIr Read(string name) {
       var declarations = new List<HixIrNode>();
-      foreach (var pattern in image.Patterns) declarations.Add(new TypeDeclarationIr(pattern.Key, pattern.Value));
+      foreach (var definition in image.MetadataDefinitions)
+        declarations.Add(new MetadataDeclarationIr(definition.Name, Fields(definition.Arguments), definition.Targets, retention: definition.Retention));
+      foreach (var pattern in image.Patterns) declarations.Add(new TypeDeclarationIr(pattern.Key, pattern.Value,
+        image.TypeMetadata.TryGetValue(pattern.Key, out var metadata) ? Metadata(metadata) : []));
       var constructors = image.Patterns.SelectMany(item => PatternConstructorCompiler.Compile(item.Key, item.Value, image.Patterns)).ToArray();
       bool Constructor(BytecodeFunction function) => constructors.Any(candidate => candidate.Name == function.Name &&
         candidate.Signatures.Count == function.Signatures.Count && candidate.Signatures.Select(signature => signature.Constant(candidate.Name).Display)
@@ -372,23 +377,25 @@ public static class HixDecompiler {
       foreach (var derivation in image.Derivations) {
         var body = derivation.Expressions.Select(Expression).Cast<HixIrNode>().Concat(
           derivation.Scope.DisassemblyFunctions("derivation", false).OrderBy(item => item.Function.Body).Select(item => Function(item.Function))).ToArray();
-        declarations.Add(new MixinDeclarationIr(derivation.Name, true, body));
+        declarations.Add(new MixinDeclarationIr(derivation.Name, true, body, Metadata(derivation.Metadata)));
       }
       var local = image.Scope.DisassemblyFunctions("mixin", false).OrderBy(item => item.Function.Body).Select(item => Function(item.Function)).Cast<HixIrNode>().ToList();
       local.AddRange(image.Expressions.Select(Expression));
       while (image.Derivations.Any(derivation => derivation.Name == name)) name += "_";
-      declarations.Add(new MixinDeclarationIr(name, false, local, parameters: Fields(image.Parameters)));
-      var unit = new CompilationUnitIr("", declarations, [], []);
+      declarations.Add(new MixinDeclarationIr(name, false, local, Metadata(image.MixinMetadata), parameters: Fields(image.Parameters)));
+      var unit = new CompilationUnitIr("", declarations, [], [], Metadata(image.Metadata));
       foreach (var node in Descendants(unit))
         if (node is EqualityExpression or RenderedExpression) throw Error(nodeOffsets[node], "unconsumed value operation");
       return unit;
     }
+    private MetadataIr[] Metadata(IReadOnlyList<BytecodeMetadata> metadata) => metadata.Select(item =>
+      new MetadataIr(item.Name, item.Values.Select(value => Literal(value, image.StringPool)).ToArray()) {Retention = item.Retention}).ToArray();
     private SignatureField[] Fields(IReadOnlyList<BytecodeField> fields) => fields?.Select(field =>
-      new SignatureField(field.Name, field.Pattern, field.Variadic, optional: field.Optional,
+      new SignatureField(field.Name, field.Pattern, field.Variadic, metadata: Metadata(field.Metadata), optional: field.Optional,
         defaultValue: field.DefaultValue == null ? null : Literal(field.DefaultValue, image.StringPool))).ToArray();
     private FunctionDeclarationIr Function(BytecodeFunction function) => Located(new FunctionDeclarationIr(function.Name, function.IsPure,
       false, true, function.Signatures.Select(signature => new FunctionSignature(signature.InputPattern, Fields(signature.Inputs),
-        signature.OutputPattern, Fields(signature.Outputs))).ToArray(), Block(function.Body)), function.Body);
+        signature.OutputPattern, Fields(signature.Outputs))).ToArray(), Block(function.Body), Metadata(function.Metadata)), function.Body);
     private ExpressionDeclarationIr Expression(BytecodeExpression expression) => Located(new ExpressionDeclarationIr(expression.IsPrelude, false, Block(expression.Function.Body)), expression.Function.Body);
     private BlockStatementIr Block(int offset) {
       var instruction = Instruction(offset);

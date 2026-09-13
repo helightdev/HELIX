@@ -71,7 +71,7 @@ public class HixExpressionContext(HixBackend backend = null, HixStringPool strin
         }
     }
 
-    public override IHixValue InitialParameter(HixCoroutine thread) => thread.Program.Parameters.Count == 0 ? NullHixValue.Instance : new LazyMixinParametersHixValue(thread.Program.Parameters);
+    public override IHixValue InitialParameter(HixCoroutine thread) => thread.Machine.Parameters.Count == 0 ? NullHixValue.Instance : new LazyMixinParametersHixValue(thread.Machine.Parameters);
 
     public override IHixValue ResolveRoot(HixCoroutine thread, string name, HixValueDictionary locals) {
         if (name is not ("local" or "var" or "tar"))

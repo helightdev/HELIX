@@ -198,19 +198,24 @@ public class FunctionDefinition {
   public virtual HixTask<IHixValue> ExecuteAsync(HixCoroutine context, IHixValue[] arguments, int line) => null;
 }
 
+/// <summary>The last lifecycle stage at which an annotation is retained.</summary>
+public enum HixMetadataRetention { Compiler, Bytecode, Runtime }
+
 public class HixFunctionEntry {
 
 
   public HixFunctionEntry(string name, IReadOnlyList<FunctionSignature> signatures, string documentation = null,
-    HixMetadataKind metadata = HixMetadataKind.None) {
+    HixMetadataKind metadata = HixMetadataKind.None,
+    HixMetadataRetention retention = HixMetadataRetention.Compiler) {
     if (signatures is null || signatures.Count == 0) throw new ArgumentException("A function requires at least one signature.", nameof(signatures));
     Name = name; Signatures = signatures;
     var primary = signatures[0]; ArgumentCount = primary.ArgumentCount; IsVariadic = primary.IsVariadic;
     ResultType = primary.ResultType; ArgumentTypes = primary.ArgumentTypes;
     ReceiverType = ArgumentTypes.Count == 0 ? HixValueKind.Any : ArgumentTypes[0];
-    Documentation = documentation ?? ""; Metadata = metadata;
+    Documentation = documentation ?? ""; Metadata = metadata; Retention = retention;
   }
 
+  public HixMetadataRetention Retention { get; }
   public string Name { get; }
   public int ArgumentCount { get; }
   public bool IsVariadic { get; }

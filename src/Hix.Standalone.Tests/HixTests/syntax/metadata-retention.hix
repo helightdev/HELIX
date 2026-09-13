@@ -1,0 +1,10 @@
+compiler meta retention.compile(string text) for function;
+bytecode meta retention.image(string text) for function;
+runtime meta retention.loaded(string text) for function;
+
+%retention.compile<used during compilation>
+%retention.image<retained in compiled descriptors>
+%retention.loaded<retained in loaded descriptors>
+%test
+%testcase(@[], <ok>)
+func metadataRetentionModifiers -> string { return(<ok>) }

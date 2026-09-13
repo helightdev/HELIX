@@ -68,6 +68,8 @@ public sealed class PatternBindingStep : HixCompilerStep {
 
     protected override void VisitRoot(RootExpressionIr root) {
       if (!root.IsSmart) {
+        root.Name = HixUsingImports.Candidates(root.OriginalName, root.UsingImports)
+          .FirstOrDefault(name => functions.ContainsKey(name) || backend.Functions.Resolve(name).Count != 0) ?? root.Name;
         if (functions.TryGetValue(root.Name, out var declarations) && declarations.All(function => function.IsExternal))
           diagnostics.Add(new(root.Line, "External function '" + root.Name + "' has no implementation."));
         root.Binding = new(functions.ContainsKey(root.Name) ? HixReferenceKind.Function : HixReferenceKind.Root, root.Name);
@@ -213,7 +215,24 @@ public sealed class PatternBindingStep : HixCompilerStep {
         diagnostics.Add(new(call.Line, "ambiguous overload of '" + call.Name + "'"));
       else if (call.ArgumentNames.Any(name => name != null))
         diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts the supplied named arguments"));
+      if (functions.TryGetValue(call.Name, out var resolvedDeclarations) && resolvedDeclarations.All(function => function.IsExternal))
+        diagnostics.Add(new(call.Line, "External function '" + call.Name + "' has no implementation."));
       call.Binding = selected;
+      if (call.UsingImports.Count != 0 && InPureScope(call)) {
+        var impure = selected.Function is {IsPure: false} || selected.Backend is {HasEffects: true} ||
+          selected.Kind == HixCallKind.Dynamic &&
+          (functions.TryGetValue(call.Name, out var possibleFunctions) && possibleFunctions.Any(function => !function.IsPure) ||
+           backend.Functions.Resolve(call.Name).Any(function => function.HasEffects));
+        if (impure) diagnostics.Add(new(call.Line, "pure functions cannot invoke impure functions"));
+      }
+    }
+
+    private static bool InPureScope(HixIrNode node) {
+      for (var parent = node.Parent; parent != null; parent = parent.Parent) {
+        if (parent is LambdaExpressionIr) return true;
+        if (parent is FunctionDeclarationIr function) return function.IsPure;
+      }
+      return false;
     }
 
     private HixPattern InferBound(ExpressionIr expression) {

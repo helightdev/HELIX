@@ -44,7 +44,7 @@ public sealed class LanguageAnalysis {
         DeclarationDocumentation("pattern " + type.Name + " = " + type.Pattern.Display, type.Metadata), false));
     foreach (var metadata in Program.Declarations.OfType<MetadataDeclarationIr>())
       facts.Add(new(IdentifierRange(metadata, metadata.Name), "metadata", DeclarationDocumentation(
-        "meta " + metadata.Name + "(" + string.Join(", ", metadata.Arguments.Select(argument =>
+        metadata.Retention.ToString().ToLowerInvariant() + " meta " + metadata.Name + "(" + string.Join(", ", metadata.Arguments.Select(argument =>
           (argument.Variadic ? "%variadic " : "") + argument.Pattern.Display + " " + argument.Name)) + ") for " +
         string.Join(" ", HixMetadataTargets.Names(metadata.Targets)), metadata.Metadata), false));
     foreach (var mixin in Program.Declarations.OfType<MixinDeclarationIr>())
@@ -264,9 +264,18 @@ public sealed class LanguageAnalysis {
     out LanguageAnalysis owner) {
     owner = null;
     if (reference is null) return null;
-    var candidates = (analyses ?? []).SelectMany(analysis => analysis.Declarations
-      .Where(symbol => symbol.Name == reference.Name && Compatible(symbol.Kind, reference.Kind))
-      .Select(symbol => (Analysis: analysis, Symbol: symbol))).ToArray();
+    var available = (analyses ?? []).ToArray();
+    var sourceName = reference.Node switch {
+      CallExpressionIr call => call.OriginalName,
+      RootExpressionIr root => root.OriginalName,
+      _ => reference.Name
+    };
+    var names = reference.Kind is "Function" or "Pattern"
+      ? HixUsingImports.Candidates(sourceName, reference.Node.UsingImports) : [reference.Name];
+    var candidates = names.Select(name => available.SelectMany(analysis => analysis.Declarations
+      .Where(symbol => symbol.Name == name && Compatible(symbol.Kind, reference.Kind))
+      .Select(symbol => (Analysis: analysis, Symbol: symbol))).ToArray())
+      .FirstOrDefault(matches => matches.Length != 0) ?? [];
     if (candidates.Length == 0) return null;
 
     // Prefer the innermost declaration visible at the reference, then declarations in this file,
@@ -420,11 +429,13 @@ public sealed class LanguageAnalysis {
      "tuple" or "table" or "opaque" or "function" or "error" or "kind" or "pattern");
 
   private HixSourceRange IdentifierRange(HixIrNode node, string name) {
+    if (node is RootExpressionIr root && name == root.Name) name = root.OriginalName;
     var token = node.Tokens.FirstOrDefault(item => item.Channel == Antlr4.Runtime.TokenConstants.DefaultChannel && item.Text == name);
     return token != null ? HixSourceRange.FromToken(token) : TextRange(node.SourceRange, name, false);
   }
 
   private HixSourceRange TrailingIdentifierRange(HixIrNode node, string name) {
+    if (node is CallExpressionIr call && name == call.Name) name = call.OriginalName;
     var token = node.Tokens.LastOrDefault(item => item.Channel == Antlr4.Runtime.TokenConstants.DefaultChannel && item.Text == name);
     return token != null ? HixSourceRange.FromToken(token) : TextRange(node.SourceRange, name, true);
   }

@@ -44,7 +44,7 @@ public sealed class HixBytecodeCompiler {
   }
   public HixProgramImage Compile(IReadOnlyList<ExpressionDeclarationIr> expressions,
     IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals,
-    IReadOnlyList<SignatureField> parameters = null) {
+    IReadOnlyList<SignatureField> parameters = null, IReadOnlyList<MetadataIr> mixinMetadata = null) {
     var globalFunctions = globals.Functions.Where(function => !function.IsExternal).Select(Function).ToArray();
     var localFunctions = functions.Where(function => !function.IsExternal).Select(Function).ToArray();
     var derivationBodies = globals.Derivations.Select(declaration => (
@@ -75,16 +75,21 @@ public sealed class HixBytecodeCompiler {
     var global = new LanguageFunctionScope(globalFunctions.Select(MapFunction).ToArray());
     var scope = new LanguageFunctionScope(localFunctions.Select(MapFunction).ToArray(), global);
     var derivations = derivationBodies.Select(item => new BytecodeDerivation(item.Name, item.Line,
-      item.Expressions.Select(MapExpression).ToArray(), new LanguageFunctionScope(item.Functions.Select(MapFunction).ToArray(), global))).ToArray();
+      item.Expressions.Select(MapExpression).ToArray(), new LanguageFunctionScope(item.Functions.Select(MapFunction).ToArray(), global)) {Metadata = HixMetadataCompiler.Compile(globals.Derivations.First(declaration => declaration.Name == item.Name).Metadata)}).ToArray();
     var mappedMarkers = markers.ToDictionary(item => item.Key,
       item => new BytecodeMarker(item.Value.Instruction < offsets.Length
         ? offsets[item.Value.Instruction]
         : bytes.Length, item.Value.Line, item.Value.Type), StringComparer.Ordinal);
     return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope,
-      globals.Patterns, globals.Backend, Fields(parameters), mappedMarkers);
+      globals.Patterns, globals.Backend, Fields(parameters), mappedMarkers,
+      HixMetadataCompiler.Compile(globals.Metadata),
+      globals.MetadataDefinitions.Where(definition => definition.Retention != HixMetadataRetention.Compiler)
+        .Select(definition => new BytecodeMetadataDefinition(definition.Name, Fields(definition.Arguments), definition.Targets, definition.Retention)).ToArray(),
+      globals.Types.ToDictionary(type => type.Name, type => HixMetadataCompiler.Compile(type.Metadata), StringComparer.Ordinal),
+      HixMetadataCompiler.Compile(mixinMetadata ?? []));
   }
   private BytecodeExpression Expression(ExpressionDeclarationIr expression) =>
-    new(new BytecodeFunction("", false, [], EntryBlock(expression.Body)), expression.IsPrelude, expression.Line);
+    new(new BytecodeFunction("", false, [], EntryBlock(expression.Body)) {Metadata = HixMetadataCompiler.Compile([HixMetadataCompiler.Synthetic()])}, expression.IsPrelude, expression.Line);
   private BytecodeFunction Function(FunctionDeclarationIr function) {
     var start = EntryBlock(function.Body);
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(
@@ -92,11 +97,11 @@ public sealed class HixBytecodeCompiler {
         DeclarationSignature = function.TypeParameters.Count != 0 || signature.TypeParameters.Count != 0 || signature.Constant(function.Name).Parameters.Any(field =>
           HixGenericTypes.RequiresErasure(field.Pattern)) || HixGenericTypes.RequiresErasure(signature.Constant(function.Name).Result)
           ? HixGenericTypes.SignatureIdentity(signature.Constant(function.Name)) : null
-      }).ToArray(), start);
+      }).ToArray(), start) {Metadata = HixMetadataCompiler.Compile(function.Metadata)};
   }
   private IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
     fields?.Select(field => new BytecodeField(field.Name, HixGenericTypes.ErasePattern(field.Pattern), field.Variadic, field.Optional,
-      field.DefaultValue == null ? null : DefaultValue(field.DefaultValue))).ToArray();
+      field.DefaultValue == null ? null : DefaultValue(field.DefaultValue)) {Metadata = HixMetadataCompiler.Compile(field.Metadata)}).ToArray();
   private static IHixValue DefaultValue(ExpressionIr value) => value switch {
     StringExpressionIr text => new LiteralHixValue(HixString.Dynamic(text.Value)),
     NumberExpressionIr number => new NumberHixValue(number.Value),

@@ -561,6 +561,12 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitMixinModifier([NotNull] HixParser.MixinModifierContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.metaModifier"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMetaModifier([NotNull] HixParser.MetaModifierContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.funcModifier"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

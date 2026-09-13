@@ -539,6 +539,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitMixinModifier(HixParser.MixinModifierContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#metaModifier}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitMetaModifier(HixParser.MetaModifierContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#funcModifier}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

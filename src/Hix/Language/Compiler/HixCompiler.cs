@@ -45,10 +45,13 @@ public static class HixCompiler {
       PatternConstructorCompiler.Compile(item.Key, item.Value, patterns))).ToArray();
     // The functions are the module being prepared here. Supplying them as catalog imports as well
     // duplicates every overload and prevents unique static binding (notably named-argument ordering).
-    var prepared = new HixCompilerCatalog(strings.Freeze(), [], derivations, backend, patterns);
+    var metadataDefinitions = declarations.OfType<MetadataDeclarationIr>().ToArray();
+    var metadata = syntax.SelectMany(unit => unit.Metadata).ToArray();
+    var types = declarations.OfType<TypeDeclarationIr>().ToArray();
+    var prepared = new HixCompilerCatalog(strings.Freeze(), [], derivations, backend, patterns, metadataDefinitions, metadata, types);
     var compiled = new HixModuleIr([], [], functions);
     compiled = RunSteps(compiled, prepared);
-    prepared = new HixCompilerCatalog(prepared.StringPool, compiled.Functions, derivations, backend, patterns);
+    prepared = new HixCompilerCatalog(prepared.StringPool, compiled.Functions, derivations, backend, patterns, metadataDefinitions, metadata, types);
     var compiledDerivations = derivations.Select(derivation => {
       var body = PrepareIr(derivation, prepared);
       var declarations = body.Prelude.Cast<HixIrNode>().Concat(body.Late).Concat(body.Functions).ToArray();
@@ -57,7 +60,7 @@ public static class HixCompiler {
         Tokens = derivation.Tokens
       };
     }).ToArray();
-    return new HixCompilerCatalog(prepared.StringPool, compiled.Functions, compiledDerivations, backend, patterns);
+    return new HixCompilerCatalog(prepared.StringPool, compiled.Functions, compiledDerivations, backend, patterns, metadataDefinitions, metadata, types);
   }
 
   private static bool ResolvedPatternDiagnostic(string message, ISet<string> patterns) {
@@ -82,7 +85,7 @@ public static class HixCompiler {
     var compiled = PrepareIr(declaration, globals);
     var expressions = prelude == true ? compiled.Prelude : prelude == false ? compiled.Late
       : compiled.Prelude.Concat(compiled.Late).ToArray();
-    return CreateProgram(expressions, compiled.Functions, globals, compiled.Parameters);
+    return CreateProgram(expressions, compiled.Functions, globals, compiled.Parameters, declaration.Metadata);
   }
 
   public static HixProgramImage Compile(string source, string mixinName, HixBackend backend = null) =>
@@ -100,15 +103,15 @@ public static class HixCompiler {
     MixinDeclarationIr declaration, HixCompilerCatalog globals) {
     using var profile = HixCompilerProfiler.Measure("compiler.prepare_programs");
     var compiled = PrepareIr(declaration, globals);
-    var program = CreateProgram(compiled.Prelude.Concat(compiled.Late).ToArray(), compiled.Functions, globals, compiled.Parameters);
+    var program = CreateProgram(compiled.Prelude.Concat(compiled.Late).ToArray(), compiled.Functions, globals, compiled.Parameters, declaration.Metadata);
     return (program.ForPass(true), program.ForPass(false));
   }
 
   private static HixProgramImage CreateProgram(IReadOnlyList<ExpressionDeclarationIr> expressions,
     IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals,
-    IReadOnlyList<SignatureField> parameters = null) {
+    IReadOnlyList<SignatureField> parameters = null, IReadOnlyList<MetadataIr> mixinMetadata = null) {
     using var profile = HixCompilerProfiler.Measure("compiler.bytecode");
-    return new HixBytecodeCompiler(globals.StringPool).Compile(expressions, functions, globals, parameters);
+    return new HixBytecodeCompiler(globals.StringPool).Compile(expressions, functions, globals, parameters, mixinMetadata);
   }
 
   public static HixModuleIr PrepareIr(MixinDeclarationIr declaration, HixCompilerCatalog globals) {

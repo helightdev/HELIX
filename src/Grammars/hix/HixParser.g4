@@ -29,7 +29,7 @@ mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier patternParameterL
 
 typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression SEMICOLON?;
 
-metaDeclaration: KEYWORD_META IDENTIFIER patternParameterList KEYWORD_FOR metaTarget (COMMA? metaTarget)* SEMICOLON;
+metaDeclaration: metaModifier* KEYWORD_META IDENTIFIER patternParameterList KEYWORD_FOR metaTarget (COMMA? metaTarget)* SEMICOLON;
 metaTarget: IDENTIFIER | KEYWORD_TYPE | KEYWORD_MIXIN | KEYWORD_EXPRESSION;
 
 mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
@@ -287,6 +287,7 @@ kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 // Modifiers
 expressionModifier: KEYWORD_PRELUDE | KEYWORD_STRICT;
 mixinModifier: KEYWORD_DERIVATION;
+metaModifier: KEYWORD_COMPILER | KEYWORD_BYTECODE | KEYWORD_RUNTIME;
 funcModifier: KEYWORD_PURE | KEYWORD_NOINLINE | KEYWORD_INLINE;
 
 // Common

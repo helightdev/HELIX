@@ -21,6 +21,7 @@ public sealed class HixVM : IDisposable {
     // Loaded code and lookup maps are immutable; shared buffers and worker queues are synchronized.
     private static readonly ConditionalWeakTable<HixProgramImage, HixVM> loadedImages = new();
     private readonly HixProgramImage image;
+    private readonly Dictionary<LanguageFunctionScope, LanguageFunctionScope> loadedScopes = new();
     private readonly Dictionary<(BytecodeFunction Function, LanguageFunctionScope Scope), BytecodeFunctionEntry> functionMap = new();
     private readonly Dictionary<(LanguageFunctionScope Scope, string Name), IReadOnlyList<LanguageFunctionCandidate>> candidates = new();
 
@@ -34,13 +35,45 @@ public sealed class HixVM : IDisposable {
         image = distinct[0];
         Backend = image.Backend;
         StringPool = image.StringPool;
-        Patterns = image.Patterns;
-        Functions = image.Functions;
-        foreach (var entry in Functions)
-            functionMap[(entry.Function, entry.Scope)] = entry;
-        foreach (var scope in Functions.Select(entry => entry.Scope).Append(image.Scope).Distinct())
-            foreach (var group in scope.AllCandidates().GroupBy(candidate => candidate.Function.Name, StringComparer.Ordinal))
-                candidates[(scope, group.Key)] = Array.AsReadOnly(group.ToArray());
+        Patterns = image.Patterns.ToDictionary(item => item.Key, item => HixMetadataCompiler.Runtime(item.Value));
+        Metadata = HixMetadataCompiler.Runtime(image.Metadata);
+        MixinMetadata = HixMetadataCompiler.Runtime(image.MixinMetadata);
+        MetadataDefinitions = image.MetadataDefinitions.Where(definition => definition.Retention == HixMetadataRetention.Runtime)
+            .Select(definition => definition with {Arguments = definition.Arguments.Select(HixMetadataCompiler.Runtime).ToArray()}).ToArray();
+        TypeMetadata = image.TypeMetadata.ToDictionary(item => item.Key, item => HixMetadataCompiler.Runtime(item.Value));
+        Parameters = image.Parameters.Select(HixMetadataCompiler.Runtime).ToArray();
+        var loadedFunctions = new Dictionary<BytecodeFunction, BytecodeFunction>();
+        BytecodeFunction LoadFunction(BytecodeFunction function) {
+            if (!loadedFunctions.TryGetValue(function, out var loaded))
+                loadedFunctions.Add(function, loaded = HixMetadataCompiler.Runtime(function));
+            return loaded;
+        }
+        LanguageFunctionScope LoadScope(LanguageFunctionScope scope) {
+            if (scope == null) return null;
+            if (!loadedScopes.TryGetValue(scope, out var loaded)) {
+                loaded = new LanguageFunctionScope(scope.Functions(false).Select(entry => LoadFunction(entry.Function)), LoadScope(scope.Parent));
+                loaded.Attach(image);
+                loadedScopes.Add(scope, loaded);
+            }
+            return loaded;
+        }
+        LoadScope(image.Scope);
+        Functions = Array.AsReadOnly(image.Functions.Select(entry => {
+            var loaded = new BytecodeFunctionEntry(LoadFunction(entry.Function), LoadScope(entry.Scope));
+            functionMap[(entry.Function, entry.Scope)] = loaded;
+            functionMap[(loaded.Function, loaded.Scope)] = loaded;
+            return loaded;
+        }).ToArray());
+        Derivations = image.Derivations.Select(derivation => derivation with {
+            Scope = LoadScope(derivation.Scope), Metadata = HixMetadataCompiler.Runtime(derivation.Metadata),
+            Expressions = derivation.Expressions.Select(expression => expression with {Function = LoadFunction(expression.Function)}).ToArray()
+        }).ToArray();
+        foreach (var pair in loadedScopes)
+            foreach (var group in pair.Value.AllCandidates().GroupBy(candidate => candidate.Function.Name, StringComparer.Ordinal)) {
+                var entries = Array.AsReadOnly(group.ToArray());
+                candidates[(pair.Key, group.Key)] = entries;
+                candidates[(pair.Value, group.Key)] = entries;
+            }
         ConstantPool = LoadConstants(image);
         workers = new HixThread[workerCount];
         for (var index = 0; index < workers.Length; index++)
@@ -55,7 +88,13 @@ public sealed class HixVM : IDisposable {
     public IReadOnlyList<IHixValue> ConstantPool { get; }
     public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
     public IReadOnlyList<BytecodeFunctionEntry> Functions { get; }
-    internal LanguageFunctionScope GlobalScope => image.Scope;
+    public IReadOnlyList<BytecodeMetadata> Metadata { get; }
+    public IReadOnlyList<BytecodeMetadata> MixinMetadata { get; }
+    public IReadOnlyList<BytecodeMetadataDefinition> MetadataDefinitions { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<BytecodeMetadata>> TypeMetadata { get; }
+    public IReadOnlyList<BytecodeField> Parameters { get; }
+    public IReadOnlyList<BytecodeDerivation> Derivations { get; }
+    internal LanguageFunctionScope GlobalScope => loadedScopes[image.Scope];
 
     public HixCoroutine CreateCoroutine(HixProgramImage program, HixContext context = null, string function = "main", params IHixValue[] arguments) {
         return CreateCoroutine(program, new NamedFunctionHixValue(HixString.Dynamic(function)), context, arguments);
@@ -237,7 +276,7 @@ public sealed class HixVM : IDisposable {
             if (constants[index] is not FunctionReferenceHixValue reference)
                 continue;
             var signature = reference.Signature;
-            var owner = scopes[index] ?? program.Scope;
+            var owner = loadedScopes[scopes[index] ?? program.Scope];
             var key = (owner, signature.Display + (reference.DeclarationSignature == null ? "" : "|" + reference.DeclarationSignature));
             if (resolved.TryGetValue(key, out var cached)) {
                 constants[index] = cached;

@@ -18,6 +18,7 @@ public abstract class HixIrNode {
     Children = children;
   }
 
+  public IReadOnlyList<HixUsingImport> UsingImports { get; set; } = [];
   public int Line => SourceRange.Line;
   public HixSourceRange SourceRange {
     get {
@@ -64,7 +65,10 @@ public sealed class MetadataIr(string name, IReadOnlyList<ExpressionIr> values) 
   public string Name { get; } = name;
   public IReadOnlyList<ExpressionIr> Values { get; } = values;
   public bool IsPatternDirective { get; set; }
+  public HixMetadataRetention Retention { get; set; } = HixMetadataRetention.Compiler;
 }
+
+public sealed record HixUsingImport(string Prefix, string Alias = null);
 
 public sealed record HixParseDiagnostic(int Line, string Message);
 
@@ -157,11 +161,13 @@ public sealed record FunctionSignature {
 }
 
 public sealed class MetadataDeclarationIr(string name, IReadOnlyList<SignatureField> arguments,
-  HixMetadataKind targets, IReadOnlyList<MetadataIr> metadata = null)
+  HixMetadataKind targets, IReadOnlyList<MetadataIr> metadata = null,
+  HixMetadataRetention retention = HixMetadataRetention.Compiler)
   : HixIrNode(children: (metadata ?? []).Cast<HixIrNode>().Concat(arguments.SelectMany(argument => argument.Metadata)).ToArray()) {
   public string Name { get; } = name;
   public IReadOnlyList<SignatureField> Arguments { get; } = arguments;
   public HixMetadataKind Targets { get; } = targets;
+  public HixMetadataRetention Retention { get; } = retention;
   public IReadOnlyList<MetadataIr> Metadata { get; } = metadata ?? [];
   public Hix.FunctionSignature Signature { get; } = new(new KindHixPattern(HixValueKind.Pattern),
     arguments.Select(argument => argument.Pattern).ToArray(), arguments.LastOrDefault()?.Variadic == true,
@@ -259,7 +265,8 @@ public sealed class MissingExpressionIr : ExpressionIr;
 public sealed class SelectorExpressionIr : ExpressionIr;
 
 public sealed class RootExpressionIr(string name, bool smart = false) : ExpressionIr {
-  public string Name { get; } = name;
+  public string OriginalName { get; set; } = name;
+  public string Name { get; set; } = name;
   public bool IsSmart { get; } = smart;
   public HixReferenceBinding Binding { get; set; } = HixReferenceBinding.Unbound;
 }
@@ -276,7 +283,8 @@ public sealed record HixCallConstraint(HixCallKind Kind, string Signature = null
 public sealed class CallExpressionIr(string name, IReadOnlyList<ExpressionIr> arguments,
   bool coerceBoolean = false, HixCallBinding binding = null, IReadOnlyList<string> argumentNames = null
 ) : ExpressionIr(arguments) {
-  public string Name { get; } = name;
+  public string OriginalName { get; set; } = name;
+  public string Name { get; set; } = name;
   public IReadOnlyList<ExpressionIr> Arguments { get; } = arguments;
   public bool CoerceBoolean { get; } = coerceBoolean;
   public HixCallBinding Binding { get; set; } = binding ?? HixCallBinding.Unbound;

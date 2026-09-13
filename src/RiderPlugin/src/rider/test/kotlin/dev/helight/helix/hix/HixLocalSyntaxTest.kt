@@ -9,6 +9,34 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `metadata declarations accept retention modifiers`() {
+        val parsed = HixAntlrSyntax.parse(
+            "compiler meta erased(string text) for type;\n" +
+                "bytecode meta transient(string text) for function;\n" +
+                "runtime meta retained(string text) for function;\n" +
+                "%synthetic pure func generated -> number => 1;"
+        )
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(listOf("compiler", "bytecode", "runtime"),
+            HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.MetaModifierContext>().map { it.text }.toList())
+        for (token in listOf(HixLexer.KEYWORD_COMPILER, HixLexer.KEYWORD_BYTECODE, HixLexer.KEYWORD_RUNTIME)) {
+            assertSame(HixColors.KEYWORD,
+                HixSyntaxHighlighter(null).getTokenHighlights(HelixAntlrTypes.tokens[token]).single())
+        }
+    }
+
+    @Test
+    fun `namespace identifiers work in declarations values and metadata`() {
+        val parsed = HixAntlrSyntax.parse(
+            "%using<path><p>\n---\nmeta docs.title(string text) for function;\n" +
+                "type path.Text = string;\n%docs.title<Join>\n" +
+                "pure func path.join(path.Text first) -> path.Text => ${'$'}first;\n" +
+                "pure func main -> string { local value = <a> return(${'$'}value:p.join()) }"
+        )
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+    }
+
+    @Test
     fun `nested callable patterns in external function parameters parse locally`() {
         val parsed = HixAntlrSyntax.parse(
             "%generic<T> func spawn(delegate() -> T callback) -> %task<T> any external hostSpawn;\n" +

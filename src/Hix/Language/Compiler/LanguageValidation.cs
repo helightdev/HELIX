@@ -11,6 +11,9 @@ public static class LanguageValidation {
     var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
     var metadataSignatures = new Dictionary<string, HixMetadataKind>(StringComparer.Ordinal);
+    foreach (var group in declarations.OfType<MetadataDeclarationIr>().GroupBy(metadata => metadata.Name))
+      if (group.Select(metadata => metadata.Retention).Distinct().Count() > 1)
+        Error(group.First(), "metadata overloads must use the same retention modifier");
     foreach (var metadata in declarations.OfType<MetadataDeclarationIr>()) {
       var key = metadata.Name + "(" + string.Join(",", metadata.Arguments.Select(argument =>
         (argument.Variadic ? "..." : "") + argument.Pattern.Display)) + ")";
@@ -58,6 +61,8 @@ public static class LanguageValidation {
             Error(node, "pure functions cannot mutate shared storage");
           if (node is RootExpressionIr {IsSmart: false} root && (root.Name is "var" or "tar" || backend.Roots.TryGetValue(root.Name, out var hostRoot) && hostRoot.HasEffects))
             Error(node, "pure functions cannot read host or shared storage");
+          // Imported calls are checked against their resolved target by PatternBindingStep.
+          if (node is CallExpressionIr {UsingImports.Count: > 0}) continue;
           if (node is CallExpressionIr call && !visible.Any(candidate => candidate.Name == call.Name) &&
               backend.Functions.Resolve(call.Name, call.Arguments.Count).Any(definition => definition.HasEffects))
             Error(node, "pure functions cannot perform '" + call.Name + "'");

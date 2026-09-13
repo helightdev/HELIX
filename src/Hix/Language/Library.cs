@@ -33,7 +33,7 @@ public sealed class FunctionLibrary {
         if (declaration is MetadataDeclarationIr metadata) {
           entries.Add(new HixFunctionEntry(metadata.Name, [metadata.Signature], string.Join("\n",
             metadata.Metadata.Where(item => item.Name is "description" or "doc").SelectMany(item => item.Values)
-              .OfType<StringExpressionIr>().Select(item => item.Value)), metadata.Targets));
+              .OfType<StringExpressionIr>().Select(item => item.Value)), metadata.Targets, metadata.Retention));
           continue;
         }
         if (declaration is not FunctionDeclarationIr {IsExternal: true} function || function.Signatures.Count == 0)
@@ -52,9 +52,9 @@ public sealed class FunctionLibrary {
         throw new InvalidOperationException("Host handler '" + handler.Name + "' has no external Hix declaration.");
     ValidateMetadata(entries);
     Definitions = new FunctionSignatureRegistry(entries.Where(entry => entry is not LibraryFunction && entry.Metadata == HixMetadataKind.None)
-      .Concat(entries.Where(entry => entry.Metadata != HixMetadataKind.None).GroupBy(entry => (entry.Name, entry.Metadata))
+      .Concat(entries.Where(entry => entry.Metadata != HixMetadataKind.None).GroupBy(entry => (entry.Name, entry.Metadata, entry.Retention))
         .Select(group => new HixFunctionEntry(group.Key.Name, group.SelectMany(entry => entry.Signatures).ToArray(),
-          group.First().Documentation, group.Key.Metadata))).Concat(
+          group.First().Documentation, group.Key.Metadata, group.Key.Retention))).Concat(
       entries.OfType<LibraryFunction>().GroupBy(entry => (entry.Name, entry.Handler, entry.HasEffects, entry.Metadata, entry.RequiresPrelude))
         .Select(group => new LibraryFunction(group.ToArray()))));
   }
@@ -115,7 +115,11 @@ public sealed class FunctionLibrary {
   }
 
   private static void ValidateMetadata(IEnumerable<HixFunctionEntry> definitions) {
-    foreach (var definition in definitions) {
+    var entries = definitions.ToArray();
+    foreach (var group in entries.Where(entry => entry.Metadata != HixMetadataKind.None).GroupBy(entry => entry.Name))
+      if (group.Select(entry => entry.Retention).Distinct().Count() > 1)
+        throw new InvalidOperationException("Metadata overloads '" + group.Key + "' must use the same retention modifier.");
+    foreach (var definition in entries) {
       if (definition.Signatures is null || definition.Signatures.Count == 0 ||
         definition.Signatures.Any(signature => signature.ArgumentTypes is null))
         throw new InvalidOperationException("Function ':" + definition.Name + "' must provide language metadata.");

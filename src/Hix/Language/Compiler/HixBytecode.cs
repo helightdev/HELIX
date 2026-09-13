@@ -167,12 +167,17 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
   }
 }
 
+public sealed record BytecodeMetadata(string Name, IReadOnlyList<IHixValue> Values, HixMetadataRetention Retention);
+public sealed record BytecodeMetadataDefinition(string Name, IReadOnlyList<BytecodeField> Arguments,
+  HixMetadataKind Targets, HixMetadataRetention Retention);
+
 public sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false,
   IHixValue DefaultValue = null) {
+  public IReadOnlyList<BytecodeMetadata> Metadata { get; init; } = [];
   public string Kind => Pattern.Display;
   public bool HasDefault => DefaultValue != null;
   public bool AllowsMissing => Optional || HasDefault;
-  public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault);
+  public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault) {Metadata = Metadata};
 }
 
 public sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<BytecodeField> Inputs,
@@ -188,7 +193,9 @@ public sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<By
 
 public sealed record BytecodeFunction(string Name, bool IsPure, IReadOnlyList<BytecodeSignature> Signatures,
   int Body
-);
+) {
+  public IReadOnlyList<BytecodeMetadata> Metadata { get; init; } = [];
+}
 
 /// <summary>Pass metadata only. Executable bodies are ordinary anonymous functions.</summary>
 public sealed record BytecodeExpression(BytecodeFunction Function, bool IsPrelude, int Line);
@@ -196,7 +203,9 @@ public sealed record BytecodeMarker(int Offset, int Line, string Type);
 
 public sealed record BytecodeDerivation(string Name, int Line, IReadOnlyList<BytecodeExpression> Expressions,
   LanguageFunctionScope Scope
-);
+) {
+  public IReadOnlyList<BytecodeMetadata> Metadata { get; init; } = [];
+}
 
 /// <summary>A function and its lexical owner, independent of how the function is entered.</summary>
 public sealed record BytecodeFunctionEntry(BytecodeFunction Function, LanguageFunctionScope Scope);
@@ -215,13 +224,21 @@ public sealed class HixProgramImage {
   public IReadOnlyList<BytecodeField> Parameters { get; }
   public HixBackend Backend { get; }
   public IReadOnlyDictionary<string, BytecodeMarker> Markers { get; }
+  public IReadOnlyList<BytecodeMetadata> Metadata { get; }
+  public IReadOnlyList<BytecodeMetadata> MixinMetadata { get; }
+  public IReadOnlyList<BytecodeMetadataDefinition> MetadataDefinitions { get; }
+  public IReadOnlyDictionary<string, IReadOnlyList<BytecodeMetadata>> TypeMetadata { get; }
 
   public HixProgramImage(
     byte[] code, Dictionary<int, int> sourceLines, IHixValue[] constants, HixStringPool strings,
     IReadOnlyList<BytecodeExpression> expressions, IReadOnlyList<BytecodeDerivation> derivations,
     LanguageFunctionScope scope, IReadOnlyDictionary<string, HixPattern> patterns,
     HixBackend backend, IReadOnlyList<BytecodeField> parameters = null,
-    IReadOnlyDictionary<string, BytecodeMarker> markers = null
+    IReadOnlyDictionary<string, BytecodeMarker> markers = null,
+    IReadOnlyList<BytecodeMetadata> metadata = null,
+    IReadOnlyList<BytecodeMetadataDefinition> metadataDefinitions = null,
+    IReadOnlyDictionary<string, IReadOnlyList<BytecodeMetadata>> typeMetadata = null,
+    IReadOnlyList<BytecodeMetadata> mixinMetadata = null
   ) {
     Bytecode = Array.AsReadOnly((byte[])code.Clone());
     SourceLines = new ReadOnlyDictionary<int, int>(new Dictionary<int, int>(sourceLines));
@@ -233,6 +250,10 @@ public sealed class HixProgramImage {
     Patterns = patterns;
     Parameters = parameters ?? [];
     Backend = backend;
+    Metadata = metadata ?? [];
+    MixinMetadata = mixinMetadata ?? [];
+    MetadataDefinitions = metadataDefinitions ?? [];
+    TypeMetadata = typeMetadata ?? new Dictionary<string, IReadOnlyList<BytecodeMetadata>>();
     Markers = new ReadOnlyDictionary<string, BytecodeMarker>((markers ?? new Dictionary<string, BytecodeMarker>())
       .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal));
     scope.Attach(this);
@@ -258,6 +279,10 @@ public sealed class HixProgramImage {
     Parameters = image.Parameters;
     Backend = image.Backend;
     Markers = image.Markers;
+    Metadata = image.Metadata;
+    MixinMetadata = image.MixinMetadata;
+    MetadataDefinitions = image.MetadataDefinitions;
+    TypeMetadata = image.TypeMetadata;
   }
 
   public HixProgramImage ForPass(bool prelude) => new(this, prelude);
@@ -282,6 +307,7 @@ public sealed class HixProgramImage {
     builder.Append(Expressions.Count);
     foreach (var entry in Expressions) {
       builder.Append(entry.Function.Body);
+      HixMetadataCompiler.Fingerprint(builder, entry.Function.Metadata);
       builder.Append(entry.IsPrelude);
       builder.Append(entry.Line);
     }
@@ -289,10 +315,12 @@ public sealed class HixProgramImage {
     foreach (var derivation in Derivations) {
       builder.Append(derivation.Name);
       builder.Append(derivation.Line);
+      HixMetadataCompiler.Fingerprint(builder, derivation.Metadata);
       AppendScopeIdentity(builder, derivation.Scope);
       builder.Append(derivation.Expressions.Count);
       foreach (var entry in derivation.Expressions) {
         builder.Append(entry.Function.Body);
+        HixMetadataCompiler.Fingerprint(builder, entry.Function.Metadata);
         builder.Append(entry.IsPrelude);
         builder.Append(entry.Line);
       }
@@ -301,6 +329,7 @@ public sealed class HixProgramImage {
     foreach (var pattern in Patterns.OrderBy(item => item.Key, StringComparer.Ordinal)) {
       builder.Append(pattern.Key);
       builder.Append(pattern.Value.Display);
+      HixMetadataCompiler.FingerprintPattern(builder, pattern.Value);
     }
     builder.Append(Markers.Count);
     foreach (var marker in Markers.OrderBy(item => item.Key, StringComparer.Ordinal)) {
@@ -308,6 +337,15 @@ public sealed class HixProgramImage {
       builder.Append(marker.Value.Offset);
       builder.Append(marker.Value.Line);
       builder.Append(marker.Value.Type);
+    }
+    HixMetadataCompiler.Fingerprint(builder, Metadata);
+    HixMetadataCompiler.Fingerprint(builder, MixinMetadata);
+    foreach (var definition in MetadataDefinitions) {
+      builder.Append(definition.Name); builder.Append((int)definition.Retention); builder.Append((int)definition.Targets);
+      AppendFieldsIdentity(builder, definition.Arguments);
+    }
+    foreach (var entry in TypeMetadata.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+      builder.Append(entry.Key); HixMetadataCompiler.Fingerprint(builder, entry.Value);
     }
     AppendFieldsIdentity(builder, Parameters);
     return builder.Hash.ToString("X16", CultureInfo.InvariantCulture) + ":" +
@@ -320,10 +358,13 @@ public sealed class HixProgramImage {
       builder.Append(item.Function.Name);
       builder.Append(item.Function.Body);
       builder.Append(item.Function.IsPure);
+      HixMetadataCompiler.Fingerprint(builder, item.Function.Metadata);
       builder.Append(item.Function.Signatures.Count);
       foreach (var signature in item.Function.Signatures) {
         builder.Append(signature.InputKind);
         builder.Append(signature.OutputKind);
+        HixMetadataCompiler.FingerprintPattern(builder, signature.InputPattern);
+        HixMetadataCompiler.FingerprintPattern(builder, signature.OutputPattern);
         if (signature.DeclarationSignature != null) builder.Append(signature.DeclarationSignature);
         AppendFieldsIdentity(builder, signature.Inputs);
         AppendFieldsIdentity(builder, signature.Outputs);
@@ -337,9 +378,11 @@ public sealed class HixProgramImage {
     foreach (var field in fields) {
       builder.Append(field.Name);
       builder.Append(field.Kind);
+      HixMetadataCompiler.FingerprintPattern(builder, field.Pattern);
       builder.Append(field.Variadic);
       builder.Append(field.Optional);
       builder.Append(field.DefaultValue?.ToString());
+      HixMetadataCompiler.Fingerprint(builder, field.Metadata);
     }
   }
 

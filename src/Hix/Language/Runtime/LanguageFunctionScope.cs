@@ -18,6 +18,7 @@ public sealed class LanguageFunctionScope {
             candidates.Add(name, BuildCandidates(name).ToArray());
     }
 
+    internal LanguageFunctionScope Parent => parent;
     public HixProgramImage Program { get; private set; }
 
     public IReadOnlyList<LanguageFunctionCandidate> Candidates(string name) => candidates.TryGetValue(name, out var result) ? result : Array.Empty<LanguageFunctionCandidate>();
@@ -63,6 +64,7 @@ public sealed class LanguageFunctionScope {
             foreach (var function in group.Value) {
                 builder.Append(function.Body);
                 builder.Append(function.IsPure ? 1 : 0);
+                HixMetadataCompiler.Fingerprint(builder, function.Metadata);
                 foreach (var signature in function.Signatures) {
                     builder.Append(signature.InputKind);
                     builder.Append(signature.OutputKind);
@@ -70,6 +72,7 @@ public sealed class LanguageFunctionScope {
                         builder.Append(field.Name);
                         builder.Append(field.Kind);
                         builder.Append(field.Variadic);
+                        HixMetadataCompiler.Fingerprint(builder, field.Metadata);
                     }
                 }
             }

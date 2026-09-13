@@ -39,6 +39,14 @@ public static class AntlrSyntax {
     var builder = new IrBuilder(tokens, diagnostics, backend ?? HixCoreBackend.Instance, source);
     var declarationContexts = tree.topLevelDeclaration()
       .Where(context => !recoverValidDeclarations || !HasSyntaxError(context)).ToArray();
+    var metadata = (diagnostics.Count == 0 || recoverValidDeclarations) &&
+      tree.fileMetadataSection() is { } section && !HasSyntaxError(section)
+      ? section.metadataList().metadata().Select(value => (MetadataIr)builder.Visit(value)).ToArray()
+      : Array.Empty<MetadataIr>();
+    var imports = HixUsingImports.Read(metadata, diagnostics);
+    builder.UsingImports = imports;
+    builder.DeclaredTypes = declarationContexts.Where(context => context.typeDeclaration() != null)
+      .Select(context => context.typeDeclaration().IDENTIFIER().GetText()).ToArray();
     var metaDeclarations = new Dictionary<Parser.TopLevelDeclarationContext, HixIrNode>();
     if (diagnostics.Count == 0 || recoverValidDeclarations) {
       foreach (var context in declarationContexts.Where(context => context.metaDeclaration() != null)) {
@@ -50,11 +58,13 @@ public static class AntlrSyntax {
     var declarations = diagnostics.Count == 0 || recoverValidDeclarations
       ? declarationContexts.Select(context => metaDeclarations.TryGetValue(context, out var declaration) ? declaration : builder.Visit(context)).ToArray()
       : Array.Empty<HixIrNode>();
-    var metadata = (diagnostics.Count == 0 || recoverValidDeclarations) &&
-      tree.fileMetadataSection() is { } section && !HasSyntaxError(section)
-      ? section.metadataList().metadata().Select(value => (MetadataIr)builder.Visit(value)).ToArray()
-      : Array.Empty<MetadataIr>();
+
+    foreach (var item in metadata) {
+      var definition = builder.MetadataDefinitions.FirstOrDefault(definition => definition.Name == item.Name);
+      if (definition != null) item.Retention = definition.Retention;
+    }
     ValidateMetadata(metadata, HixMetadataKind.File, "file", backend ?? HixCoreBackend.Instance, diagnostics, builder.MetadataDefinitions);
+    foreach (var node in declarations.SelectMany(DescendantsAndSelf)) node.UsingImports = imports;
     foreach (var statement in declarations.SelectMany(DescendantsAndSelf).OfType<StatementIr>()) {
       var declaration = statement is AssignmentStatementIr {IsDeclaration: true};
       ValidateMetadata(statement.Metadata, declaration
@@ -135,11 +145,13 @@ public static class AntlrSyntax {
 
   private sealed class IrBuilder(IReadOnlyList<IToken> tokens, List<HixParseDiagnostic> diagnostics, HixBackend backend, string source)
     : Generated.HixParserBaseVisitor<HixIrNode> {
+    public IReadOnlyList<HixUsingImport> UsingImports { get; set; } = [];
+    public IReadOnlyList<string> DeclaredTypes { get; set; } = [];
     private IReadOnlyList<MetadataIr> declarationMetadata = [];
     private readonly List<HixFunctionEntry> metadataDefinitions = [];
     public IReadOnlyList<HixFunctionEntry> MetadataDefinitions => metadataDefinitions;
     public void RegisterMetadata(MetadataDeclarationIr declaration) => metadataDefinitions.Add(
-      new HixFunctionEntry(declaration.Name, [declaration.Signature], metadata: declaration.Targets));
+      new HixFunctionEntry(declaration.Name, [declaration.Signature], metadata: declaration.Targets, retention: declaration.Retention));
     private IReadOnlyList<HixFunctionEntry> ResolveMetadata(string name, HixMetadataKind target, int? count = null) =>
       backend.Functions.ResolveMetadata(name, target).Concat(MetadataDefinitions.Where(definition =>
         definition.Name == name && (definition.Metadata & target) != 0))
@@ -217,11 +229,26 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitMetadata(Parser.MetadataContext context) {
       if (context.metadataValue() is { } anonymous) return Visit(anonymous);
-      return At(new MetadataIr(context.IDENTIFIER().GetText(), context.argumentValue().Select(Value)
-        .Concat(Arguments(context.valueList())).ToArray()), context);
+      var originalName = context.IDENTIFIER().GetText();
+      var name = HixUsingImports.Candidates(originalName, UsingImports).FirstOrDefault(candidate =>
+        backend.Functions.EnumerateAll().Any(definition => definition.Name == candidate && definition.Metadata != HixMetadataKind.None) ||
+        MetadataDefinitions.Any(definition => definition.Name == candidate)) ?? originalName;
+      var retention = MetadataDefinitions.FirstOrDefault(definition => definition.Name == name)?.Retention ??
+        backend.Functions.EnumerateAll().FirstOrDefault(definition => definition.Name == name && definition.Metadata != HixMetadataKind.None)?.Retention ??
+        HixMetadataRetention.Compiler;
+      return At(new MetadataIr(name, context.argumentValue().Select(Value)
+        .Concat(Arguments(context.valueList())).ToArray()) {Retention = retention}, context);
     }
 
     public override HixIrNode VisitMetaDeclaration(Parser.MetaDeclarationContext context) {
+      var modifiers = context.metaModifier();
+      if (modifiers.Length > 1)
+        diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "metadata declarations accept only one retention modifier"));
+      var retention = modifiers.FirstOrDefault()?.GetText() switch {
+        "bytecode" => HixMetadataRetention.Bytecode,
+        "runtime" => HixMetadataRetention.Runtime,
+        _ => HixMetadataRetention.Compiler
+      };
       var targets = HixMetadataKind.None;
       foreach (var target in context.metaTarget()) {
         if (!HixMetadataTargets.TryParse(target.GetText(), out var kind))
@@ -231,7 +258,7 @@ public static class AntlrSyntax {
         else targets |= kind;
       }
       return At(new MetadataDeclarationIr(context.IDENTIFIER().GetText(),
-        context.patternParameterList().patternField().Select(SignatureField).ToArray(), targets, declarationMetadata), context);
+        context.patternParameterList().patternField().Select(SignatureField).ToArray(), targets, declarationMetadata, retention), context);
     }
 
     public override HixIrNode VisitMetadataValue(Parser.MetadataValueContext context) =>
@@ -267,7 +294,7 @@ public static class AntlrSyntax {
       var explicitName = context.ROOT_IDENTIFIER()?.GetText();
       var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternUnion());
       var name = explicitName ?? context.patternUnion().GetText();
-      var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)) ?? [];
+      var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
       pattern = ApplyPatternMetadata(pattern, metadata, HixMetadataKind.PatternField,
         out var optional, out var metadataDefault, out var hasMetadataDefault, out var graph);
       var hasAssignedDefault = context.value() != null;
@@ -276,8 +303,11 @@ public static class AntlrSyntax {
       if (hasAssignedDefault && hasMetadataDefault)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "a pattern field cannot have two defaults"));
       var defaultValue = hasAssignedDefault ? ConstantValue((ExpressionIr)Visit(context.value())) : metadataDefault;
+      IReadOnlyList<BytecodeMetadata> retained = [];
+      try { retained = HixMetadataCompiler.Compile(metadata); }
+      catch (ArgumentException error) { diagnostics.Add(new HixParseDiagnostic(context.Start.Line, error.Message)); }
       return new HixPatternField(name, pattern, optional, defaultValue,
-        hasAssignedDefault || hasMetadataDefault, graph);
+        hasAssignedDefault || hasMetadataDefault, graph) {Metadata = retained};
     }
 
     private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values,
@@ -344,8 +374,12 @@ public static class AntlrSyntax {
       return pattern;
     }
 
-    private HixPattern TypeName(string name) => typeParameters.TryGetValue(name, out var parameter)
-      ? parameter.Pattern : HixPatterns.Named(name);
+    private HixPattern TypeName(string name) {
+      if (typeParameters.TryGetValue(name, out var parameter)) return parameter.Pattern;
+      var candidates = HixUsingImports.Candidates(name, UsingImports).ToArray();
+      return HixPatterns.Named(candidates.FirstOrDefault(DeclaredTypes.Contains) ??
+        (candidates.Length == 1 ? candidates[0] : name));
+    }
 
     private HixPattern TypeArgument(ExpressionIr expression) {
       switch (expression) {

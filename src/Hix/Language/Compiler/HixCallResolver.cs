@@ -16,6 +16,21 @@ public static class HixCallResolver {
     IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions, HixBackend backend,
     IReadOnlyDictionary<string, HixPattern> patterns, Func<ExpressionIr, HixPattern> infer,
     out bool ambiguous) {
+    if (call.UsingImports.Count != 0) {
+      foreach (var name in HixUsingImports.Candidates(call.OriginalName, call.UsingImports).Distinct()) {
+        var qualified = new CallExpressionIr(name, call.Arguments, call.CoerceBoolean,
+          argumentNames: call.ArgumentNames) { TypeArguments = call.TypeArguments };
+        var resolution = Resolve(qualified, functions, backend, patterns, infer, out ambiguous);
+        if (resolution != null || ambiguous) { call.Name = name; return resolution; }
+        if (functions.TryGetValue(name, out var dynamicFunctions) && dynamicFunctions.Any(function =>
+            function.Signatures.Count == 0 || function.Signatures.Any(signature => signature.Inputs == null && signature.InputPattern == null))) {
+          call.Name = name;
+          return null;
+        }
+      }
+      ambiguous = false;
+      return null;
+    }
     var candidates = new List<HixCallResolution>();
     var languageSignatures = new HashSet<string>(StringComparer.Ordinal);
     if (functions.TryGetValue(call.Name, out var declarations)) {

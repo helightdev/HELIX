@@ -40,7 +40,7 @@ internal static class PatternConstructorCompiler {
           new StringExpressionIr(TaggedHixPattern.FieldName), new StringExpressionIr(tag.Discriminator)])]);
       statements.Add(new ControlFlowStatementIr(ControlFlowKind.Return, null, [value]));
       yield return new FunctionDeclarationIr(name, true, false, true,
-        [new FunctionSignature(null, inputs, result, null)], new BlockStatementIr(statements));
+        [new FunctionSignature(null, inputs, result, null)], new BlockStatementIr(statements), [HixMetadataCompiler.Synthetic()]);
     } else {
       var branches = Enumerable.Range(0, fields.Count).Reverse().Select(index =>
         new SelectionBranchIr([new UnaryExpressionIr(UnaryOperation.Not, IsMissing(index))],
@@ -52,7 +52,7 @@ internal static class PatternConstructorCompiler {
 
   private static FunctionDeclarationIr Method(string name, FunctionSignature signature, ExpressionIr result) =>
     new(name, true, false, true, [signature],
-      new BlockStatementIr([new ControlFlowStatementIr(ControlFlowKind.Return, null, [result])]));
+      new BlockStatementIr([new ControlFlowStatementIr(ControlFlowKind.Return, null, [result])]), [HixMetadataCompiler.Synthetic()]);
   private static ExpressionIr Argument(int index) => new RootExpressionIr(index.ToString(), true);
   private static ExpressionIr Local() => new MemberExpressionIr(new RootExpressionIr("local"), "__value");
   private static ExpressionIr IsMissing(int index) => new CallExpressionIr("is", [Argument(index), new RootExpressionIr("missing")]);

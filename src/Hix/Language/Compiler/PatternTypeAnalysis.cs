@@ -246,6 +246,10 @@ public static class PatternTypeAnalysis {
         }
         if (functions.TryGetValue(call.Name, out var dynamicFunctions) && dynamicFunctions.Any(value => value.Signatures.Count == 0 || value.Signatures.Any(signature => signature.Inputs == null && signature.InputPattern == null)))
           return HixPattern.Any;
+        // A namespace may be supplied by another source file when the global catalog is prepared.
+        if (call.UsingImports.Count != 0 && HixUsingImports.Candidates(call.OriginalName, call.UsingImports)
+            .Any(name => name != call.OriginalName && !functions.ContainsKey(name) && backend.Functions.Resolve(name).Count == 0))
+          return HixPattern.Any;
         if (!functions.ContainsKey(call.Name) && backend.Functions.Resolve(call.Name).Count != 0 &&
             !backend.Functions.Resolve(call.Name).Any(definition => definition.MatchesArgumentCount(supplied.Length))) {
           diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts " + supplied.Length + " argument(s)"));

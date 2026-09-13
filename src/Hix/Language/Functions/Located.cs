@@ -49,7 +49,7 @@ public sealed class DeriveFunction() : FunctionDefinition("derive") {
         return Fail(execution, checkpoint, index, null, invalidRecord, line);
       if (!record.TryGetValue(execution, execution.ResolveString("value"), out var current))
         return Fail(execution, checkpoint, index, null, execution.Error("record must contain value"), line);
-      foreach (var provider in execution.Program.Derivations) {
+      foreach (var provider in execution.Machine.Derivations) {
         // Existing frames already identify active providers; no per-thread recursion set is needed.
         foreach (var expression in provider.Expressions)
           if (execution.IsExecuting(expression.Function))

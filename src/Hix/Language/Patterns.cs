@@ -125,6 +125,7 @@ public enum HixGraphFieldKind { Value, Flow }
 
 public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optional = false,
   object DefaultValue = null, bool HasDefault = false, HixGraphFieldKind? Graph = null) {
+  public IReadOnlyList<Compiler.BytecodeMetadata> Metadata { get; init; } = [];
   public bool AllowsMissing => Optional || HasDefault;
   public string Display => (Optional ? "%optional " : "") +
     (Graph == null ? "" : "%graph<" + Graph.Value.ToString().ToLowerInvariant() + "> ") + Pattern.Display +

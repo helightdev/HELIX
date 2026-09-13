@@ -10,6 +10,39 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixCompilerIrTests {
   [Fact]
+  public void AliasedCrossFileReferencesKeepTheirSourceRangeAndNavigateToTheQualifiedFunction() {
+    const string source = "%using<paths><p>\n---\npure func imported -> number => p.join(2);";
+    var imported = new LanguageAnalysis(source);
+    var library = new LanguageAnalysis("pure func paths.join(number value) -> number => $value;");
+    var reference = Assert.Single(imported.References.Where(reference => reference.Kind == "Function"));
+    Assert.Equal(source.IndexOf("p.join", System.StringComparison.Ordinal), reference.Range.Start);
+    Assert.Equal(6, reference.Range.Length);
+    var declaration = imported.Resolve(reference, [imported, library], out var owner);
+    Assert.Equal("paths.join", declaration.Name);
+    Assert.Same(library, owner);
+  }
+
+  [Fact]
+  public void NamespaceImportsBindAcrossFilesWithoutLeakingIntoOtherFiles() {
+    var catalog = HixCompiler.PrepareGlobals([
+      "%using<paths>\n---\npure func imported -> number => join(2);",
+      "pure func paths.join(number value) -> number => plus($value, 10); " +
+        "pure func join(number value) -> number => plus($value, 100); " +
+        "pure func unimported -> number => join(2);"
+    ]);
+    var imported = Assert.Single(catalog.Functions.Where(function => function.Name == "imported"));
+    var unimported = Assert.Single(catalog.Functions.Where(function => function.Name == "unimported"));
+    var importedCall = Assert.IsType<CallExpressionIr>(Assert.IsType<ControlFlowStatementIr>(
+      Assert.Single(imported.Body.Statements)).Values[0]);
+    var unimportedCall = Assert.IsType<CallExpressionIr>(Assert.IsType<ControlFlowStatementIr>(
+      Assert.Single(unimported.Body.Statements)).Values[0]);
+    Assert.Equal("paths.join", importedCall.Binding.Signature.Name);
+    Assert.Equal("join", unimportedCall.Binding.Signature.Name);
+    Assert.Equal(HixCallKind.Static, importedCall.Binding.Kind);
+    Assert.Equal(HixCallKind.Static, unimportedCall.Binding.Kind);
+  }
+
+  [Fact]
   public void SemanticPassesBindOwnedNodesWithoutRebuildingThemOrMutatingSource() {
     var unit = AntlrSyntax.Parse("mixin Test { expression { local x = 1; emit(plus($x, 2)) } }");
     var declaration = Assert.Single(unit.Declarations.OfType<MixinDeclarationIr>());
