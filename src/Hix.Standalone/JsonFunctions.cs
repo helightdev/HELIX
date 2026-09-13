@@ -42,7 +42,7 @@ internal static class JsonFunctions {
       });
       var value = FromJson(token);
       if (args.Length == 1) return value;
-      var pattern = ToPattern(args[1]);
+      var pattern = ((PatternHixValue)args[1]).Pattern;
       value = ApplyDefaults(thread, value, pattern, thread.PatternDefinitions);
       return Validate(thread, value, pattern);
     } catch (JsonException exception) { return thread.Error("invalid JSON: " + exception.Message); }
@@ -50,16 +50,10 @@ internal static class JsonFunctions {
 
   private static IHixValue Write(HixCoroutine thread, IHixValue[] args) {
     var value = args[0];
-    if (args.Length == 2 && Validate(thread, value, ToPattern(args[1])) is ErrorHixValue error) return error;
+    if (args.Length == 2 && Validate(thread, value, ((PatternHixValue)args[1]).Pattern) is ErrorHixValue error) return error;
     try { return new LiteralHixValue(HixString.Dynamic(ToJson(value, thread).ToString(Formatting.None))); }
     catch (InvalidOperationException exception) { return thread.Error(exception.Message); }
   }
-
-  private static HixPattern ToPattern(IHixValue value) => value switch {
-    PatternHixValue pattern => pattern.Pattern,
-    KindHixValue kind => new KindHixPattern(kind.ValueKind),
-    _ => HixPattern.Any
-  };
 
   private static IHixValue Validate(HixCoroutine thread, IHixValue value, HixPattern pattern) =>
     thread.Matches(pattern, value, out var failure) ? value : thread.Error("JSON value does not match pattern: " + failure);

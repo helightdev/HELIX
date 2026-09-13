@@ -101,7 +101,7 @@ public static class AntlrSyntax {
     var patterns = (backend ?? HixCoreBackend.Instance).Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
     LanguageValidation.Validate(declarations, diagnostics, backend);
-    if (diagnostics.Count == 0) PatternTypeAnalysis.Validate(declarations, patterns, diagnostics, backend);
+    if (diagnostics.Count == 0) PatternBinding.Validate(declarations, patterns, diagnostics, backend);
     return new CompilationUnitIr(source, declarations, diagnostics, tokens, metadata);
   }
 

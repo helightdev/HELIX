@@ -110,10 +110,9 @@ public sealed class HixAnalyzerService {
         definition.Documentation)));
     var roots = backend.Roots.Values.Select(root => new HixDefinition(root.Name, "Root", 0, false, "None",
       "None", root.Pattern.Display, [], "Backend root"));
-    var primitives = Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>()
-      .Where(kind => kind != HixValueKind.Kind).Select(kind => new HixDefinition(
-        kind.ToString().ToLowerInvariant(), "PrimitivePattern", 0, false, "None", "None", "pattern", [],
-        "Primitive pattern matching `" + kind.ToString().ToLowerInvariant() + "` values."));
+    var primitives = HixPatterns.PrimitivePatterns.Keys.Select(name => new HixDefinition(
+      name, "PrimitivePattern", 0, false, "None", "None", "pattern", [],
+      "Primitive pattern matching `" + name + "` values."));
     var types = backend.Functions.Types.Select(type => new HixDefinition(type.Name, "Type", 0, false,
       "None", "None", "pattern", [], "pattern " + type.Name + " = " + type.Pattern.Display));
     var metadata = all.Where(definition => (definition.Metadata &

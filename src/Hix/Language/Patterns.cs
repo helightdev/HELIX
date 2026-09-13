@@ -16,14 +16,17 @@ public abstract record HixPattern {
 public static class HixPatterns {
   public static HixPattern Named(string name) {
     if (string.IsNullOrEmpty(name) || name == "any") return HixPattern.Any;
-    return Enum.TryParse<HixValueKind>(name, true, out var kind) && kind != HixValueKind.Any && kind != HixValueKind.Kind &&
-      string.Equals(name, kind.ToString(), StringComparison.OrdinalIgnoreCase)
-      ? new KindHixPattern(kind) : new NamedHixPattern(name);
+    return PrimitivePatterns.TryGetValue(name, out var primitive) ? primitive : new NamedHixPattern(name);
   }
 
   private static readonly IReadOnlyDictionary<HixValueKind, PatternHixValue> PrimitiveValues =
     Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>().ToDictionary(kind => kind,
       kind => new PatternHixValue(kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind)));
+  /// <summary>Language type names, independent of VM-only kinds and value-mode singleton constants.</summary>
+  public static IReadOnlyDictionary<string, HixPattern> PrimitivePatterns { get; } =
+    new System.Collections.ObjectModel.ReadOnlyDictionary<string, HixPattern>(PrimitiveValues
+      .Where(item => item.Key != HixValueKind.Kind).ToDictionary(item => item.Key.ToString().ToLowerInvariant(),
+        item => item.Value.Pattern, StringComparer.OrdinalIgnoreCase));
   private static readonly IReadOnlyDictionary<string, PatternHixValue> Primitives = PrimitiveValues
     .Where(item => item.Key is not (HixValueKind.Kind or HixValueKind.Null or HixValueKind.Missing))
     .ToDictionary(item => item.Key.ToString().ToLowerInvariant(), item => item.Value, StringComparer.Ordinal);

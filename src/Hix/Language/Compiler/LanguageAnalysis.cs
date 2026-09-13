@@ -146,16 +146,8 @@ public sealed class LanguageAnalysis {
           break;
         case RootExpressionIr {IsSmart: false, Name: "args"}: result = new TupleHixPattern(parameters.Select(field => field.AsPatternField()).ToArray()); break;
         case RootExpressionIr {IsSmart: false, Name: "local" or "var" or "tar" or "param"}: result = HixPattern.Any; break;
-        case RootExpressionIr {IsSmart: false, Name: "null"}: result = new KindHixPattern(HixValueKind.Null); break;
-      case RootExpressionIr {IsSmart: false, Name: "missing"}: result = new KindHixPattern(HixValueKind.Missing); break;
-      case RootExpressionIr {IsSmart: false} root when HixPatterns.TryPrimitive(root.Name, out _): result = new KindHixPattern(HixValueKind.Pattern); break;
-        case RootExpressionIr {IsSmart: false} root when patterns.ContainsKey(root.Name): result = new KindHixPattern(HixValueKind.Pattern); break;
-        case RootExpressionIr {IsSmart: false} root when backend.Functions.Resolve(root.Name).Count != 0 && !functions.ContainsKey(root.Name): result = new KindHixPattern(HixValueKind.Function); break;
-        case RootExpressionIr {IsSmart: false} root when functions.TryGetValue(root.Name, out var methods):
-          var method = methods.FirstOrDefault();
-          var signature = method?.Signatures.FirstOrDefault();
-          result = signature == null ? new DelegateHixPattern([], HixPattern.Any) :
-            new DelegateHixPattern(signature.Constant(method.Name).Parameters, signature.Constant(method.Name).Result);
+        case RootExpressionIr {IsSmart: false} root:
+          result = PatternBinding.RootValuePattern(root.Name, functions, patterns, backend);
           break;
         case LambdaExpressionIr lambda:
           result = new DelegateHixPattern([], InferResult(lambda.Body, new Dictionary<string, HixPattern>(), []));
@@ -168,7 +160,7 @@ public sealed class LanguageAnalysis {
             result = new NamedHixPattern(call.Name);
             documentation = "Construct a value of pattern `" + call.Name + "`. Use as(value, " + call.Name + ") to cast a value.";
           } else {
-            var resolution = HixCallResolver.Resolve(call, functions, backend, patterns,
+            var resolution = PatternBinding.Resolve(call, functions, backend, patterns,
               value => { var position = call.Arguments.ToList().IndexOf(value);
                 return position >= 0 ? argumentPatterns[position] : Infer(value, locals, parameters); }, out var ambiguous);
             call.Resolution = resolution;

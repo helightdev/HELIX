@@ -29,7 +29,7 @@ public static class HixCompiler {
     var diagnostics = new List<HixParseDiagnostic>();
     LanguageValidation.Validate(declarations, diagnostics, backend);
     if (declarations.OfType<FunctionDeclarationIr>().Any(function => function.TypeParameters.Count != 0 || function.Signatures.Any(signature => signature.TypeParameters.Count != 0)))
-      PatternTypeAnalysis.Validate(declarations, declarations.OfType<TypeDeclarationIr>().ToDictionary(type => type.Name,
+      PatternBinding.Validate(declarations, declarations.OfType<TypeDeclarationIr>().ToDictionary(type => type.Name,
         type => type.Pattern, StringComparer.Ordinal), diagnostics, backend);
     if (diagnostics.Count != 0) throw new ArgumentException(diagnostics[0].Message);
     var strings = new HixStringPoolBuilder();

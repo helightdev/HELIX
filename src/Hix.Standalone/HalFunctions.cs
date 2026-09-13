@@ -24,9 +24,7 @@ internal static class HalFunctions {
   }
 
   private static IHixValue Write(HixCoroutine thread, IHixValue[] args) {
-    var pattern = args.Length == 1 ? Infer(args[0]) : args[1] switch {
-      PatternHixValue value => value.Pattern, KindHixValue kind => new KindHixPattern(kind.ValueKind), _ => HixPattern.Any
-    };
+    var pattern = args.Length == 1 ? Infer(args[0]) : ((PatternHixValue)args[1]).Pattern;
     if (!thread.Matches(pattern, args[0], out var failure)) return thread.Error("Hal value does not match pattern: " + failure);
     var text = new StringBuilder("--- ").Append(pattern is NamedHixPattern named ? named.Name : pattern.Display).AppendLine();
     if (args[0] is HixTableValue table) WriteEntries(text, table, thread, 0); else WriteValue(text, args[0], thread, 0);

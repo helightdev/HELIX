@@ -56,3 +56,17 @@ func genericMetadataNestedConstructors {
 func genericMetadataRejectsInvalidTypes(string source) -> bool {
   return(success(compile($source)))
 }
+
+%description<A named collection whose documentation does not affect generic inference.>
+type GenericDocumentedNumbers = %many<number>;
+
+%generic<T>
+pure func genericFirst(%many<T> values) -> T => $values#0;
+
+pure func firstDocumentedNumber(GenericDocumentedNumbers values) -> number => genericFirst($values);
+
+%test
+%testcase(@[], 42)
+func genericInferenceResolvesDocumentedAliases() -> number {
+  return(firstDocumentedNumber(@[42]))
+}
