@@ -11,7 +11,7 @@ public sealed class CatchFunction() : FunctionDefinition("catch") {
 }
 
 public sealed class CallbackFunction(string name) : FunctionDefinition(name) {
-  public override IHixValue Execute(HixCoroutine execution, IHixValue[] arguments, int line) { return execution.Callback(arguments[0], arguments.Length == 2 ? [arguments[1]] : [], line); }
+  public override IHixValue Execute(HixCoroutine execution, IHixValue[] arguments, int line) { return execution.Callback(arguments[0], arguments.Skip(1).ToArray(), line); }
 }
 
 public sealed class MatchFunction() : FunctionDefinition("match") {

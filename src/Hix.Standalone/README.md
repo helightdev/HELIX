@@ -239,15 +239,15 @@ Targets may be separated by spaces or commas; a terminating semicolon is require
 Host functions declared `pure` have no effects. Ordinary unmarked functions are impure; their effects
 are taken from the Hix declaration, not a C# handler-registration flag.
 
-Register nominal types alongside host implementations. Companion Hix declarations supply signatures,
+Declare nominal types in the embedded Hix library. Companion Hix declarations supply signatures,
 generic parameters, defaults, and documentation; the handler only supplies execution behavior.
 
 ```csharp
-var box = functions.DefineOpaqueType("my.backend.box", "box", arity: 1,
-  documentation: "An opaque host-owned box.");
 functions.Add(new SimpleFunction("unbox", (execution, arguments) => ReadBoxPayload(arguments[0])));
 functions.AddLibrary("""
-  %description("Reads the value of a host-owned box.")
+  %opaque<my.backend.box>(1)
+  type box = opaque;
+  %description<Reads the value of a host-owned box.>
   %generic<T>
   pure func unbox(%box<T> value) -> T external;
   """);
@@ -262,8 +262,10 @@ Programmatic `FunctionDeclarationIr`/IR signatures can declare `TypeParameters`,
 `CallExpressionIr.TypeArguments` supplies explicit type arguments. Compile these through
 `HixCompiler.CompileFunctions(IEnumerable<CompilationUnitIr>, backend)`. Generic bodies emit once
 with bounds/`any` and opaque types erased; declaration identity metadata preserves static overload
-binding when signatures erase identically. `FunctionSignature.CallableArguments` can connect a callable argument to the tuple
-used to invoke it, providing contextual lambda inference and argument validation (as in `spawn`).
+binding when signatures erase identically. `%invokeArguments<function><arguments>` connects a callable parameter to its positional argument tuple, providing contextual lambda inference and signature validation.
+`%tupleResults<tasks>(0)` projects type argument zero of each opaque handle into an ordered result tuple.
+`%firstResult<tasks>(0)` infers a table with an index and the union of the projected result types.
+These compiler metadata entries configure inference from Hix declarations; C# handlers only implement execution.
 Opaque types have no JSON/JSON Schema representation.
 
 ### Metadata-based generic types

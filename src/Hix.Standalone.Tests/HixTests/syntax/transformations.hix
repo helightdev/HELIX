@@ -3,119 +3,119 @@ pure func marked(any value) -> string => <[$value]>;
 
 %test
 %testcase(@[], <HELLO>)
-func parameterlessTransformation -> string {
+func parameterlessTransformation() -> string {
   local value = <hello>
   return($value:uppercase)
 }
 
 %test
 %testcase(@[], <HELLO>)
-func emptyParenthesesTransformation -> string {
+func emptyParenthesesTransformation() -> string {
   local value = <hello>
   return($value:uppercase())
 }
 
 %test
 %testcase(@[], <HELLO!>)
-func consecutiveTransformations -> string {
+func consecutiveTransformations() -> string {
   local value = < hello >
   return($value:trim:uppercase:suffix)
 }
 
 %test
 %testcase(@[], <hello?>)
-func transformationAngleArguments -> string {
+func transformationAngleArguments() -> string {
   local value = <hello>
   return($value:suffix<?>)
 }
 
 %test
 %testcase(@[], <hello?>)
-func transformationNamedArguments -> string {
+func transformationNamedArguments() -> string {
   local value = <hello>
   return($value:suffix(ending = <?>))
 }
 
 %test
 %testcase(@[], true)
-func predicateTransformation -> bool {
+func predicateTransformation() -> bool {
   local value = <hello>
   return($value:?contains<ell>)
 }
 
 %test
 %testcase(@[], true)
-func predicateCoercesNonBooleanResult -> bool {
+func predicateCoercesNonBooleanResult() -> bool {
   local value = <hello>
   return($value:?suffix)
 }
 
 %test
 %testcase(@[], false)
-func predicateOnEmptyResult -> bool {
+func predicateOnEmptyResult() -> bool {
   local value = <>
   return($value:?trim)
 }
 
 %test
 %testcase(@[], <Ada>)
-func nestedTableMemberTransformation -> string {
+func nestedTableMemberTransformation() -> string {
   local value = @{person=@{name=<Ada>}}
   return($value#person#name)
 }
 
 %test
 %testcase(@[], <second>)
-func numericTupleMemberTransformation -> string {
+func numericTupleMemberTransformation() -> string {
   local values = @[<first>, <second>]
   return($values#1)
 }
 
 %test
 %testcase(@[], <ADA!>)
-func memberThenFunctionTransformation -> string {
+func memberThenFunctionTransformation() -> string {
   local value = @{person=@{name=<Ada>}}
   return($value#person#name:uppercase:suffix)
 }
 
 %test
 %testcase(@[], <HELLO>)
-func functionThenMemberTransformation -> string {
+func functionThenMemberTransformation() -> string {
   local value = <hello,world>
   return($value:split<,>#0:uppercase)
 }
 
 %test
 %testcase(@[], <A,B>)
-func arrowLambdaCollectionTransformation -> string {
+func arrowLambdaCollectionTransformation() -> string {
   local values = @[<a>, <b>]
   return($values:map(func => uppercase($0)):join<,>)
 }
 
 %test
 %testcase(@[], <a!,b!>)
-func blockLambdaCollectionTransformation -> string {
+func blockLambdaCollectionTransformation() -> string {
   local values = @[<a>, <b>]
   return($values:map(func { return(suffix($0)) }):join<,>)
 }
 
 %test
 %testcase(@[], @[2, 3])
-func predicateCollectionTransformation -> tuple {
+func predicateCollectionTransformation() -> tuple {
   local values = @[1, 2, 3]
   return($values:where(func => compare($0, <gt>, 1)))
 }
 
 %test
 %testcase(@[], 6)
-func reducerPositionalParameters -> number {
+func reducerPositionalParameters() -> number {
   local values = @[1, 2, 3]
   return($values:reduce(func => plus($0, $1), 0))
 }
 
 %test
 %testcase(@[], <HELLO!>)
-func wrappedTransformationLines -> string {
+func wrappedTransformationLines() -> string {
   local value = < hello >
   local transformed = [$value:trim
     @+ :uppercase
@@ -125,87 +125,87 @@ func wrappedTransformationLines -> string {
 
 %test
 %testcase(@[], <present>)
-func elvisPreservesExistingValue -> string { return([<present>] ?: error<unreachable>) }
+func elvisPreservesExistingValue() -> string { return([<present>] ?: cast(<unreachable>, error)) }
 
 %test
 %testcase(@[], <fallback>)
-func elvisReplacesMissingValue -> string { return([missing] ?: <fallback>) }
+func elvisReplacesMissingValue() -> string { return([missing] ?: <fallback>) }
 
 %test
 %testcase(@[], <fallback>)
-func elvisReplacesNullValue -> string { return([null] ?: <fallback>) }
+func elvisReplacesNullValue() -> string { return([null] ?: <fallback>) }
 
 %test
 %testcase(@[], 0)
-func elvisPreservesZero -> number { return([0] ?: 99) }
+func elvisPreservesZero() -> number { return([0] ?: 99) }
 
 %test
 %testcase(@[], false)
-func elvisPreservesFalse -> bool { return([false] ?: true) }
+func elvisPreservesFalse() -> bool { return([false] ?: true) }
 
 %test
 %testcase(@[], true)
-func negationAroundPredicate -> bool {
+func negationAroundPredicate() -> bool {
   local value = <hello>
   return(!$value:?contains<missing>)
 }
 
 %test
 %testcase(@[], true)
-func postfixCheckProducesCheckableError -> bool { return(is([error<expected>?], error)) }
+func postfixCheckProducesCheckableError() -> bool { return(is([cast(<expected>, error)?], error)) }
 
 %test
 %testcase(@[], <saved>)
-func sharedStorageInvocationAndMemberAccess -> string {
+func sharedStorageInvocationAndMemberAccess() -> string {
   var<syntax_value> @= <saved>;
   return(var#syntax_value)
 }
 
 %test
 %testcase(@[], <saved>)
-func targetStorageInvocationAndMemberAccess -> string {
+func targetStorageInvocationAndMemberAccess() -> string {
   tar(<syntax_value>, <saved>)
   return(tar#syntax_value)
 }
 
 %test
 %testcase(@[], <hello?>)
-func transformationArgumentsWithTrailingComma -> string {
+func transformationArgumentsWithTrailingComma() -> string {
   local value = <hello>
   return($value:suffix(ending = <?>,))
 }
 
 %test
 %testcase(@[], true)
-func predicateWithNamedArguments -> bool {
+func predicateWithNamedArguments() -> bool {
   local value = <hello>
   return($value:?suffix(ending = <?>))
 }
 
 %test
 %testcase(@[], <default>)
-func missingMemberWithFallback -> string {
+func missingMemberWithFallback() -> string {
   local value = @{}
   return([$value#absent] ?: <default>)
 }
 
 %test
 %testcase(@[], <ok>)
-func postfixCheckPreservesSuccessfulTransformation -> string {
+func postfixCheckPreservesSuccessfulTransformation() -> string {
   local value = <ok>
   return([$value:trim?])
 }
 
 %test
 %testcase(@[], <result>)
-func memberAfterParenthesizedFunctionTransformation -> string {
+func memberAfterParenthesizedFunctionTransformation() -> string {
   local something = @[@[<0>, <result>]]
-  return($something:table()#0)
+  return($something:cast(table)#0)
 }
 
 %test
 %testcase(@[], <result>)
-func memberAfterBareFunctionTransformation -> string {
+func memberAfterBareFunctionTransformation() -> string {
   local something = @[@[<0>, <result>]]
-  return($something:table#0)
+  return($something:cast(table)#0)
 }

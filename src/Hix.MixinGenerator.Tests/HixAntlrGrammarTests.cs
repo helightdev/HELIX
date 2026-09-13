@@ -66,7 +66,7 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { local x = when [true] {\n[true] -> <yes>\nelse -> <no>\n} } }")]
   [InlineData("mixin Example { expression { emit @> Hello {{this:name}}\n@+!\n} }")]
   [InlineData("mixin Example { expression { local x @= null ?: <fallback>; } }")]
-  [InlineData("mixin Example { expression { emit(number<2>) } }")]
+  [InlineData("mixin Example { expression { emit(cast(<2>, number)) } }")]
   [InlineData("mixin Example { expression { emit(12.5) } }")]
   [InlineData("mixin Example { expression { emit(-12.5) } }")]
   [InlineData("pure func empty(null value) -> null { return(null) }")]

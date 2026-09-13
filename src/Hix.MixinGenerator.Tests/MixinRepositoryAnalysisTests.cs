@@ -24,6 +24,17 @@ public sealed class MixinRepositorySyntaxTests {
   }
 
   [Fact]
+  public void ComparisonOperatorsAreDeclaredAsAStdlibEnumPattern() {
+    var library = Hix.HixMixinBackend.Instance.Functions;
+    var type = Assert.Single(library.Types, item => item.Name == "ComparisonOperator");
+    var pattern = Assert.IsType<EnumHixPattern>(Assert.IsType<DocumentedHixPattern>(type.Pattern).Underlying);
+    Assert.Equal(new[] {"lt", "gt", "lte", "gte", "eq", "neq"}, pattern.Values);
+    var signature = Assert.Single(library.Resolve("compare").Single().Signatures);
+    Assert.Equal(type.Pattern, signature.ArgumentPatterns[1]);
+    Assert.Equal(HixValueKind.String, signature.ArgumentTypes[1]);
+  }
+
+  [Fact]
   public void LanguageDefinitionsResolveFixedAndVariadicSignatures() {
     Assert.True(Hix.HixMixinBackend.Instance.Functions.TryGet("matches", 2, out var matches));
     Assert.False(Hix.HixMixinBackend.Instance.Functions.TryGet("matches", 1, out _));
@@ -64,6 +75,21 @@ public sealed class MixinRepositorySyntaxTests {
       Assert.Same(definition, byName);
       Assert.Same(definition, byRoot);
     });
+  }
+
+  [Fact]
+  public void EveryRepositoryMixinCompilesWithTheUnityBackend() {
+    var directory = Path.GetFullPath("../../../../HELIX/Assets/Mixins");
+    var units = Directory.GetFiles(directory, "*.HelixSourceGenerator.additionalfile")
+      .OrderBy(path => path).Select(path => AntlrSyntax.Parse(File.ReadAllText(path), Hix.HixMixinBackend.Instance)).ToArray();
+    var globals = HixCompiler.PrepareGlobals(units, Hix.HixMixinBackend.Instance);
+    foreach (var mixin in units.SelectMany(unit => unit.Declarations).OfType<MixinDeclarationIr>()) {
+      try {
+        var image = HixCompiler.Prepare(mixin, globals, null);
+        using var machine = new Hix.Runtime.HixVM([image]);
+      }
+      catch (ArgumentException error) { Assert.Fail(mixin.Name + ": " + error.Message); }
+    }
   }
 
   [Fact]

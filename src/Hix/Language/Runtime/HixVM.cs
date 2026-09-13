@@ -243,7 +243,7 @@ public sealed class HixVM : IDisposable {
 
     internal bool Contains(LanguageFunctionScope scope, string name) => Candidates(scope, name).Count != 0;
 
-    internal NamedFunctionHixValue Bind(LanguageFunctionScope scope, string name) => Contains(scope, name) ? new NamedFunctionHixValue(StringPool.Get(name)) {
+    internal NamedFunctionHixValue Bind(LanguageFunctionScope scope, string name) => Contains(scope, name) || Backend.Functions.Resolve(name).Count != 0 ? new NamedFunctionHixValue(HixString.Dynamic(name)) {
         Scope = scope
     }
 

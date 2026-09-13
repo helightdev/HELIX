@@ -186,3 +186,41 @@ descriptors containing only runtime annotations.
 The compiler adds `%synthetic` to generated pattern constructors and lifted lambdas, and to anonymous
 expression-function descriptors. `%synthetic` has runtime retention, so generated functions remain
 identifiable after loading.
+
+Calls must bind a concrete declared signature during compilation. Unknown signatures, incorrect
+argument lists, and ambiguous overloads are compilation errors. Use declared parameter types and
+explicit casts to make overload selection precise. The compiler never emits dynamic dispatch.
+
+`cast(value, pattern)` converts to a primitive pattern or validates a declared pattern, raising an error on failure. `as(value, pattern)` performs the same conversion and returns null on failure; its inferred result is nullable.
+Primitive names, including `pattern` itself and `any`, are pattern values. `null` and `missing`
+remain constants. `pattern(value)` returns the primitive pattern matching the value, so
+`is(string, pattern)` and `is(pattern, pattern)` both succeed. Casts take the receiver first:
+
+```hix
+pure func example(any value) -> number => $value:cast(number):plus(1);
+type Record = @{string name};
+pure func readName(any value) -> string => $value:cast(Record)#name;
+```
+
+Primitive-name cast invocations such as `number(value)` are removed. Type-name calls construct values
+from declared fields; use `cast(value, Record)` to cast an existing value. `new(pattern)` creates a primitive
+default value. Casts with a primitive or declared pattern propagate that type to subsequent calls.
+
+`%inline` is compiler-only statement metadata. It expands the selected language function within an
+invocation, initializer, return, or other annotated statement. It uses the bound overload, including
+named/default arguments and generic inference. The old `inline(...)` function and `inline func`
+modifier are removed. A `noinline` function cannot be expanded.
+
+```hix
+pure func echo(string value) -> string => $value;
+pure func copied() -> string {
+  %inline local value = echo(<hello>)
+  return($value)
+}
+```
+
+Runtime overload selection must be requested explicitly with `call(function, arguments...)`.
+Prefer statically bound calls; use `call` when function selection depends on runtime values. Function
+values can be obtained with `cast(<functionName>, function)`. Dynamic calls accept positional arguments.
+
+Functions and types support repeatable `%alias<NAME>` metadata to export additional names. Generated structural factories also export `TypeName.new`, including aliases of the type. Casting uses the generic `cast` and `as` functions.

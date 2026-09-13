@@ -36,10 +36,14 @@ public class HixRoslynBackend : HixBackend {
       pure func <nullableType>(%roslynValue() any arg0) -> %roslynValue() any external;
 
       %description("Renders a constant or scalar value as a valid C# literal.")
-      pure func <csharpLiteral>(any arg0) -> any external;
+      pure func <csharpLiteral>(string? arg0) -> string external;
+      pure func <csharpLiteral>(null arg0) -> string external;
+      pure func <csharpLiteral>(number arg0) -> string external;
+      pure func <csharpLiteral>(bool arg0) -> string external;
+      pure func <csharpLiteral>(opaque arg0) -> string external;
 
       %description("Renders a generic type name using the supplied type arguments.")
-      pure func <makeGeneric>(%roslynValue() any arg0, %roslynValue() any arg1) -> %roslynValue() any external;
+      pure func <makeGeneric>(%roslynValue() any arg0, %roslynValue() any arg1) -> string external;
 
       %description("Returns the declared accessibility of a symbol as lowercase text.")
       pure func <visibility>(%roslynValue() any arg0) -> string external;
@@ -48,7 +52,10 @@ public class HixRoslynBackend : HixBackend {
       pure func <identifier>(string arg0) -> string external;
 
       %description("Parses a time value and renders its numeric representation for generated code.")
-      pure func <floatTime>(any arg0) -> string external;
+      pure func <floatTime>(string arg0) -> string external;
+      pure func <floatTime>(number arg0) -> string external;
+      pure func <floatTime>(null arg0) -> string external;
+      pure func <floatTime>(opaque arg0) -> string external;
 
       %description("Returns attributes attached to a symbol.")
       pure func <attributes>(%roslynValue() any arg0) -> tuple external;

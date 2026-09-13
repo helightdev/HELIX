@@ -22,11 +22,7 @@ public static class HixCallResolver {
           argumentNames: call.ArgumentNames) { TypeArguments = call.TypeArguments };
         var resolution = Resolve(qualified, functions, backend, patterns, infer, out ambiguous);
         if (resolution != null || ambiguous) { call.Name = name; return resolution; }
-        if (functions.TryGetValue(name, out var dynamicFunctions) && dynamicFunctions.Any(function =>
-            function.Signatures.Count == 0 || function.Signatures.Any(signature => signature.Inputs == null && signature.InputPattern == null))) {
-          call.Name = name;
-          return null;
-        }
+
       }
       ambiguous = false;
       return null;
@@ -56,14 +52,6 @@ public static class HixCallResolver {
     var ordered = candidates.OrderByDescending(candidate => candidate.Score).ThenBy(candidate => candidate.Generic).ToArray();
     var best = ordered[0];
     ambiguous = ordered.Skip(1).Any(candidate => candidate.Score == best.Score && candidate.Generic == best.Generic);
-    if (ambiguous && best.Score < best.Arguments.Length) {
-      ambiguous = false;
-      return best with { Binding = HixCallBinding.Dynamic, Signature = best.Signature with { Result = HixPattern.Any } };
-    }
-    if (declarations != null && declarations.Any(declaration => declaration.Signatures.Count == 0 ||
-        declaration.Signatures.Any(signature => signature.Inputs == null && signature.InputPattern == null)) &&
-        best.Score < best.Arguments.Length)
-      return best with { Binding = HixCallBinding.Dynamic };
     return ambiguous ? null : best;
 
     void Add(SignatureHixPattern signature, IReadOnlyList<HixTypeParameter> parameters,
@@ -106,6 +94,12 @@ public static class HixCallResolver {
       var instantiated = new SignatureHixPattern(signature.Name, signature.Parameters.Select((field, fieldIndex) => field with {
         Pattern = HixGenericTypes.Substitute(field.Pattern, substitutions, true) }).ToArray(),
         HixGenericTypes.Substitute(signature.Result, substitutions, true));
+      if ((host?.Name is "as" or "cast" && arguments.Length == 2 || host?.Name == "new" && arguments.Length >= 1) &&
+          arguments[host.Name is "as" or "cast" ? 1 : 0] is RootExpressionIr {IsSmart: false} target) {
+        if (HixPatterns.TryPrimitive(target.Name, out var primitive)) instantiated = instantiated with { Result = primitive.Pattern };
+        else if (patterns.ContainsKey(target.Name)) instantiated = instantiated with { Result = new NamedHixPattern(target.Name) };
+      }
+      if (host?.Name == "as") instantiated = instantiated with { Result = HixPatterns.Nullable(instantiated.Result) };
       if (inferResult != null) instantiated = instantiated with { Result = inferResult(supplied) };
       var relations = supplied.Select((value, index) => HixPatternRelations.Relate(value,
         instantiated.Parameters[Math.Min(index, instantiated.Parameters.Count - 1)].Pattern, patterns)).ToArray();
@@ -119,7 +113,9 @@ public static class HixCallResolver {
       }).ToArray(), host != null ? Kind(HixGenericTypes.Erase(signature.Result)) : HixGenericTypes.ErasePattern(signature.Result));
       var binding = language != null ? HixCallBinding.Language(erased, language) : HixCallBinding.Host(erased, host);
       candidates.Add(new(instantiated, substitutions, arguments, binding,
-        relations.Count(relation => relation == HixPatternRelation.Always), parameters.Count != 0) {
+        relations.Count(relation => relation == HixPatternRelation.Always) * (supplied.Length + 1) +
+        supplied.Where((value, index) => HixGenericTypes.Equivalent(value,
+          instantiated.Parameters[Math.Min(index, instantiated.Parameters.Count - 1)].Pattern)).Count(), parameters.Count != 0) {
         DeclarationSignature = parameters.Count != 0 || signature.Parameters.Any(field => HixGenericTypes.RequiresErasure(field.Pattern)) ||
           HixGenericTypes.RequiresErasure(signature.Result) ? HixGenericTypes.SignatureIdentity(signature) : null
       });

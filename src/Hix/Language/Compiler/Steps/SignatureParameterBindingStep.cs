@@ -27,7 +27,7 @@ public sealed class SignatureParameterBindingStep : HixLoweringStep {
     foreach (var local in locals) positions.Remove(local);
     if (positions.Count == 0) return function;
     var body = new ParameterRewriter(positions).Rewrite(function.Body);
-    return Copy(function, new FunctionDeclarationIr(function.Name, function.IsPure, function.IsInline,
+    return Copy(function, new FunctionDeclarationIr(function.Name, function.IsPure,
       function.IsNoinline, function.Signatures, body, function.Metadata.Select(item => new HixIrRewriter().Rewrite(item)).ToArray(), function.TypeParameters,
       function.ExternalName));
   }

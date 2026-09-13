@@ -2,7 +2,7 @@ func assertCompilationFails(string source, string diagnostic) -> null {
   local compilation = compile($source)
   assert(not(success($compilation)), <Compilation fails>)
   assert(compare(length(diagnostics($compilation)), <gt>, 0), <A diagnostic is present>)
-  assert(contains(get(diagnostics($compilation), 0), $diagnostic), <Contains the expected diagnostic>)
+  assert(contains(cast(get(diagnostics($compilation), 0), string), $diagnostic), <Contains the expected diagnostic>)
 }
 
 func assertRejected(string source) -> null {

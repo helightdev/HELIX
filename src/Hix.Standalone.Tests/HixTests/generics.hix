@@ -20,7 +20,7 @@ func genericTaskResult(%task<T> task) -> T { return(awaitTask($task)) }
 
 %test
 %testcase(@[], 42)
-func genericMetadataInference -> number {
+func genericMetadataInference() -> number {
   local number first = genericIdentity(20)
   local string text = genericIdentity(<hello>)
   assert(eq(local#text, <hello>))
@@ -31,7 +31,7 @@ func genericMetadataInference -> number {
 
 %test
 %testcase(@[], 42)
-func genericMetadataOpaqueInference -> number {
+func genericMetadataOpaqueInference() -> number {
   local GenericNumberTask task = spawn(func => 42)
   return(genericTaskResult(local#task))
 }

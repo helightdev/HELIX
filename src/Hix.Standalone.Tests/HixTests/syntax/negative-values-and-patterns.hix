@@ -27,8 +27,8 @@ func duplicateFunctionSignatures {
 
 %test
 func conflictingInlineModifiers {
-  local source = "pure inline noinline func invalid -> null { return() }"
-  assertCompilationFails($source, <inline and noinline>)
+  local source = "pure noinline func invalid() -> null { return() }\npure func caller() -> null { %inline return(invalid()) }"
+  assertCompilationFails($source, <cannot inline noinline>)
 }
 
 %test

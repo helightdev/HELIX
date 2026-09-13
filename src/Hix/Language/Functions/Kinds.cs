@@ -19,7 +19,7 @@ public abstract class KindDefinition(HixValueKind valueKind, params HixValueKind
 public static class KindDefinitions {
   private static readonly KindDefinition[] All = [
     new MissingKind(), new NullKind(), new StringKind(), new BoolKind(), new NumberKind(), new TupleKind(), new TableKind(),
-    new OpaqueKind(), new FunctionKind(), new ErrorKind(), new KindKind()
+    new OpaqueKind(), new FunctionKind(), new ErrorKind(), new KindKind(), new PatternKind()
   ];
   private static readonly IReadOnlyDictionary<HixValueKind, KindDefinition> ByKind =
     All.ToDictionary(definition => definition.ValueKind);
@@ -49,7 +49,7 @@ public static class KindDefinitions {
   }
   private sealed class StringKind() : KindDefinition(HixValueKind.String,
     HixValueKind.Null, HixValueKind.Bool, HixValueKind.Number, HixValueKind.Opaque,
-    HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind) {
+    HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind, HixValueKind.Pattern) {
     public override IHixValue New(HixCoroutine _) => String("");
     public override IHixValue Convert(HixCoroutine execution, IHixValue value) => execution.RenderText(value);
   }
@@ -96,6 +96,11 @@ public static class KindDefinitions {
       return result;
     }
   }
+  private sealed class PatternKind() : KindDefinition(HixValueKind.Pattern) {
+    public override IHixValue New(HixCoroutine _) => HixPatterns.Primitive(HixValueKind.Any);
+    public override IHixValue Convert(HixCoroutine execution, IHixValue value) =>
+      value is PatternHixValue ? value : execution.Error("not a pattern");
+  }
   private sealed class OpaqueKind() : KindDefinition(HixValueKind.Opaque) {
     public override IHixValue New(HixCoroutine execution) => execution.Error("not opaque");
     public override IHixValue Convert(HixCoroutine execution, IHixValue value) => Is(value) ? value : New(execution);
@@ -103,7 +108,7 @@ public static class KindDefinitions {
   private sealed class FunctionKind() : KindDefinition(HixValueKind.Function, HixValueKind.String) {
     public override IHixValue New(HixCoroutine _) => new NamedFunctionHixValue(HixString.Empty);
     public override IHixValue Convert(HixCoroutine execution, IHixValue value) {
-      if (value is NamedFunctionHixValue) return value;
+      if (value is NamedFunctionHixValue or ResolvedFunctionHixValue) return value;
       var rendered = execution.RenderText(value);
       return rendered is ErrorHixValue ? rendered : (IHixValue)execution.BindFunction(execution.Text(rendered)) ?? execution.Error("unknown function");
     }

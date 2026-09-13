@@ -9,10 +9,14 @@ namespace Hix;
 
 public sealed class FunctionLibrary {
   private FunctionSignatureRegistry Definitions;
+  private readonly List<TypeDeclarationIr> types = [];
+  public IReadOnlyList<TypeDeclarationIr> Types => types;
   private readonly IReadOnlyList<HixFunctionEntry> constructorMetadata;
   public FunctionLibrary(FunctionSignatureRegistryBuilder definitions) {
     Definitions = new FunctionSignatureRegistry(Array.Empty<HixFunctionEntry>());
-    OpaqueTypes = definitions.OpaqueTypes.ToArray();
+    OpaqueTypes = definitions.OpaqueTypes.Concat(definitions.Libraries.SelectMany(AntlrSyntax.ReadOpaqueTypes))
+      .GroupBy(type => type.Identity).Select(group => group.Distinct().Count() == 1 ? group.First() :
+        throw new ArgumentException("Conflicting opaque type identity '" + group.Key + "'.")).ToArray();
     PatternConstructors = definitions.PatternConstructors.Concat(OpaqueTypes.Select(type =>
       new HixPatternConstructor(type.Name, type.Arity, arguments => type.Construct(arguments.ToArray()), type.Documentation))).ToArray();
     constructorMetadata = PatternConstructors.Select(constructor => new HixFunctionEntry(constructor.Name,
@@ -29,7 +33,14 @@ public sealed class FunctionLibrary {
     foreach (var unit in builder.Libraries.Select(source => AntlrSyntax.Parse(source, backend)).Concat(builder.LibraryUnits)) {
       if (unit.Diagnostics.Count != 0)
         throw new InvalidOperationException("Invalid embedded Hix library: " + string.Join("; ", unit.Diagnostics.Select(item => item.Message)));
-      foreach (var declaration in unit.Declarations) {
+      var exported = DeclarationExports.Expand(unit.Declarations);
+      foreach (var type in exported.OfType<TypeDeclarationIr>()) {
+        if (types.Any(item => item.Name == type.Name))
+          throw new InvalidOperationException("Duplicate embedded type '" + type.Name + "'.");
+        types.Add(type);
+      }
+      foreach (var declaration in exported) {
+        if (declaration is TypeDeclarationIr) continue;
         if (declaration is MetadataDeclarationIr metadata) {
           entries.Add(new HixFunctionEntry(metadata.Name, [metadata.Signature], string.Join("\n",
             metadata.Metadata.Where(item => item.Name is "description" or "doc").SelectMany(item => item.Values)
@@ -43,7 +54,7 @@ public sealed class FunctionLibrary {
           throw new InvalidOperationException("External function '" + function.Name + "' requires one handler named '" + hostName + "'.");
         if (handlers.Length != 1)
           throw new InvalidOperationException("External function '" + function.Name + "' requires one handler named '" + hostName + "'.");
-        entries.Add(new LibraryFunction(function, handlers[0], builder));
+        entries.Add(new LibraryFunction(function, handlers[0], builder, types));
       }
       Definitions = new FunctionSignatureRegistry(entries);
     }
@@ -59,6 +70,35 @@ public sealed class FunctionLibrary {
         .Select(group => new LibraryFunction(group.ToArray()))));
   }
 
+  private static FunctionSignature ConfigureDeclarationInference(FunctionDeclarationIr declaration, FunctionSignature signature) {
+    int Argument(string name) {
+      var index = (declaration.Signatures[0].Inputs ?? []).ToList().FindIndex(field => field.Name == name);
+      if (index < 0) throw new ArgumentException("unknown inference argument '" + name + "'");
+      return index;
+    }
+    var invocation = declaration.Metadata.Where(item => item.Name == "invokeArguments").ToArray();
+    if (invocation.Length != 0) signature = signature with {
+      CallableArguments = invocation.ToDictionary(item => Argument(((StringExpressionIr)item.Values[0]).Value),
+        item => Argument(((StringExpressionIr)item.Values[1]).Value))
+    };
+    var projection = declaration.Metadata.FirstOrDefault(item => item.Name is "tupleResults" or "firstResult");
+    if (projection != null) {
+      var index = Argument(((StringExpressionIr)projection.Values[0]).Value);
+      var slot = ((NumberExpressionIr)projection.Values[1]).Value;
+      if (slot < 0 || slot != Math.Truncate(slot) || slot > int.MaxValue)
+        throw new ArgumentException("result projection requires a non-negative integer type argument index");
+      signature = signature with { InferResult = values => {
+        if (values[index] is not TupleHixPattern tuple) return signature.ResultPattern;
+        var results = tuple.Fields.Select(field => field.Pattern is OpaqueHixPattern opaque && slot < opaque.Arguments.Count
+          ? opaque.Arguments[(int)slot] : HixPattern.Any).ToArray();
+        return projection.Name == "tupleResults" ? new TupleHixPattern(results.Select((pattern, position) =>
+          new HixPatternField(position.ToString(), pattern)).ToArray()) :
+          new TableHixPattern([new("index", new KindHixPattern(HixValueKind.Number)), new("value", HixPatterns.Union(results))]);
+      }};
+    }
+    return signature;
+  }
+
   private sealed class LibraryFunction : HixFunctionEntry {
     public LibraryFunction(LibraryFunction[] overloads)
       : base(overloads[0].Name, overloads.SelectMany(entry => entry.Signatures).ToArray(), overloads[0].Documentation, overloads[0].Metadata) {
@@ -67,14 +107,20 @@ public sealed class FunctionLibrary {
       RequiresPrelude = overloads[0].RequiresPrelude;
       ArgumentReferences = overloads[0].ArgumentReferences;
     }
-    public LibraryFunction(FunctionDeclarationIr declaration, FunctionDefinition handler, FunctionSignatureRegistryBuilder builder)
+    public LibraryFunction(FunctionDeclarationIr declaration, FunctionDefinition handler, FunctionSignatureRegistryBuilder builder, IReadOnlyList<TypeDeclarationIr> types)
       : base(declaration.Name, declaration.Signatures.Select(signature => {
         var pattern = signature.Constant(declaration.Name);
-        var result = new FunctionSignature(pattern.Result, pattern.Parameters.Select(field => field.Pattern).ToArray(),
+        HixPattern Resolve(HixPattern value) {
+          var visited = new HashSet<string>();
+          while (value is NamedHixPattern named && visited.Add(named.Name) &&
+              types.FirstOrDefault(type => type.Name == named.Name) is { } type) value = type.Pattern;
+          return value;
+        }
+        var result = new FunctionSignature(Resolve(pattern.Result), pattern.Parameters.Select(field => Resolve(field.Pattern)).ToArray(),
           signature.Inputs?.LastOrDefault()?.Variadic == true,
           pattern.Parameters.Select(field => field.Name).ToArray(),
           signature.Inputs?.Select(field => field.DefaultValue).ToArray(), declaration.TypeParameters);
-        return builder.ConfigureInference(declaration.Name, result);
+        return ConfigureDeclarationInference(declaration, builder.ConfigureInference(declaration.Name, result));
       }).ToArray(), string.Join("\n", declaration.Metadata.Where(item => item.Name is "description" or "doc")
         .SelectMany(item => item.Values).OfType<StringExpressionIr>().Select(item => item.Value))) {
       Handler = handler;

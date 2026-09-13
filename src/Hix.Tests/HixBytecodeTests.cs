@@ -44,13 +44,13 @@ public sealed class HixBytecodeTests {
       type Person = @{string name, number age = [18], %optional string note}
       type Pair = @[string first, %optional number second]
       %tagged type Pet = @{string name}
-      pure func make (any value) -> Person { return(Person($value)) }
+      pure func make (string value) -> Person { return(Person(name = $value)) }
       pure func accepts (pattern value) -> bool { return(true) }
       mixin Example { expression {
         local constructed = make(<Ada>)
-        local identity = make(@{name=<Grace>, age=21})
+        local identity = cast(@{name=<Grace>, age=21}, Person)
         local pair = Pair(first = <one>)
-        local pet = Pet(@{name=<Milo>})
+        local pet = Pet(name = <Milo>)
         emit(local#constructed#name)
         emit(local#constructed#age)
         emit(has(local#constructed, <note>))
@@ -63,7 +63,7 @@ public sealed class HixBytecodeTests {
     var methods = program.Scope.DisassemblyFunctions("mixin").Select(item => item.Function).ToArray();
     foreach (var name in new[] {"Person", "Pair", "Pet"}) {
       var constructors = methods.Where(method => method.Name == name).ToArray();
-      Assert.Equal(2, constructors.Length);
+      Assert.Single(constructors);
       Assert.All(constructors, method => {
         Assert.True(method.IsPure);
         Assert.Equal(HixOpcode.Enter, HixInstruction.Decode(program.Bytecode, method.Body).Opcode);
@@ -188,11 +188,11 @@ public sealed class HixBytecodeTests {
         emit(join(where(local#original, func => eq($0, 2)), <,>))
         emit(join(where(local#original, func => true), <,>))
         emit(length(where(local#original, func => false)))
-        emit(length(map(@[], func => error<unexpected>)))
+        emit(length(map(@[], func => cast(<unexpected>, error))))
         emit(any(@[true, false], func => $0))
         emit(all(@[true, false], func => $0))
-        emit(any(@[], func => error<unexpected>))
-        emit(all(@[], func => error<unexpected>))
+        emit(any(@[], func => cast(<unexpected>, error)))
+        emit(all(@[], func => cast(<unexpected>, error)))
         emit(reduce(local#original, func => plus($0, $1), 0))
       } }
       """, "Example");
@@ -238,13 +238,13 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void WorkerReusesClearedLocalsAfterNestedCallsAndFailures() {
     var program = TestCompiler.Compile("""
-      pure func captured { local name = <kept>; return(local) }
-      pure func failing { local garbage = <discard>; return(error<failed>) }
+      pure func captured() -> any { local name = <kept>; return(local) }
+      pure func failing() -> any { local garbage = <discard>; return(cast(<failed>, error)) }
       mixin Example { expression {
         local saved = captured()
         local failure = [failing()?]
         emit(local#saved#name)
-        emit(length(captured()))
+        emit(length(cast(captured(), tuple)))
       } }
       """, "Example");
     var vm = new HixVM(new[] {program});
@@ -340,9 +340,9 @@ public sealed class HixBytecodeTests {
       pure func choose { return(<fallback>) }
       pure func choose (number value) -> string { return(<number>) }
       mixin Example { expression {
-        emit(choose(<12>))
-        emit(choose(<not numeric>))
-        emit(choose(<34>))
+        emit(call(choose, <12>))
+        emit(call(choose, <not numeric>))
+        emit(call(choose, <34>))
       } }
       """, "Example");
     var result = HixVM.Execute(program, new HixCoroutine(new Context()));
@@ -359,9 +359,9 @@ public sealed class HixBytecodeTests {
       pure func tied (number value) -> string { return(<number>) }
       pure func tied (bool value) -> string { return(<bool>) }
       mixin Example { expression {
-        emit(choose(<12>))
-        local failure = [tied(<12>)?]
-        emit(kind(local#failure))
+        emit(call(choose, <12>))
+        local failure = [call(tied, <12>)?]
+        emit(pattern(local#failure))
       } }
       """, "Example");
     var result = HixVM.Execute(program, new HixCoroutine(new Context()));
@@ -396,7 +396,7 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void StorageRootsSupportTablesAndCaptureValuesBeforeMutation() {
     var program = TestCompiler.Compile("""
-      pure func captured { local name = <function>; return(local) }
+      pure func captured() -> any { local name = <function>; return(local) }
       mixin Example { expression {
         var<name> @= <before>;
         local saved = [var]
@@ -406,7 +406,7 @@ public sealed class HixBytecodeTests {
         emit(join(keys(local#saved), <,>))
         emit(get(captured(), <name>))
         local self = [local]
-        emit(length(local#self))
+        emit(length(cast(local#self, table)))
       } }
       """, "Example");
     var result = HixVM.Execute(program, new HixCoroutine(new Context()));
@@ -417,7 +417,7 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void LiteralLoadsAndPackingUseDedicatedOpcodesWithoutLiteralPoolEntries() {
     var program = TestCompiler.Compile("""
-      pure func pair { return(true, false) }
+      pure func pair() -> any { return(true, false) }
       mixin Example { expression {
         local a = null
         local b = true
@@ -452,13 +452,13 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void SmartReferencesCompileToExplicitRootsAndMemberSelection() {
     var program = TestCompiler.Compile("""
-      pure func read { local value = [$0]; return(<[$value]:[$it]>) }
+      pure func read [string] -> string { local value = [$0]; return(<[$value]:[param]>) }
       mixin Example { expression { emit(read(<argument>)) } }
       """, "Example");
     var roots = HixInstruction.ReadAll(program.Bytecode).Where(item => item.Instruction.Opcode == HixOpcode.LoadRoot)
       .Select(item => program.StringPool[item.Instruction.A]).ToArray();
-    Assert.Contains("args", roots);
     Assert.Contains("param", roots);
+    Assert.Contains("args", roots);
     Assert.Contains("local", roots);
     Assert.DoesNotContain(Enum.GetNames(typeof(HixOpcode)), name => name.Contains("Smart") || name.StartsWith("Host"));
     var result = HixVM.Execute(program, new HixCoroutine(new Context()));
@@ -552,8 +552,8 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void ControlFlowAndCheckedFailuresDoNotThrowManagedExceptions() {
     var program = TestCompiler.Compile("""
-      pure func returned { return(<returned>) }
-      pure func broken { goto missing }
+      pure func returned() -> string { return(<returned>) }
+      pure func broken() -> any { goto missing }
       mixin Example { expression {
         local i = 0
         {
@@ -698,7 +698,7 @@ public sealed class HixBytecodeTests {
   public void FunctionValuesCannotImportAnotherProgramImage() {
     var variables = new Dictionary<string, object>();
     var first = TestCompiler.Compile("""
-      pure func decorate { return(<origin:[param]:[length(param)]>) }
+      pure func decorate { return(<origin:[param]:[length(cast(param, tuple))]>) }
       mixin Example { expression { var<callback> @= [decorate]; } }
       """, "Example");
     var second = TestCompiler.Compile("""
@@ -720,7 +720,7 @@ public sealed class HixBytecodeTests {
         $i = plus($i, 1)
         when(eq($i, 1)) { goto again }
         emit(<value:[$i]>)
-        local checked = [error<bad>?]
+        local checked = [cast(<bad>, error)?]
         emit(catch(local#checked) ?: <caught>)
         local chosen = when <right> {
           <wrong> -> <no>

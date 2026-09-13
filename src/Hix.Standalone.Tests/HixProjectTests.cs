@@ -32,7 +32,7 @@ public sealed class HixProjectTests {
     Write(directory, "src/main.hix", "func main { print(answer()) }");
     Write(directory, "modules/tools/manifest.hal", "--- Manifest\nname = tools\n");
     Write(directory, "modules/tools/modules/leaf/manifest.hal", "--- Manifest\nname = leaf\n");
-    Write(directory, "modules/tools/modules/leaf/src/answer.hix", "func answer { return(42) }");
+    Write(directory, "modules/tools/modules/leaf/src/answer.hix", "func answer() -> any { return(42) }");
     Write(directory, "modules/unused/manifest.hal", "--- Manifest\nname = unused\n");
     Write(directory, "modules/unused/src/broken.hix", "func broken { @ }");
     var project = HixProject.Load(directory);
@@ -47,7 +47,7 @@ public sealed class HixProjectTests {
     Write(directory, "test/app.hix", "%backend<Test>\n---\n%test\nfunc appTest { assert(eq(answer(), 7)) }");
     var library = Path.Combine(directory, "..", "library");
     Write(library, "manifest.hal", "--- Manifest\nname = library\nversion = 1.4.0\n");
-    Write(library, "src/library.hix", "func answer { return(7) }");
+    Write(library, "src/library.hix", "func answer() -> any { return(7) }");
     Write(library, "test/library.hix", "%backend<Test>\n---\n%test\nfunc dependencyTest { assert(false) }");
     var result = HixTestRunner.Run([directory], new StringWriter()); Assert.True(result.Success); Assert.Single(result.Tests); Assert.Equal("appTest", result.Tests[0].Name);
   });

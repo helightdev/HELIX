@@ -147,7 +147,7 @@ public sealed class HixGenericTypeTests {
   [Fact]
   public void GenericIrCompilesOnceAndRunsWithDifferentKinds() {
     var parameter = new HixTypeParameter("identity", "T");
-    var function = new FunctionDeclarationIr("identity", true, false, true,
+    var function = new FunctionDeclarationIr("identity", true, true,
       [new IrSignature(null, [new SignatureField("value", parameter.Pattern)], parameter.Pattern, null) { TypeParameters = [parameter] }],
       new BlockStatementIr([new ControlFlowStatementIr(ControlFlowKind.Return, null, [new RootExpressionIr("0", true)])]));
     var unit = new CompilationUnitIr("", [function], [], []);
@@ -182,7 +182,7 @@ public sealed class HixGenericTypeTests {
   public void GenericIrCallablesInferFromInvocationArguments() {
     var element = new HixTypeParameter("identity", "T");
     var result = new HixTypeParameter("launch", "R");
-    var function = new FunctionDeclarationIr("identity", true, false, true,
+    var function = new FunctionDeclarationIr("identity", true, true,
       [new IrSignature(null, [new SignatureField("value", element.Pattern)], element.Pattern, null)],
       new BlockStatementIr([new ControlFlowStatementIr(ControlFlowKind.Return, null, [new RootExpressionIr("0", true)])]),
       typeParameters: [element]);
@@ -224,7 +224,7 @@ public sealed class HixGenericTypeTests {
         var hostName = definition.Name + "_" + index;
         functions.Add(new SimpleFunction(hostName, definition.Handler));
         var declarations = definition.Signatures.Select(signature => new FunctionDeclarationIr(
-          definition.Name, true, false, false,
+          definition.Name, true, false,
           [new IrSignature(null, signature.ArgumentTypes.Select((_, argument) =>
             new SignatureField(signature.GetArgumentName(argument), signature.GetArgumentPattern(argument),
               signature.IsVariadic && argument == signature.ArgumentTypes.Count - 1,

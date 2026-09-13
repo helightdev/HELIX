@@ -112,7 +112,7 @@ public sealed class HelixMixinProtocolHostTests
         Assert.That(response.Files, Has.Length.EqualTo(files.Length));
         Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions, Is.Not.Empty);
         Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions,
-            Has.Some.Matches<MixinLanguageDefinition>(definition => definition.Kind == "Kind" && definition.Name == "string"));
+            Has.Some.Matches<MixinLanguageDefinition>(definition => definition.Kind == "PrimitivePattern" && definition.Name == "string"));
         Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions,
             Has.Some.Matches<MixinLanguageDefinition>(definition => definition.Kind == "PatternMetadata" && definition.Name == "many"));
         Assert.That(response.Files.Sum(file => file.Declarations.Length), Is.GreaterThan(10));

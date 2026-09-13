@@ -77,7 +77,7 @@ public static class HixDecompiler {
           var signatures = function.Signatures.Count == 0 ? new FunctionSignature[] {null} : function.Signatures;
           foreach (var signature in signatures) {
             Metadatas(function.Metadata);
-            var header = (function.IsPure ? "pure " : "") + (function.IsInline ? "inline " : "") +
+            var header = (function.IsPure ? "pure " : "") +
               (function.IsNoinline ? "noinline " : "") + "func " + DeclarationName(function.Name);
             if (signature != null) {
               header += (signature.Inputs == null ? signature.InputPattern == null ? "" : " [" + Pattern(signature.InputPattern) + "]" : Fields(signature.Inputs)) + " -> " +
@@ -192,8 +192,7 @@ public static class HixDecompiler {
     }
     private static string Constraint(CallExpressionIr call) {
       var kind = call.DispatchConstraint?.Kind ?? call.Binding.Kind;
-      return kind == HixCallKind.Static ? " @static(" + Quote(call.DispatchConstraint?.Signature ?? call.Binding.Signature.Display) + ")" :
-        kind == HixCallKind.Dynamic ? " @dynamic" : "";
+      return kind == HixCallKind.Static ? " @static(" + Quote(call.DispatchConstraint?.Signature ?? call.Binding.Signature.Display) + ")" : "";
     }
     private string Chain(ExpressionIr expression) => expression switch {
       RootExpressionIr root => root.IsSmart ? "$" + root.Name : RootName(root.Name),
@@ -394,7 +393,7 @@ public static class HixDecompiler {
       new SignatureField(field.Name, field.Pattern, field.Variadic, metadata: Metadata(field.Metadata), optional: field.Optional,
         defaultValue: field.DefaultValue == null ? null : Literal(field.DefaultValue, image.StringPool))).ToArray();
     private FunctionDeclarationIr Function(BytecodeFunction function) => Located(new FunctionDeclarationIr(function.Name, function.IsPure,
-      false, true, function.Signatures.Select(signature => new FunctionSignature(signature.InputPattern, Fields(signature.Inputs),
+      true, function.Signatures.Select(signature => new FunctionSignature(signature.InputPattern, Fields(signature.Inputs),
         signature.OutputPattern, Fields(signature.Outputs))).ToArray(), Block(function.Body), Metadata(function.Metadata)), function.Body);
     private ExpressionDeclarationIr Expression(BytecodeExpression expression) => Located(new ExpressionDeclarationIr(expression.IsPrelude, false, Block(expression.Function.Body)), expression.Function.Body);
     private BlockStatementIr Block(int offset) {
@@ -464,7 +463,6 @@ public static class HixDecompiler {
           case HixOpcode.Call:
             var reference = (FunctionReferenceHixValue)image.ConstantPool[instruction.A];
             value = new CallExpressionIr(reference.Signature.Name, PopMany(stack, instruction.B, offset)) {DispatchConstraint = new(HixCallKind.Static, reference.Signature.Display)}; break;
-          case HixOpcode.CallDynamic: value = new CallExpressionIr(Name(instruction.A), PopMany(stack, instruction.B, offset)) {DispatchConstraint = new(HixCallKind.Dynamic)}; break;
           case HixOpcode.CastBoolean:
             if (Pop(stack, offset) is not CallExpressionIr call) throw Error(offset, "CastBoolean must follow a call");
             value = new CallExpressionIr(call.Name, call.Arguments, true) {DispatchConstraint = call.DispatchConstraint}; break;

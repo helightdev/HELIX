@@ -9,10 +9,33 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinOutputTests {
   [Fact]
+  public void ConcreteScalarOverloadsBindAndExecuteStatically() {
+    var backend = HixMixinBackend.Instance;
+    var image = HixCompiler.Compile("""
+      mixin Test {
+        prelude expression {
+          emit(<Class>, csharpLiteral(null))
+          emit(<Class>, csharpLiteral(<hello>))
+          emit(<Class>, csharpLiteral(12))
+          emit(<Class>, csharpLiteral(true))
+          emit(<Class>, floatTime(2))
+          emit(<Class>, floatTime<2ms>)
+          emit(<Class>, floatTime(null))
+        }
+      }
+      """, "Test", backend);
+    var thread = backend.CreateCoroutine();
+    Assert.True(HixVM.Execute(image, thread).Success);
+    var context = Assert.IsType<MixinOutputContext>(thread.Context);
+    Assert.Equal(new[] {"null", "\"hello\"", "12", "true", "2f", "0.002f", "-0f"},
+      context.Emissions.Outputs.Select(output => output.ResolveText()));
+  }
+
+  [Fact]
   public void GeneratorEmissionsRollbackWithCallsAndExpressions() {
     var backend = HixMixinBackend.Instance;
     var program = HixCompiler.Compile("""
-      func broken { inject(<discarded>, <body>); fail<bad> }
+      func broken() -> any { inject(<discarded>, <body>); fail<bad> }
       mixin Test {
         prelude expression {
           inject(<kept>, <before>)

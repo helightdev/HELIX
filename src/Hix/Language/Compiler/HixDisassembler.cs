@@ -109,7 +109,6 @@ public static class HixDisassembler {
       case HixOpcode.Call:
         var signature = ((FunctionReferenceHixValue)constants[a]).Signature.Display;
         return ("c" + Number(a) + ", argc=" + Number(b), "push(static " + signature + "(" + Args(b) + "))");
-      case HixOpcode.CallDynamic: return (StringId() + ", argc=" + Number(b), "push(dynamic " + Name() + "(" + Args(b) + "))");
       case HixOpcode.CastBoolean: return ("", "push(bool_or_error(pop()))");
       case HixOpcode.Not: return ("", "push(!truthy(pop()))");
       case HixOpcode.CastString: return ("", "push(text(pop()))");

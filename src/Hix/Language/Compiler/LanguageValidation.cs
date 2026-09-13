@@ -7,9 +7,11 @@ namespace Hix.Compiler;
 public static class LanguageValidation {
   public static void Validate(IReadOnlyList<HixIrNode> declarations, List<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
+    try { declarations = DeclarationExports.Expand(declarations); }
+    catch (System.ArgumentException error) { diagnostics.Add(new HixParseDiagnostic(0, error.Message)); return; }
     void Error(HixIrNode node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
-    var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
-      .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
+    var patterns = (backend ?? HixCoreBackend.Instance).Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
     var metadataSignatures = new Dictionary<string, HixMetadataKind>(StringComparer.Ordinal);
     foreach (var group in declarations.OfType<MetadataDeclarationIr>().GroupBy(metadata => metadata.Name))
       if (group.Select(metadata => metadata.Retention).Distinct().Count() > 1)
@@ -73,7 +75,6 @@ public static class LanguageValidation {
         }
       }
       foreach (var function in functions) {
-        if (function.IsInline && function.IsNoinline) Error(function, "inline and noinline cannot be combined");
         foreach (var parameter in function.TypeParameters) {
           if (parameter.Bound != null) ValidatePattern(parameter.Bound, function, new HashSet<string>());
           foreach (var bound in parameter.AdditionalBounds) ValidatePattern(bound, function, new HashSet<string>());

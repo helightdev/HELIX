@@ -280,6 +280,8 @@ public class HixFunctionEntry {
     for (var index = 0; index < values.Length; index++) {
       if (!KindDefinitions.TryImplicitConvert(execution, values[index], signature.GetArgumentType(index), out var value))
         return false;
+      if (signature.GetArgumentPattern(index) is not (KindHixPattern or AnyHixPattern) &&
+          !execution.Matches(signature.GetArgumentPattern(index), value, out _)) return false;
       if (ReferenceEquals(value, values[index])) continue;
       if (ReferenceEquals(converted, values)) converted = (IHixValue[])values.Clone();
       converted[index] = value;

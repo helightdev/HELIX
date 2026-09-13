@@ -37,6 +37,6 @@ internal static class PatternConstructorDiagnostics {
       field.Pattern.Display + (field.AllowsMissing ? "?" : ""))) + ")";
     return "no constructor of '" + name + "' accepts the supplied arguments" +
       (problems.Count == 0 ? "" : ": " + string.Join("; ", problems.Distinct())) +
-      ". Available signatures: " + name + "(value: " + name + "), " + signature;
+      ". Available signature: " + signature;
   }
 }

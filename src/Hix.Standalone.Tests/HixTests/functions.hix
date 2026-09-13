@@ -1,24 +1,24 @@
 %test
-func kindsAndConversions {
-  assert(eq(string(12), <12>))
-  assert(eq(string(true), <true>))
-  assert(eq(number(<2.5>), 2.5))
-  assert(eq(number(true), 1))
-  assert(eq(number(null), 0))
-  assert(eq(bool(1), true))
-  assert(eq(bool(<>), false))
+func primitivePatternsAndConversions {
+  assert(eq(cast(12, string), <12>))
+  assert(eq(cast(true, string), <true>))
+  assert(eq(cast(<2.5>, number), 2.5))
+  assert(eq(cast(true, number), 1))
+  assert(eq(cast(null, number), 0))
+  assert(eq(cast(1, bool), true))
+  assert(eq(cast(<>, bool), false))
   assert(is(<text>, string))
   assert(is(12, number))
-  assert(eq(kind(@[1]), tuple))
+  assert(eq(pattern(@[1]), tuple))
   assert(eq(new(string), <>))
   assert(eq(new(tuple), @[]))
   assert(eq(new(table), @{}))
-  assert(eq(as(4, string), <4>))
-  assert(eq(tuple(<value>), @[<value>]))
-  assert(eq(tuple(@{a=1, b=2}), @[@[<a>, 1], @[<b>, 2]]))
-  assert(eq(table(@[@[<a>, 1], @[<b>, 2]]), @{a=1, b=2}))
-  assert(eq(kind(<value>), string))
-  assert(eq(kind(string), kind))
+  assert(eq(cast(4, string), <4>))
+  assert(eq(cast(<value>, tuple), @[<value>]))
+  assert(eq(cast(@{a=1, b=2}, tuple), @[@[<a>, 1], @[<b>, 2]]))
+  assert(eq(cast(@[@[<a>, 1], @[<b>, 2]], table), @{a=1, b=2}))
+  assert(eq(pattern(<value>), string))
+  assert(eq(pattern(string), pattern))
 }
 
 %test
@@ -116,12 +116,12 @@ func stringFailuresAreCheckable {
 %testcase(@[], @[2, 2, true, null, <fallback>, true, 0, @[1, 2, 3], @[1, 2],
   @{second=<two>, first=<one>}, @{first=<one>}, @[<second>, <first>], @[<two>, <one>],
   @[@[<second>, <two>], @[<first>, <one>]], <a,b>, <second=two;first=one>])
-func collectionFunctions -> tuple {
+func collectionFunctions() -> tuple {
   local items = @[<a>, @[<b>, <c>]]
   local record = @{second=null, first=<one>}
   local replaced = put($record, <second>, <two>)
   return(@[
-    length($items), length($items#1), has($record, <second>),
+    length($items), length(cast($items#1, tuple)), has($record, <second>),
     get($record, <second>, <fallback>), get($record, <missing>, <fallback>),
     contains($items, <a>), indexOf($items, <a>), push(@[1, 2], 3), pop(@[1, 2, 3]),
     $replaced, remove($replaced, <second>), keys($replaced), values($replaced), entries($replaced),
@@ -165,7 +165,7 @@ pure func choose(string first, string second = [<default>]) -> string { return($
 
 %test
 %testcase(@[], @[<default>, <named>])
-func namedArgumentsAndDefaults -> tuple => @[
+func namedArgumentsAndDefaults() -> tuple => @[
   choose(first = <one>), choose(second = <named>, first = <one>)
 ];
 
@@ -180,10 +180,49 @@ func missingAndNullableParameters {
 
 %test
 func checkedErrors {
-  local failure = [error<bad>?]
+  local failure = [cast(<bad>, error)?]
   assert(is($failure, error))
   assert(not(exists($failure)))
   assert(eq(catch($failure) ?: <fallback>, <fallback>))
   assert(eq(catch($failure, func => <handled>), <handled>))
-  assert(eq(catch(<fine>, func => error<unreachable>), <fine>))
+  assert(eq(catch(<fine>, func => cast(<unreachable>, error)), <fine>))
+}
+
+// Stdlib enum patterns are available to declarations, casts, and chained calls.
+pure func compareWithOperator(number left, ComparisonOperator op, number right) -> bool {
+  return(compare($left, $op, $right))
+}
+%test
+func comparisonOperatorPattern {
+  local op @= cast(<lt>, ComparisonOperator);
+  assert(compareWithOperator(1, $op, 2))
+  local left @= 3;
+  assert($left:compare(cast(<gte>, ComparisonOperator), 3))
+  assert(is([cast(<unknown>, ComparisonOperator)?], error))
+}
+
+%test
+func patternsTypeCheckPatternsAndKeepSingletonsConstant {
+  assert(is(string, pattern))
+  assert(is(pattern, pattern))
+  assert(is(any, pattern))
+  assert(is(pattern(null), pattern))
+  assert(not(is(null, pattern)))
+  assert(not(is(missing, pattern)))
+  assert(is(null, pattern(null)))
+  assert(is(missing, pattern(missing)))
+  assert(is(12, any))
+  assert(eq(cast(string, pattern), string))
+  assert(is(new(pattern), pattern))
+}
+
+type PositiveNumber = %min(1) number
+%test
+func predicatesAndConditionalValuesUseDeclaredPatterns {
+  assert(is(2, PositiveNumber))
+  assert(not(is(0, PositiveNumber)))
+  assert(eq(if(2, PositiveNumber, 0), 2))
+  assert(eq(if(0, PositiveNumber, 3), 3))
+  assert(eq(ifNot(0, PositiveNumber, 3), 0))
+  assert(eq(ifNot(2, PositiveNumber, 3), 3))
 }

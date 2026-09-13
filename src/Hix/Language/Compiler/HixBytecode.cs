@@ -102,8 +102,6 @@ public enum HixOpcode : byte {
   EndCheck = 38,
   /// <summary>u16 string pool message; produce an unchecked runtime error.</summary>
   Throw = 39,
-  /// <summary>u16 string pool function name, u16 argument count; select an overload from runtime values.</summary>
-  CallDynamic = 40,
 }
 
 /// <summary>A decoded instruction. Its encoded size is one opcode byte plus only the operands that opcode uses.</summary>
@@ -112,9 +110,9 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
     HixOpcode.JumpNotNull or HixOpcode.JumpFalse or HixOpcode.Block or HixOpcode.Goto;
   public bool UsesStringPool => Opcode is HixOpcode.LoadString or HixOpcode.LoadRoot or HixOpcode.Member
     or HixOpcode.StoreLocal or
-    HixOpcode.StoreCarry or HixOpcode.CallDynamic or HixOpcode.Throw;
+    HixOpcode.StoreCarry or HixOpcode.Throw;
   public int Size => Opcode switch {
-    HixOpcode.Call or HixOpcode.CallDynamic => 5,
+    HixOpcode.Call => 5,
     _ when IsRelative || UsesStringPool || Opcode is HixOpcode.LoadConst or HixOpcode.PackTuple or HixOpcode.PackTable
       or
       HixOpcode.Interpolate or HixOpcode.Pack => 3,

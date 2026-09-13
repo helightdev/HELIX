@@ -113,5 +113,5 @@ func malformedAndInvalidProgramsProduceDiagnostics {
   assert(not(success($malformedCompilation)))
   assert(not(success($invalidCompilation)))
   assert(compare(length(diagnostics($malformedCompilation)), <gt>, 0))
-  assert(contains(get(diagnostics($invalidCompilation), 0), <no overload of 'replaceAll'>))
+  assert(contains(cast(get(diagnostics($invalidCompilation), 0), string), <no overload of 'replaceAll'>))
 }

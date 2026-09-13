@@ -170,7 +170,7 @@ public class StandaloneTests {
   [Fact] public void CoroutinesPreserveNestedFramesAcrossSingleInstructionSlices() {
     var backend = new HixStandaloneBackend(new StringWriter());
     var program = HixCompiler.CompileFunctions([
-      "pure func child { return(42) } func main { return(child()) }"
+      "pure func child() -> any { return(42) } func main { return(child()) }"
     ], backend);
     var vm = new HixVM([program]);
     var first = vm.CreateCoroutine(program);
@@ -242,7 +242,7 @@ public class StandaloneTests {
     var output = new StringWriter();
     var backend = new HixStandaloneBackend(output);
     var program = HixCompiler.CompileFunctions([
-      "pure func identity { return(param) } func main { print(<hello>); return(identity(42)) }"
+      "pure func identity(any __arg0) -> any { return($0) } func main { print(<hello>); return(identity(42)) }"
     ], backend);
     var thread = backend.CreateCoroutine();
     Assert.IsAssignableFrom<HixContext>(thread.Context);
@@ -306,7 +306,7 @@ public class StandaloneTests {
   }
   [Fact] public void FailuresAreReported() {
     Assert.False(Run("func other { return } ").Success);
-    Assert.False(Run("func main { error(<failed>) }").Success);
+    Assert.False(Run("func main { cast(<failed>, error) }").Success);
   }
   [Fact] public void PackedArgumentRemainsOneArgument() {
     var tuple = new TupleHixValue(new IHixValue[] {new NumberHixValue(1), new NumberHixValue(2)});
@@ -329,7 +329,7 @@ public class StandaloneTests {
       Assert.Equal("alternate" + Environment.NewLine, output.ToString());
       Assert.Equal(1, Program.Run(new[] {file, "--entry", "missing"}, output, error));
       Assert.Equal(2, Program.Run(new[] {file, "--entry"}, output, error));
-      File.WriteAllText(file, "func main { return(error(<failure>)) }");
+      File.WriteAllText(file, "func main { return(cast(<failure>, error)) }");
       Assert.Equal(1, Program.Run(new[] {file}, output, error));
       Assert.Contains("failure", error.ToString());
     } finally { File.Delete(file); }
@@ -378,7 +378,7 @@ public class StandaloneTests {
     try {
       var importedDirectory = pattern == "src/**" || pattern == "**" ? Path.Combine(directory, "src", "nested") : directory;
       Directory.CreateDirectory(importedDirectory);
-      File.WriteAllText(Path.Combine(importedDirectory, "library.hix"), "func answer { return(42) }");
+      File.WriteAllText(Path.Combine(importedDirectory, "library.hix"), "func answer() -> any { return(42) }");
       var entry = Path.Combine(directory, "main.hix");
       File.WriteAllText(entry, "%import<" + pattern + ">\n---\nfunc main { print(answer()) }");
       var output = new StringWriter(); var error = new StringWriter();
@@ -394,7 +394,7 @@ public class StandaloneTests {
       File.WriteAllText(Path.Combine(directory, "manifest.hal"),
         "--- Manifest\nname = sample\nsources = { main = [\"definitions/**\", \"assets/**\"] }\n");
       Directory.CreateDirectory(Path.Combine(directory, "definitions"));
-      File.WriteAllText(Path.Combine(directory, "definitions", "answer.hix"), "func answer { return(42) }");
+      File.WriteAllText(Path.Combine(directory, "definitions", "answer.hix"), "func answer() -> any { return(42) }");
       var entry = Path.Combine(nested, "main.hix");
       File.WriteAllText(entry, "func main { print(answer()) }");
 
@@ -495,8 +495,8 @@ public class StandaloneTests {
     Assert.Equal("null", JObject.Parse(ReadText(rootMissing))["$defs"]?["MissingOnly"]?["type"]?.Value<string>());
   }
   [Fact] public void TaggedTypesInsertAndEnforceDiscriminators() {
-    const string tagged = "%tagged\ntype Person = @{string name}\nfunc main { return(Person(param)) }";
-    var constructed = Run(tagged, args: new IHixValue[] {new HixTableValue([
+    const string tagged = "%tagged\ntype Person = @{string name}\nfunc main { return(cast(param, Person)) }";
+    var constructed = Run("%tagged\ntype Person = @{string name}\nfunc main { return(Person(name = param#name)) }", args: new IHixValue[] {new HixTableValue([
       new KeyValuePair<HixString, IHixValue>(HixString.Dynamic("name"), HixCoroutine.String("Ada"))
     ])});
     Assert.True(constructed.Success, constructed.Error.Resolve(constructed.Strings));

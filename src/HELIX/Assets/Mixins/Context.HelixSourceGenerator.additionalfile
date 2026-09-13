@@ -194,7 +194,7 @@ mixin HELIX.Context.TickerAttribute(any time = [<tick>], string target = [<Updat
   prelude expression {
     using @> HELIX.Context;
     local Time = <-0f>
-    $Time @= $time:floatTime;
+    $Time @= $time:unwrap:cast(string):floatTime;
     local TickerField @> _{{target:name}}Ticker
     when($Time:matches<^-.*>) {
       $Time @= $Time:regexReplaceAll<-|f><>;

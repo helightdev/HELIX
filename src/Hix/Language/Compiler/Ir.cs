@@ -174,13 +174,12 @@ public sealed class MetadataDeclarationIr(string name, IReadOnlyList<SignatureFi
     arguments.Select(argument => argument.Name).ToArray(), arguments.Select(argument => argument.DefaultValue).ToArray());
 }
 
-public sealed class FunctionDeclarationIr(string name, bool pure, bool inline, bool noinline,
+public sealed class FunctionDeclarationIr(string name, bool pure, bool noinline,
   IReadOnlyList<FunctionSignature> signatures, BlockStatementIr body, IReadOnlyList<MetadataIr> metadata = null,
   IReadOnlyList<HixTypeParameter> typeParameters = null, string externalName = null
 ) : HixIrNode(children: (metadata ?? []).Cast<HixIrNode>().Concat(body == null ? [] : new HixIrNode[] {body}).ToArray()) {
   public string Name { get; } = name;
   public bool IsPure { get; } = pure;
-  public bool IsInline { get; } = inline;
   public bool IsNoinline { get; } = noinline;
   public IReadOnlyList<FunctionSignature> Signatures { get; } = signatures;
   public IReadOnlyList<HixTypeParameter> TypeParameters { get; } = typeParameters ?? [];
@@ -296,9 +295,10 @@ public sealed class CallExpressionIr(string name, IReadOnlyList<ExpressionIr> ar
   public HixCallResolution Resolution { get; set; }
 }
 
-public sealed class InlineExpressionIr(BlockStatementIr body, string resultLocal) : ExpressionIr([body]) {
+public sealed class InlineExpressionIr(BlockStatementIr body, string resultLocal, HixPattern resultPattern = null) : ExpressionIr([body]) {
   public BlockStatementIr Body { get; } = body;
   public string ResultLocal { get; } = resultLocal;
+  public HixPattern ResultPattern { get; } = resultPattern;
 }
 
 public sealed class LambdaExpressionIr(BlockStatementIr body) : ExpressionIr([body]) {

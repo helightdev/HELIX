@@ -193,7 +193,7 @@ class HixAnnotator : Annotator {
     }
 
     private companion object {
-        fun String.isTypeParameter() = lowercase() in setOf("pattern", "type", "kind")
+        fun String.isTypeParameter() = lowercase() in setOf("pattern", "type")
 
         val metadataStructureTokens = setOf(
             dev.helight.helix.hix.generated.HixLexer.METADATA_PREFIX,

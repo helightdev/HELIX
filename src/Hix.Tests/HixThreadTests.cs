@@ -15,7 +15,7 @@ public sealed class HixThreadTests {
   public void FunctionOnlyContextOwnsTransactionsWithoutExpressionState() {
     var context = new FunctionOnlyContext();
     var program = HixCompiler.CompileFunctions(["""
-      func child { emit<discard>; fail<stop> }
+      func child() -> any { emit<discard>; fail<stop> }
       func main { local failed = [child()?]; emit<kept>; return(42) }
       """], TestBackend.Instance);
     var thread = new HixCoroutine(context);
@@ -80,10 +80,10 @@ public sealed class HixThreadTests {
   [InlineData(true)]
   public void NestedBytecodeCallsUseHeapFramesInsteadOfRecursiveInterpreterCalls(bool callbackCalls) {
     var backend = new ProbeBackend();
-    var functions = Enumerable.Range(0, 80).Select(index => "pure func step" + index + " { return(" +
+    var functions = Enumerable.Range(0, 80).Select(index => "pure func step" + index + "() -> any { return(" +
       (callbackCalls ? "call(step" + (index + 1) + ")" : "step" + (index + 1) + "()") + ") }");
     var source = string.Join("\n", functions) + "\npure func identity { return(param) }\n" +
-      "pure func step80 { return(probe(identity)) }";
+      "pure func step80() -> any { return(probe(identity)) }";
     var program = HixCompiler.CompileFunctions([source], backend);
     var thread = backend.CreateCoroutine();
     var callerThread = Environment.CurrentManagedThreadId;
@@ -107,7 +107,7 @@ public sealed class HixThreadTests {
     };
     var result = new HixVM([program]).Invoke(program, thread, "step0");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.IsType<NullHixValue>(result.Value);
+    Assert.IsType<HixTableValue>(result.Value);
   }
 
   [Fact]
@@ -142,17 +142,17 @@ public sealed class HixThreadTests {
   [Fact]
   public void NestedCallsAndChecksReuseThreadBuffersAndReleaseEveryFrameSlice() {
     var program = HixCompiler.CompileFunctions(["""
-      pure func nested {
-        local failure = [error<inner>?]
+      pure func nested() -> any {
+        local failure = [cast(<inner>, error)?]
         { local value = 11 }
         return(plus(1, 2))
       }
       pure func main {
-        local failure = [plus(10, plus(nested(), error<outer>))?]
+        local failure = [plus(10, plus(nested(), cast(<outer>, error)))?]
         assert(is(local#failure, error))
         return(plus(20, nested()))
       }
-      pure func broken { return(plus(10, plus(nested(), error<uncaught>))) }
+      pure func broken { return(plus(10, plus(nested(), cast(<uncaught>, error)))) }
       """], TestBackend.Instance);
     var machine = new HixVM([program]);
     var thread = TestBackend.Instance.CreateCoroutine();

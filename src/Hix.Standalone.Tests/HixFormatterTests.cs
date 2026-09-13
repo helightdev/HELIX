@@ -17,7 +17,7 @@ public sealed class HixFormatterTests {
 
       mixin Example{
       expression{
-      local person=Person(name=<Ada>,age=2)
+      local person=cast(name=<Ada>,age=2, Person)
       }
       }
 
@@ -32,7 +32,7 @@ public sealed class HixFormatterTests {
 
       mixin Example {
         expression {
-          local person = Person(name = <Ada>, age = 2)
+          local person = cast(name = <Ada>, age = 2, Person)
         }
       }
       
@@ -43,10 +43,10 @@ public sealed class HixFormatterTests {
   [Fact]
   public void SmartRootsRemainAttachedToTheirIdentifiers() {
     var formatted = HixFormatter.Format(
-      "func pair(tuple value) -> string { return(join($first:tuple,$second,$0#name,)) }\n");
+      "func pair(tuple value) -> string { return(join($first:cast(tuple),$second,$0#name,)) }\n");
 
     Assert.DoesNotContain("$ ", formatted);
-    Assert.Contains("$first:tuple, $second, $0#name", formatted);
+    Assert.Contains("$first:cast(tuple), $second, $0#name", formatted);
     Assert.Empty(AntlrSyntax.Parse(formatted).Diagnostics);
   }
 

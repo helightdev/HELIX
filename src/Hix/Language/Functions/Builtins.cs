@@ -9,6 +9,10 @@ using static Hix.Runtime.HixCoroutine;
 namespace Hix.Functions;
 
 public static class Builtins {
+  private static IHixValue Convert(HixCoroutine thread, IHixValue value, HixPattern target) =>
+    target is KindHixPattern {ValueKind: not HixValueKind.Pattern} primitive ?
+      KindDefinitions.Get(primitive.ValueKind).Convert(thread, value) : thread.Coerce(value, target);
+
   public static void Register(FunctionSignatureRegistryBuilder definitions) {
     definitions.AddLibrary("""
       %description("Returns a non-error value unchanged, or null for an error.")
@@ -16,15 +20,11 @@ public static class Builtins {
       %description("Returns a non-error value unchanged, or null for an error.")
       pure func <catch>(any arg0, function arg1) -> any external;
 
-      %description("Invokes a function value with an optional parameter.")
-      pure func <call>(function arg0) -> any external;
-      %description("Invokes a function value with an optional parameter.")
-      pure func <call>(function arg0, any arg1) -> any external;
-
-      %description("Invokes a function value with an optional parameter.")
-      pure func <inline>(function arg0) -> any external;
-      %description("Invokes a function value with an optional parameter.")
-      pure func <inline>(function arg0, any arg1) -> any external;
+      %description("Explicitly selects and invokes a function using runtime argument values.")
+      pure func <call>(function target, %variadic any arguments) -> any external;
+      func <var>(any key, any value) -> any external;
+      func <tar>(any key, any value) -> any external;
+      func <local>(any key, any value) -> any external;
 
       %description("Leaves the current block if any supplied condition is false.")
       pure func <match>(%variadic any arg0) -> null external;
@@ -61,42 +61,24 @@ public static class Builtins {
       pure func <unwrap>(any arg0) -> any external;
       """);
     definitions.AddLibrary("""
-      pure func <null>() -> null external;
-      pure func <null>(any value) -> null external;
-      pure func string() -> string external;
-      pure func string(any value) -> string external;
-      pure func bool() -> bool external;
-      pure func bool(any value) -> bool external;
-      pure func number() -> number external;
-      pure func number(any value) -> number external;
-      pure func tuple() -> tuple external;
-      pure func tuple(any value) -> tuple external;
-      pure func table() -> table external;
-      pure func table(any value) -> table external;
-      pure func opaque() -> opaque external;
-      pure func opaque(any value) -> opaque external;
-      pure func function() -> function external;
-      pure func function(any value) -> function external;
-      pure func error() -> error external;
-      pure func error(any value) -> error external;
-      pure func kind() -> kind external;
-      pure func kind(any value) -> kind external;
-      pure func missing() -> missing external;
-      pure func missing(any value) -> missing external;
+      %description("Returns the primitive pattern of a value.")
+      pure func pattern(any value) -> pattern external;
       %description("Returns the logarithm of a number in the supplied base.")
       pure func <log>(number value, number base) -> number external builtinLogarithm;
-      %description("Constructs the default value of a kind, or converts the supplied value to that kind.")
-      pure func new(kind arg0) -> any external;
-      %description("Constructs the default value of a kind, or converts the supplied value to that kind.")
-      pure func new(kind arg0, any arg1) -> any external;
-      %description("Converts a value to the specified kind. Returns an error when conversion is not supported.")
-      pure func as(any arg0, kind arg1) -> any external;
-      %description("Tests whether a value has the specified runtime kind, including checked errors.")
-      pure func is(any arg0, kind arg1) -> bool external;
-      %description("Keeps the value when it has the specified kind; otherwise returns the fallback.")
-      pure func if(any arg0, kind arg1, any arg2) -> any external;
-      %description("Keeps the value when it does not have the specified kind; otherwise returns the fallback.")
-      pure func ifNot(any arg0, kind arg1, any arg2) -> any external;
+      %description("Constructs the default value of a pattern, or converts the supplied value to that pattern.")
+      pure func new(pattern arg0) -> any external;
+      %description("Constructs the default value of a pattern, or converts the supplied value to that pattern.")
+      pure func new(pattern arg0, any arg1) -> any external;
+      %description("Converts a value to the specified pattern. Returns an error when conversion is not supported.")
+      pure func cast(any value, pattern target) -> any external;
+      %description("Casts to the supplied pattern, returning null when conversion or validation fails.")
+      pure func as(any value, pattern target) -> any external;
+      %description("Tests whether a value matches a pattern, including checked errors.")
+      pure func is(any arg0, pattern arg1) -> bool external;
+      %description("Keeps the value when it has the specified pattern; otherwise returns the fallback.")
+      pure func if(any arg0, pattern arg1, any arg2) -> any external;
+      %description("Keeps the value when it does not have the specified pattern; otherwise returns the fallback.")
+      pure func ifNot(any arg0, pattern arg1, any arg2) -> any external;
       %description("Returns true for values other than missing, null, and errors.")
       pure func exists(any arg0) -> bool external;
       %description("Negates the truthiness of a value.")
@@ -145,8 +127,10 @@ public static class Builtins {
       pure func clamp(number arg0, number arg1, number arg2) -> number external;
       %description("Tests whether a number has no fractional part.")
       pure func isInt(number arg0) -> bool external;
-      %description("Compares numbers using lt, gt, lte, gte, eq, or neq, with relative equality tolerance.")
-      pure func compare(number arg0, string arg1, number arg2) -> bool external;
+      %description("Numeric comparison operators with relative equality tolerance.")
+      type ComparisonOperator = %enum<lt><gt><lte><gte><eq><neq> string
+      %description("Compares numbers using a ComparisonOperator, with relative equality tolerance.")
+      pure func compare(number arg0, ComparisonOperator arg1, number arg2) -> bool external;
       %description("Extracts text between zero-based start (inclusive) and end (exclusive) offsets.")
       pure func substring(string arg0, number arg1, number arg2) -> string external;
       %description("Splits text by a delimiter and returns a tuple of strings.")
@@ -229,24 +213,29 @@ public static class Builtins {
         ? execution.Error("invalid numeric operation")
         : new NumberHixValue(value);
 
-    foreach (var kind in KindDefinitions.Enumerate()) {
-      definitions.Add(
-        new SimpleFunction(kind.Kind.Name.Resolve(null), (execution, arguments) => arguments.Length == 0
-            ? kind.New(execution)
-            : kind.Convert(execution, arguments[0]))
-      );
-    }
+    definitions.Add(new SimpleFunction("pattern", (_, arguments) => HixPatterns.Primitive(arguments[0].Kind)));
+    definitions.Add(
+      new SimpleFunction("var", (e, a) => e.Context.Call(e, "var", a)),
+      new SimpleFunction("tar", (e, a) => e.Context.Call(e, "tar", a)),
+      new SimpleFunction("local", (e, a) => e.Context.Call(e, "local", a))
+    );
     definitions.Add(
       new SimpleFunction("new", (e, a) => {
-          var kind = KindDefinitions.Get((KindHixValue)a[0]);
-          return a.Length == 1 ? kind.New(e) : kind.Convert(e, a[1]);
+          var target = ((PatternHixValue)a[0]).Pattern;
+          if (a.Length == 2) return Convert(e, a[1], target);
+          return target is KindHixPattern kind ? KindDefinitions.Get(kind.ValueKind).New(e) :
+            e.Error("new requires a primitive pattern; use the declared constructor for structured patterns");
         })
     );
     definitions.Add(
-      new SimpleFunction("as", (e, a) => KindDefinitions.Get((KindHixValue)a[1]).Convert(e, a[0])),
-      new SimpleFunction("is", (_, a) => Bool(KindDefinitions.Get((KindHixValue)a[1]).Is(a[0]))),
-      new SimpleFunction("if", (_, a) => KindDefinitions.Get((KindHixValue)a[1]).Is(a[0]) ? a[0] : a[2]),
-      new SimpleFunction("ifNot", (_, a) => !KindDefinitions.Get((KindHixValue)a[1]).Is(a[0]) ? a[0] : a[2]),
+      new SimpleFunction("cast", (e, a) => Convert(e, a[0], ((PatternHixValue)a[1]).Pattern)),
+      new SimpleFunction("as", (e, a) => {
+        var result = Convert(e, a[0], ((PatternHixValue)a[1]).Pattern);
+        return result is ErrorHixValue ? NullHixValue.Instance : result;
+      }),
+      new SimpleFunction("is", (e, a) => Bool(e.Matches(((PatternHixValue)a[1]).Pattern, a[0], out _))),
+      new SimpleFunction("if", (e, a) => e.Matches(((PatternHixValue)a[1]).Pattern, a[0], out _) ? a[0] : a[2]),
+      new SimpleFunction("ifNot", (e, a) => !e.Matches(((PatternHixValue)a[1]).Pattern, a[0], out _) ? a[0] : a[2]),
       new SimpleFunction("exists", (_, a) => Bool(a[0] is not (MissingHixValue or NullHixValue or ErrorHixValue))),
       new SimpleFunction("not", (e, a) => Bool(!a[0].IsTruthy(e))),
       new SimpleFunction("eq", (e, a) => Bool(e.Equal(a[0], a[1]))),
@@ -262,7 +251,7 @@ public static class Builtins {
         })
     );
     definitions.Add(
-      new CatchFunction(), new CallbackFunction("call"), new CallbackFunction("inline"),
+      new CatchFunction(), new CallbackFunction("call"),
       new MatchFunction(), new LogFunction("log", false), new LogFunction("dump", true), new DeriveFunction()
     );
     definitions.Add(

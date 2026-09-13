@@ -117,7 +117,7 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
         return pack(when {
             name.startsWith("KEYWORD_") -> HixColors.KEYWORD
             type == HixLexer.BEGIN_INLINE_BLOCK || type == HixLexer.BEGIN_LAMBDA_BLOCK || type == HixLexer.BEGIN_LAMBDA_ARROW -> HixColors.KEYWORD
-            type == HixLexer.CAST_BOOLEAN || type == HixLexer.EXPLICIT_ROOT || type == HixLexer.STATIC_CALL || type == HixLexer.DYNAMIC_CALL -> HixColors.KEYWORD
+            type == HixLexer.CAST_BOOLEAN || type == HixLexer.EXPLICIT_ROOT || type == HixLexer.STATIC_CALL -> HixColors.KEYWORD
             type in metadataTokens -> HixColors.METADATA
             type == HixLexer.NUMBER -> HixColors.NUMBER
             type == HixLexer.STRING -> HixColors.ARGUMENT

@@ -4,23 +4,11 @@ using System.Threading;
 using System.Linq;
 using Hix.Compiler;
 using Hix.Runtime;
-using K = Hix.HixValueKind;
 
 namespace Hix.Standalone;
 
 internal static class ConcurrencyFunctions {
-  public static readonly HixOpaqueTypeDefinition TaskType = new("hix.standalone.task", "task", 1);
-  public static readonly HixOpaqueTypeDefinition ChannelType = new("hix.standalone.channel", "channel", 1);
-  public static readonly HixOpaqueTypeDefinition SemaphoreType = new("hix.standalone.semaphore", "semaphore");
-  private static HixPattern Kind(K kind) => kind == K.Any ? HixPattern.Any : new KindHixPattern(kind);
-
   public static void Register(FunctionSignatureRegistryBuilder functions) {
-    functions.DefineOpaqueType(TaskType.Identity, TaskType.Name, TaskType.Arity);
-    functions.DefineOpaqueType(ChannelType.Identity, ChannelType.Name, ChannelType.Arity);
-    functions.DefineOpaqueType(SemaphoreType.Identity, SemaphoreType.Name);
-    functions.DefineInference("spawn", signature => signature with { CallableArguments = new Dictionary<int, int> { [0] = 1 } });
-    functions.DefineInference("awaitAll", signature => signature with { InferResult = values => JoinPattern(values[0], false) });
-    functions.DefineInference("awaitAny", signature => signature with { InferResult = values => JoinPattern(values[0], true) });
     functions.Add(
       Sync("spawn", Spawn),
       Async("awaitTask", (thread, args) => Handle<TaskHandle>(args[0], "task").Completion),
@@ -47,15 +35,6 @@ internal static class ConcurrencyFunctions {
         return NullHixValue.Instance;
       })
     );
-  }
-
-  private static HixPattern JoinPattern(HixPattern input, bool any) {
-    if (input is not TupleHixPattern tuple) return Kind(any ? K.Table : K.Tuple);
-    var results = tuple.Fields.Select(field => field.Pattern is OpaqueHixPattern task &&
-      task.Definition.Identity == TaskType.Identity ? task.Arguments[0] : HixPattern.Any).ToArray();
-    return any ? new TableHixPattern([new("index", Kind(K.Number)),
-      new("value", HixPatterns.Union(results))]) :
-      new TupleHixPattern(results.Select((value, index) => new HixPatternField(index.ToString(), value)).ToArray());
   }
 
   private static FunctionDefinition Sync(string name, InlineFunction action) =>

@@ -42,7 +42,7 @@ public class RoslynBackendTests {
       [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
     var type = compilation.GetTypeByMetadataName("Example");
     var backend = new ExtensionBackend(compilation, type);
-    var program = HixCompiler.CompileFunctions(["func read { return(customName()) } func main { return(read()) }"], backend);
+    var program = HixCompiler.CompileFunctions(["func read() -> any { return(customName()) } func main { return(read()) }"], backend);
     var thread = backend.CreateCoroutine();
     var result = new HixVM([program]).Invoke(program, thread);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));

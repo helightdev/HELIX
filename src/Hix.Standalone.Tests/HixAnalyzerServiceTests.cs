@@ -6,6 +6,15 @@ namespace Hix.Standalone.Tests;
 
 public sealed class HixAnalyzerServiceTests {
   [Fact]
+  public void PrimitivePatternsReplaceKindDefinitionsInTheCatalog() {
+    var definitions = new HixAnalyzerService().Definitions;
+    Assert.DoesNotContain(definitions, item => item.Name == "kind" || item.Kind == "Kind");
+    Assert.Contains(definitions, item => item is {Name: "string", Kind: "PrimitivePattern", ResultType: "pattern"});
+    Assert.Contains(definitions, item => item is {Name: "pattern", Kind: "PrimitivePattern", ResultType: "pattern"});
+    Assert.Contains(definitions, item => item is {Name: "ComparisonOperator", Kind: "Type"});
+  }
+
+  [Fact]
   public void CatalogIncludesBackendFileMetadata() {
     var backend = Assert.Single(new HixAnalyzerService().Definitions.Where(item => item.Name == "backend"));
 

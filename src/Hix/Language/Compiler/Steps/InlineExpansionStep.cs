@@ -7,34 +7,53 @@ namespace Hix.Compiler.Steps;
 
 public sealed class InlineExpansionStep : HixLoweringStep {
   public override HixModuleIr Lower(HixModuleIr input, HixCompilerCatalog globals) {
-    var functions = input.Functions.Concat(globals.Functions)
-      .GroupBy(function => function.Name, StringComparer.Ordinal)
-      .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-    var rewriter = new InlineRewriter(functions);
+    var rewriter = new InlineRewriter(globals.Patterns);
     return new HixModuleIr(input.Prelude.Select(rewriter.Rewrite).ToArray(),
-      input.Late.Select(rewriter.Rewrite).ToArray(), input.Functions, input.Parameters);
+      input.Late.Select(rewriter.Rewrite).ToArray(), input.Functions.Select(rewriter.Rewrite).ToArray(), input.Parameters);
   }
 
-  private sealed class InlineRewriter(IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions)
-    : HixIrRewriter {
-    private readonly HashSet<string> active = new(StringComparer.Ordinal);
+  private sealed class InlineRewriter(IReadOnlyDictionary<string, HixPattern> patterns) : HixIrRewriter {
+    private readonly HashSet<FunctionDeclarationIr> active = new();
     private int sequence;
+    public bool inlineStatement;
+
+    protected override HixIrNode RewriteNode(HixIrNode node) {
+      if (node is not StatementIr statement) return base.RewriteNode(node);
+      var previous = inlineStatement;
+      inlineStatement = statement.Metadata.Any(metadata => metadata.Name == "inline");
+      try {
+        HixIrNode rewritten;
+        if (statement is InvocationStatementIr invocation) {
+          ExpressionIr expression = RewriteCall(invocation.Call);
+          rewritten = expression is CallExpressionIr call
+            ? new InvocationStatementIr(call) : new ExpressionStatementIr(expression);
+          ((StatementIr)rewritten).SetMetadata(statement.Metadata.Select(Rewrite).ToArray());
+          return CopyLocation(statement, rewritten);
+        }
+        return base.RewriteNode(node);
+      } finally { inlineStatement = previous; }
+    }
 
     protected override ExpressionIr RewriteCall(CallExpressionIr call) {
       var arguments = call.EffectiveArguments.Select(Rewrite).ToArray();
-      var target = arguments.FirstOrDefault() as RootExpressionIr;
-      var explicitInline = call.Name == "inline" && target is {IsSmart: false};
-      var name = explicitInline ? target.Name : call.Name;
-      var supplied = explicitInline ? arguments.Skip(1).ToArray() : arguments;
-      if (!functions.TryGetValue(name, out var candidates))
-        return CopyLocation(call, new CallExpressionIr(call.Name, arguments, call.CoerceBoolean, call.Binding));
-      var function = candidates.FirstOrDefault(candidate => !candidate.IsExternal && Accepts(candidate, supplied.Length) &&
-        (explicitInline || candidate.IsInline));
-      if (function is null)
-        return CopyLocation(call, new CallExpressionIr(call.Name, arguments, call.CoerceBoolean, call.Binding));
-      if (!active.Add(function.Name)) throw new ArgumentException("recursive inline function '" + function.Name + "'");
+      var function = call.Binding.Function;
+      if (!inlineStatement || function == null || function.IsExternal)
+        return CopyLocation(call, new CallExpressionIr(call.Name, arguments, call.CoerceBoolean, call.Binding) {
+          Resolution = call.Resolution, TypeArguments = call.TypeArguments
+        });
+      if (function.IsNoinline) throw new ArgumentException("cannot inline noinline function '" + function.Name + "'");
+      var supplied = arguments.Select((argument, index) => {
+        var expected = call.Binding.Signature.Parameters[Math.Min(index, call.Binding.Signature.Parameters.Count - 1)].Pattern;
+        return expected is KindHixPattern kind &&
+          HixPatternRelations.Relate(argument.InferredPattern ?? call.EffectiveArguments[index].InferredPattern ?? HixPattern.Any,
+            expected, patterns) != HixPatternRelation.Always
+          ? (ExpressionIr)new CallExpressionIr("cast", [argument, kind.ValueKind is HixValueKind.Null or HixValueKind.Missing ?
+              new CallExpressionIr("pattern", [kind.ValueKind == HixValueKind.Null ? (ExpressionIr)new NullExpressionIr() : new MissingExpressionIr()]) :
+              new RootExpressionIr(kind.Display)]) : argument;
+      }).ToArray();
+      if (!active.Add(function)) throw new ArgumentException("recursive inline function '" + function.Name + "'");
       try { return Expand(call, function, supplied); }
-      finally { active.Remove(function.Name); }
+      finally { active.Remove(function); }
     }
 
     private ExpressionIr Expand(CallExpressionIr call, FunctionDeclarationIr function,
@@ -52,7 +71,8 @@ public sealed class InlineExpansionStep : HixLoweringStep {
           _ => null
         }).Where(name => !string.IsNullOrEmpty(name)).Distinct(StringComparer.Ordinal)
         .ToDictionary(name => name, name => name + suffix, StringComparer.Ordinal);
-      var signature = function.Signatures.FirstOrDefault(candidate => Accepts(candidate, arguments.Count));
+      var signature = function.Signatures.Count == 1 ? function.Signatures[0] :
+        function.Signatures.First(candidate => candidate.Constant(function.Name).Display == call.Binding.Signature.Display);
       var named = signature?.Inputs?.Where(field => !field.Variadic).Select((field, index) => (field.Name, index))
         .ToDictionary(item => item.Name, item => item.index, StringComparer.Ordinal)
         ?? new Dictionary<string, int>(StringComparer.Ordinal);
@@ -62,21 +82,15 @@ public sealed class InlineExpansionStep : HixLoweringStep {
       };
       for (var index = 0; index < arguments.Count; index++)
         statements.Add(new AssignmentStatementIr(StorageSpace.Local, argumentLocals[index],
-          arguments[index]));
+          arguments[index], declaredPattern: (call.Resolution?.Signature ?? call.Binding.Signature)
+            .Parameters[Math.Min(index, call.Binding.Signature.Parameters.Count - 1)].Pattern));
       statements.AddRange(function.Body.Statements.Select(bodyRewriter.Rewrite));
       statements.Add(new BlockStatementIr([], endLabel));
-      ExpressionIr expanded = new InlineExpressionIr(new BlockStatementIr(statements), resultLocal);
+      ExpressionIr expanded = new InlineExpressionIr(new BlockStatementIr(statements), resultLocal,
+        call.Resolution?.Signature.Result ?? call.Binding.Signature.Result);
       if (call.CoerceBoolean) expanded = new CallExpressionIr("bool", [expanded]);
       return CopyLocation(call, expanded);
     }
-
-    private static bool Accepts(FunctionDeclarationIr function, int count) => function.Signatures.Count == 0 ||
-      function.Signatures.Any(signature => Accepts(signature, count));
-
-    private static bool Accepts(FunctionSignature signature, int count) => signature.Inputs == null ||
-      (signature.Inputs.Any(field => field.Variadic)
-        ? count >= signature.Inputs.TakeWhile(field => !field.Variadic).Count()
-        : signature.Inputs.Count == count);
 
     private static IEnumerable<HixIrNode> Descendants(HixIrNode node) {
       yield return node;
@@ -89,6 +103,20 @@ public sealed class InlineExpansionStep : HixLoweringStep {
     IReadOnlyDictionary<string, int> named, IReadOnlyDictionary<string, string> locals,
     IReadOnlyDictionary<string, string> labels, string resultLocal, string endLabel) : HixIrRewriter {
     protected override HixIrNode RewriteNode(HixIrNode node) {
+      var previous = owner.inlineStatement;
+      if (node is StatementIr statement) owner.inlineStatement = statement.Metadata.Any(metadata => metadata.Name == "inline");
+      try { return RewriteBodyNode(node); }
+      finally { owner.inlineStatement = previous; }
+    }
+
+    private HixIrNode RewriteBodyNode(HixIrNode node) {
+      if (node is InvocationStatementIr invocation) {
+        var expression = Rewrite((ExpressionIr)invocation.Call);
+        StatementIr statement = expression is CallExpressionIr call
+          ? new InvocationStatementIr(call) : new ExpressionStatementIr(expression);
+        statement.SetMetadata(invocation.Metadata.Select(Rewrite).ToArray());
+        return CopyLocation(invocation, statement);
+      }
       if (node is MemberExpressionIr {Receiver: RootExpressionIr {IsSmart: false, Name: "local"}} member &&
         locals.TryGetValue(member.Member, out var localMember))
         return CopyLocation(member, Local(localMember));

@@ -126,13 +126,18 @@ public sealed class HixCoroutine : IDisposable {
 
     public IHixValue Invoke(string name, IHixValue[] arguments, int line, SignatureHixPattern requested = null, LanguageFunctionScope binding = null) {
         using var profile = HixProfiler.Measure("vm.invoke");
+        if (!machine.Contains(binding ?? Scope, name)) return Call(name, arguments, line, out _);
         var selectionError = SelectFunction(name, arguments, binding ?? Scope, out var match, requested);
         if (selectionError != null)
             return selectionError;
         return InvokeMatch(name, arguments, line, match);
     }
 
-    public IHixValue Coerce(IHixValue value, HixPattern pattern) => TryConvert(value, pattern, out var converted, out _) ? converted : Error("value does not match parameter pattern '" + pattern.Display + "'");
+    public IHixValue Coerce(IHixValue value, HixPattern pattern) {
+        if (TryConvert(value, pattern, out var converted, out _)) return converted;
+        HixPatternMatcher.Matches(pattern, value, this, machine.Patterns, out var failure);
+        return Error(failure?.ToString() ?? "value does not match pattern '" + pattern.Display + "'");
+    }
 
     public IHixValue Invoke(IHixValue function, IHixValue[] arguments, int line = 0) => IsRunning ? Callback(function, arguments, line) : Error("no active execution");
 
@@ -332,11 +337,13 @@ public sealed class HixCoroutine : IDisposable {
             return argumentRoot;
         if (name == "param")
             return parameter;
-        if (KindHixValue.TryGet(name, out var kind))
-            return kind;
+        if (name == "null") return NullHixValue.Instance;
+        if (name == "missing") return MissingHixValue.Instance;
+        if (HixPatterns.TryPrimitive(name, out var primitive))
+            return primitive;
         if (machine.Patterns.TryGetValue(name, out var pattern))
             return new PatternHixValue(new NamedHixPattern(name));
-        if (machine.Bind(Scope, name)is { } function)
+        if (name is not ("local" or "var" or "tar") && machine.Bind(Scope, name)is { } function)
             return function;
         if (Backend.Roots.TryGetValue(name, out var root)) {
             if (pure && root.HasEffects)
@@ -411,19 +418,6 @@ public sealed class HixCoroutine : IDisposable {
         return value == null;
     }
 
-    private bool ScheduleCall(string name, IHixValue[] arguments, int line, out IHixValue value) {
-        if (machine.Contains(Scope, name) && !Context.IsReservedCall(name)) {
-            value = SelectFunction(name, arguments, Scope, out var match);
-            if (value != null)
-                return false;
-            value = BeginInvocation(name, arguments, match);
-            return value == null;
-        }
-
-        value = Call(name, arguments, line, out var scheduled);
-        return scheduled;
-    }
-
     private bool ScheduleCallback(IHixValue function, IHixValue[] arguments, int line, out IHixValue value) {
         if (function is ResolvedFunctionHixValue resolved)
             return SchedulePrepared(resolved, arguments, line, out value);
@@ -434,6 +428,10 @@ public sealed class HixCoroutine : IDisposable {
                 return false;
             }
 
+            if (!machine.Contains(named.Scope ?? Scope, name)) {
+                value = Call(name, arguments, line, out var scheduled);
+                return scheduled;
+            }
             value = SelectFunction(name, arguments, named.Scope ?? Scope, out var match);
             if (value != null)
                 return false;
@@ -450,7 +448,7 @@ public sealed class HixCoroutine : IDisposable {
         if (value != null)
             return false;
         if (definition.Handler is CallbackFunction)
-            return ScheduleCallback(arguments[0], arguments.Length == 2 ? [arguments[1]] : [], line, out value);
+            return ScheduleCallback(arguments[0], arguments.Skip(1).ToArray(), line, out value);
         if (definition.Handler is CatchFunction && arguments.Length == 2 && arguments[0] is ErrorHixValue)
             return ScheduleCallback(arguments[1], [arguments[0]], line, out value);
         value = ExecuteBackendUnchecked(definition, arguments, line);
@@ -966,24 +964,6 @@ public sealed class HixCoroutine : IDisposable {
                     case HixOpcode.Call:
                         var prepared = (ResolvedFunctionHixValue)execution.machine.ConstantPool[a];
                         if (execution.SchedulePrepared(prepared, PopMany(b), line, out var called)) {
-                            awaitingValue = true;
-                            callLine = line;
-                            return new(true, default);
-                        }
-
-                        completion = execution.pendingControl;
-                        execution.pendingControl = default;
-                        if (execution.pendingOperation != null) {
-                            awaitingAsync = true;
-                            callLine = line;
-                            return new(false, default, true);
-                        }
-
-                        if (completion.Kind == BytecodeFlow.Normal)
-                            completion = Push(called, line);
-                        break;
-                    case HixOpcode.CallDynamic:
-                        if (execution.ScheduleCall(Name(a), PopMany(b), line, out called)) {
                             awaitingValue = true;
                             callLine = line;
                             return new(true, default);

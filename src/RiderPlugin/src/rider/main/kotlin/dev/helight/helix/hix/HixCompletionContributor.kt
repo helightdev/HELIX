@@ -129,13 +129,13 @@ private object PatternProvider : CompletionProvider<CompletionParameters>() {
         val patternArgument = argument?.let { metadata ->
             val definition = context.metadataDefinition(metadata) ?: return@let false
             (definition.argumentTypes.getOrNull(metadata.index)
-                ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null) == "Pattern"
+                ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null)?.equals("pattern", ignoreCase = true) == true
         } == true
         if (!patternArgument && HixLookup.semanticRoleAt(context.parsed, position) != HixLookup.SemanticRole.Pattern)
             return
 
-        context.definitions("Kind").forEach { definition ->
-            result.addElement(LookupElementBuilder.create(definition, definition.name).withTypeText("kind").ranked(800.0))
+        context.definitions("PrimitivePattern").forEach { definition ->
+            result.addElement(LookupElementBuilder.create(definition, definition.name).withTypeText("pattern").ranked(800.0))
         }
         val names = HixAntlrSyntax.rules(context.parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
             .map { it.IDENTIFIER().text }.toMutableSet()
@@ -203,6 +203,12 @@ private object ExpressionProvider : CompletionProvider<CompletionParameters>() {
                     }
             }
             if (valueContext || statementContext) names += context.definitions("Root").map { it.name }
+            if (valueContext) {
+                names += context.definitions("PrimitivePattern").map { it.name }
+                names += context.definitions("Type").map { it.name }
+                HixAntlrSyntax.rules(context.parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
+                    .forEach { names += it.IDENTIFIER().text }
+            }
             if (valueContext) HixAntlrSyntax.rules(context.parsed.tree)
                 .filterIsInstance<HixParser.VariableIdentifierContext>()
                 .forEach { names += it.IDENTIFIER().text }

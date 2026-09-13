@@ -14,7 +14,7 @@ pure func externalGenericSignature(T value) -> T external hostGenericSignature
 %tagged type Animal = @{string name};
 
 %externalAnnotation<identity documentation>
-pure inline func inlineIdentity(string value) -> string => $value;
+pure func inlineIdentity(string value) -> string => $value;
 pure noinline func noinlineIdentity(string value) -> string { return($value) }
 pure func doIdentity(string value,) -> string do { return($value) }
 pure func defaultIdentity(string value = [<default>],) -> string => $value;
@@ -26,40 +26,40 @@ pure func namedPosition(string first, string second) -> string => <[$first]:[$1]
 
 %test
 %testcase(@[], <value>)
-func inlineFunctionModifier -> string { return(inlineIdentity(<value>)) }
+func inlineStatementMetadata() -> string { %inline return(inlineIdentity(<value>)) }
 
 %test
 %testcase(@[], <value>)
-func noinlineFunctionModifier -> string { return(noinlineIdentity(<value>)) }
+func noinlineFunctionModifier() -> string { return(noinlineIdentity(<value>)) }
 
 %test
 %testcase(@[], <value>)
-func doFunctionBody -> string { return(doIdentity(<value>,)) }
+func doFunctionBody() -> string { return(doIdentity(<value>,)) }
 
 %test
 %testcase(@[], 42)
-func externalDeclarationsLeaveFollowingFunctionsIntact -> number { return(42) }
+func externalDeclarationsLeaveFollowingFunctionsIntact() -> number { return(42) }
 
 %test
 func externalDeclarationsStillValidateSignatures {
   assert(not(success(compile("func missing(Unknown value) -> number external;"))))
   assert(not(success(compile("func missing(number value, string value) -> number external;"))))
-  assert(not(success(compile("func deferredMissing -> number external; func main { deferredMissing() }"))))
+  assert(not(success(compile("func deferredMissing() -> number external; func main { deferredMissing() }"))))
   assert(not(success(compile("func deferredMissing external; func main { deferredMissing() }"))))
   assert(not(success(compile("func deferredMissing external; func main { return(deferredMissing) }"))))
 }
 
 %test
 %testcase(@[], <default>)
-func defaultParameterWithTrailingComma -> string { return(defaultIdentity()) }
+func defaultParameterWithTrailingComma() -> string { return(defaultIdentity()) }
 
 %test
 %testcase(@[], missing)
-func optionalParameterOmission -> any { return(optionalIdentity()) }
+func optionalParameterOmission() -> any { return(optionalIdentity()) }
 
 %test
 %testcase(@[], true)
-func nullableParameterValue -> bool { return(nullableIdentity(null)) }
+func nullableParameterValue() -> bool { return(nullableIdentity(null)) }
 
 %test
 %testcase(@[<text>], <text>)
@@ -68,50 +68,50 @@ func unionParameterValues(string | number value) -> any { return(unionIdentity($
 
 %test
 %testcase(@[], <Ada>)
-func tablePatternPositionalConstruction -> string { local value = Record(<Ada>); return($value#name) }
+func tablePatternPositionalConstruction() -> string { local value = Record(<Ada>); return($value#name) }
 
 %test
 %testcase(@[], <Ada:18>)
-func tablePatternNamedConstruction -> string {
+func tablePatternNamedConstruction() -> string {
   local value = Record(note = <ready>, name = <Ada>,)
   return(<[$value#name]:[$value#age]>)
 }
 
 %test
 %testcase(@[], <left>)
-func tuplePatternNamedConstruction -> string { local value = Pair(left = <left>); return($value#0) }
+func tuplePatternNamedConstruction() -> string { local value = Pair(left = <left>); return($value#0) }
 
 %test
 %testcase(@[], <Animal>)
-func taggedPatternConstruction -> string { return(get(Animal(name = <Milo>), <$type>)) }
+func taggedPatternConstruction() -> string { return(get(Animal(name = <Milo>), <$type>)) }
 
 %test
 %testcase(@[], @[<a>, <b>])
-func manyPatternValidation -> any { return(TextList(@[<a>, <b>])) }
+func manyPatternValidation() -> any { return(cast(@[<a>, <b>], TextList)) }
 
 %test
 %testcase(@[], @{a=<b>})
-func mapPatternValidation -> any { return(TextMap(@{a=<b>})) }
+func mapPatternValidation() -> any { return(cast(@{a=<b>}, TextMap)) }
 
 %test
 %testcase(@[], 2)
-func constrainedPatternValidation -> number { return(Positive(2)) }
+func constrainedPatternValidation() -> number { return(cast(2, Positive)) }
 
 %test
 %testcase(@[], <fixed>)
-func constantPatternValidation -> string { return(Exact(<fixed>)) }
+func constantPatternValidation() -> string { return(cast(<fixed>, Exact)) }
 
 %test
 %testcase(@[], <VALUE>)
-func delegateParameterWithArrowLambda -> string { return(callbackIdentity(func => uppercase($0), <value>)) }
+func delegateParameterWithArrowLambda() -> string { return(callbackIdentity(func => uppercase($0), <value>)) }
 
 %test
 %testcase(@[], <VALUE>)
-func delegateParameterWithBlockLambda -> string { return(callbackIdentity(func { return(uppercase($0)) }, <value>)) }
+func delegateParameterWithBlockLambda() -> string { return(callbackIdentity(func { return(uppercase($0)) }, <value>)) }
 
 %test
 %testcase(@[], <left:right:right>)
-func namedPositionalAndExplicitParameterRoots -> string { return(namedPosition(<left>, <right>)) }
+func namedPositionalAndExplicitParameterRoots() -> string { return(namedPosition(<left>, <right>)) }
 
 pure func <literal function name> -> string => <literal>;
 pure func typedTuple(@[string first, number second] value) -> number => $value#1;
@@ -120,19 +120,19 @@ pure func nestedCallback(Handler callback) -> Handler => $callback;
 
 %test
 %testcase(@[], <literal>)
-func literalFunctionDeclarationName -> string { return(call(function(<literal function name>))) }
+func literalFunctionDeclarationName() -> string { return(call(cast(<literal function name>, function))) }
 
 %test
 %testcase(@[], 2)
-func tuplePatternParameter -> number { return(typedTuple(@[<first>, 2])) }
+func tuplePatternParameter() -> number { return(typedTuple(@[<first>, 2])) }
 
 %test
 %testcase(@[], <Ada>)
-func tablePatternParameter -> string { return(typedTable(@{name=<Ada>})) }
+func tablePatternParameter() -> string { return(typedTable(@{name=<Ada>})) }
 
 %test
 %testcase(@[], <VALUE>)
-func returnedDelegateValue -> string {
+func returnedDelegateValue() -> string {
   local callback = nestedCallback(func => uppercase($0))
   return(call($callback, <value>))
 }

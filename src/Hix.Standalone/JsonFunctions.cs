@@ -12,18 +12,14 @@ namespace Hix.Standalone;
 internal static class JsonFunctions {
   public static void Register(FunctionSignatureRegistryBuilder functions) {
     functions.AddLibrary("""
-      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind.>
+      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern.>
       pure func parseJson(string arg0) -> any external;
-      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind.>
+      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern.>
       pure func parseJson(string arg0, pattern arg1) -> any external;
-      %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern or kind.>
-      pure func parseJson(string arg0, kind arg1) -> any external;
-      %description<Writes a Hix value as compact JSON, optionally validating a pattern or kind.>
+      %description<Writes a Hix value as compact JSON, optionally validating a pattern.>
       pure func writeJson(any arg0) -> string external;
-      %description<Writes a Hix value as compact JSON, optionally validating a pattern or kind.>
+      %description<Writes a Hix value as compact JSON, optionally validating a pattern.>
       pure func writeJson(any arg0, pattern arg1) -> string external;
-      %description<Writes a Hix value as compact JSON, optionally validating a pattern or kind.>
-      pure func writeJson(any arg0, kind arg1) -> string external;
       %description<Generates a JSON Schema for a Hix pattern.>
       pure func generateJsonSchema(pattern arg0) -> string external;
       %description<Imports a JSON Schema as a Hix pattern.>

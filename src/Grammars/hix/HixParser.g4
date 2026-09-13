@@ -209,7 +209,7 @@ postfixOperators: QUESTION | CAST_BOOLEAN;
 valueStatement: functionIdentifier callValueList callBinding?;
 
 // Explicit dispatch is used when reconstructing syntax-free bytecode.
-callBinding: STATIC_CALL valueList | DYNAMIC_CALL;
+callBinding: STATIC_CALL valueList;
 
 tailValue
     : NEWLINE? contentBlock
@@ -288,7 +288,7 @@ kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 expressionModifier: KEYWORD_PRELUDE | KEYWORD_STRICT;
 mixinModifier: KEYWORD_DERIVATION;
 metaModifier: KEYWORD_COMPILER | KEYWORD_BYTECODE | KEYWORD_RUNTIME;
-funcModifier: KEYWORD_PURE | KEYWORD_NOINLINE | KEYWORD_INLINE;
+funcModifier: KEYWORD_PURE | KEYWORD_NOINLINE;
 
 // Common
 trivia: comment | NEWLINE;

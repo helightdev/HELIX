@@ -162,7 +162,7 @@ public sealed class ConcurrencyTests {
   [Fact]
   public void ChildErrorsPropagateAndEmptyAllCompletesImmediately() {
     Assert.Empty(Assert.IsType<TupleHixValue>(Run("func main { return(awaitAll(@[])) }")).Values);
-    var result = Invoke("func child { return(error<child failed>) } func main { return(awaitTask(spawn(child))) }", 0);
+    var result = Invoke("func child { return(cast(<child failed>, error)) } func main { return(awaitTask(spawn(child))) }", 0);
     Assert.False(result.Success);
     Assert.Equal("child failed", Assert.IsType<ErrorHixValue>(result.Value).Message.Resolve(result.Execution.Strings));
   }
@@ -188,7 +188,7 @@ public sealed class ConcurrencyTests {
   [Fact]
   public void AllWaitsForEveryChildBeforePropagatingFailure() {
     var value = Run("""
-      func failing { return(error<failed>) }
+      func failing { return(cast(<failed>, error)) }
       func other(opaque channel) -> number { send($channel, 42); return(7) }
       func main {
         local channel = channel(1)

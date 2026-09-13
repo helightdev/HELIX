@@ -14,6 +14,30 @@ namespace Hix.Compiler;
 
 /// <summary>ANTLR recognition followed by semantic construction, with no second syntax recognizer.</summary>
 public static class AntlrSyntax {
+  internal static IEnumerable<HixOpaqueTypeDefinition> ReadOpaqueTypes(string source) {
+    var lexer = new Lexer(new AntlrInputStream(source));
+    lexer.RemoveErrorListeners();
+    var stream = new CommonTokenStream(lexer);
+    var parser = new Parser(stream);
+    parser.RemoveErrorListeners();
+    var tree = parser.compilationUnit();
+    stream.Fill();
+    var builder = new IrBuilder(stream.GetTokens().ToArray(), [], null, source);
+    foreach (var declaration in tree.topLevelDeclaration()) {
+      if (declaration.typeDeclaration() is not { } type) continue;
+      foreach (var metadata in declaration.metadataList()?.metadata() ?? []) {
+        if (metadata.IDENTIFIER()?.GetText() != "opaque") continue;
+        var values = metadata.argumentValue().Select(value => builder.Visit(value))
+          .Concat(metadata.valueList()?.value().Select(value => builder.Visit(value)) ?? []).ToArray();
+        if (values.Length != 2 || values[0] is not StringExpressionIr identity ||
+            values[1] is not NumberExpressionIr arity || arity.Value < 0 || arity.Value != Math.Truncate(arity.Value) || arity.Value > int.MaxValue ||
+            string.IsNullOrWhiteSpace(identity.Value))
+          throw new ArgumentException("opaque declarations require an identity string and non-negative integer arity");
+        yield return new HixOpaqueTypeDefinition(identity.Value, type.IDENTIFIER().GetText(), (int)arity.Value);
+      }
+    }
+  }
+
   public static string Format(string source, int indentSize = 2) => HixFormatter.Format(source, indentSize);
   public static CompilationUnitIr Parse(string source, HixBackend backend = null,
     bool recoverValidDeclarations = false) {
@@ -46,7 +70,10 @@ public static class AntlrSyntax {
     var imports = HixUsingImports.Read(metadata, diagnostics);
     builder.UsingImports = imports;
     builder.DeclaredTypes = declarationContexts.Where(context => context.typeDeclaration() != null)
-      .Select(context => context.typeDeclaration().IDENTIFIER().GetText()).ToArray();
+      .SelectMany(context => new[] {context.typeDeclaration().IDENTIFIER().GetText()}.Concat(
+        (context.metadataList()?.metadata() ?? []).Select(value => (MetadataIr)builder.Visit(value))
+          .Where(value => value.Name == "alias").SelectMany(value => value.Values)
+          .OfType<StringExpressionIr>().Select(value => value.Value))).ToArray();
     var metaDeclarations = new Dictionary<Parser.TopLevelDeclarationContext, HixIrNode>();
     if (diagnostics.Count == 0 || recoverValidDeclarations) {
       foreach (var context in declarationContexts.Where(context => context.metaDeclaration() != null)) {
@@ -71,8 +98,8 @@ public static class AntlrSyntax {
           ? HixMetadataKind.Statement | HixMetadataKind.VariableDeclaration : HixMetadataKind.Statement,
         declaration ? "variable declaration" : "statement", backend ?? HixCoreBackend.Instance, diagnostics, builder.MetadataDefinitions);
     }
-    var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
-      .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
+    var patterns = (backend ?? HixCoreBackend.Instance).Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
     LanguageValidation.Validate(declarations, diagnostics, backend);
     if (diagnostics.Count == 0) PatternTypeAnalysis.Validate(declarations, patterns, diagnostics, backend);
     return new CompilationUnitIr(source, declarations, diagnostics, tokens, metadata);
@@ -377,7 +404,7 @@ public static class AntlrSyntax {
     private HixPattern TypeName(string name) {
       if (typeParameters.TryGetValue(name, out var parameter)) return parameter.Pattern;
       var candidates = HixUsingImports.Candidates(name, UsingImports).ToArray();
-      return HixPatterns.Named(candidates.FirstOrDefault(DeclaredTypes.Contains) ??
+      return HixPatterns.Named(candidates.FirstOrDefault(candidate => DeclaredTypes.Contains(candidate) || backend.Functions.Types.Any(type => type.Name == candidate)) ??
         (candidates.Length == 1 ? candidates[0] : name));
     }
 
@@ -535,7 +562,6 @@ public static class AntlrSyntax {
       var identifier = context.functionDeclarationIdentifier();
       return At(new FunctionDeclarationIr(DeclarationName(identifier.IDENTIFIER(), identifier.argumentValue()),
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
-        context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures.ToArray(),
         FunctionBody(context.functionBody()), declarationMetadata, declaredParameters.ToArray(),
         context.functionBody().IDENTIFIER()?.GetText()), context);
@@ -682,7 +708,6 @@ public static class AntlrSyntax {
 
     private HixCallConstraint Dispatch(Parser.CallBindingContext context) {
       if (context == null) return null;
-      if (context.DYNAMIC_CALL() != null) return new(HixCallKind.Dynamic);
       var arguments = Arguments(context.valueList());
       if (arguments.Length == 1 && arguments[0] is StringExpressionIr signature) return new(HixCallKind.Static, signature.Value);
       diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "@static requires one literal signature string"));

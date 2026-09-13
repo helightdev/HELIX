@@ -210,7 +210,10 @@ derivation mixin HELIX.PropAttribute {
     }
     assert(![param#symbol:in])
     tar<PropOptional> @= true;
-    local Default @= $Prop#defaultValue:csharpLiteral;
+    local Default = when {
+      ($Prop#defaultValue:eq(null)) -> <null>
+      else -> [$Prop#defaultValue:cast(opaque):csharpLiteral]
+    }
     local Parameter @> {{param#value#type}} {{param#value#name}} = {{$Default}}
     local Assignment @> this.{{param#value#name}} = {{param#value#name}};
     when($Mode:eq<Constant>) {

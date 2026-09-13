@@ -19,7 +19,7 @@ public sealed class HixResultTests {
         emit(null)
         emit(<data>, @[@{name=<nested>}, local])
         emit(local)
-        emit([error<kept>?])
+        emit([cast(<kept>, error)?])
         $name = <after>
       } }
       """, "Example");

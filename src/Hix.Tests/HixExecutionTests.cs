@@ -24,8 +24,8 @@ public sealed class HixExecutionTests {
   [InlineData("emit(<a[null]b>)", "ab")]
   [InlineData("emit(true)", "true")]
   [InlineData("emit(false)", "false")]
-  [InlineData("emit(plus(number<2>, number<3>))", "5")]
-  [InlineData("emit(<A[b()]>)", "Ab", "pure func b { return(<b>) }")]
+  [InlineData("emit(plus(cast(<2>, number), cast(<3>, number)))", "5")]
+  [InlineData("emit(<A[b()]>)", "Ab", "pure func b() -> string { return(<b>) }")]
   public void RendersTypedValues(string statements, string expected, string functions = "") {
     var result = Run(statements, functions);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
@@ -38,7 +38,7 @@ public sealed class HixExecutionTests {
       local items = @[<a>, @[<b>, <c>]]
       local record = @{second=null, first=<one>}
       emit(length(local#items))
-      emit(length(local#items#1))
+      emit(length(cast(local#items#1, tuple)))
       emit(has(local#record, <second>))
       emit(get(local#record, <second>, <fallback>))
       emit(get(local#record, <missing>, <fallback>))
@@ -56,11 +56,11 @@ public sealed class HixExecutionTests {
   [Fact]
   public void FunctionsHavePrivateLocalsAndPreserveTheCallersParameter() {
     var result = Run("local value = <caller>\nemit(outer(<input>))\nemit(local#value)", """
-      pure func inner { local value = <callee>; return(param) }
-      pure func outer {
+      pure func inner(any __arg0) -> any { local value = <callee>; return($0) }
+      pure func outer(any __arg0) -> string {
         local value = <outer>
         local nested = inner(<nested>)
-        return(<[param]:[local#value]:[local#nested]>)
+        return(<[$0]:[local#value]:[local#nested]>)
       }
       """);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
@@ -69,14 +69,14 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void NamedSignaturesBindPositionalArgumentsAndValidateReturns() {
-    var result = Run("emit(describe(<Ada>, number<3>))", """
+    var result = Run("emit(describe(<Ada>, cast(<3>, number)))", """
       pure func describe (string name, number count) -> string {
         return(<[$name]:[$count]>)
       }
       """);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("Ada:3", Assert.Single(result.Outputs).ReadText());
-    var invalid = Run("emit(describe(number<3>, <Ada>))", "pure func describe (string name, number count) -> string { return(<ok>) }");
+    var invalid = Run("emit(describe(cast(<3>, number), <Ada>))", "pure func describe (string name, number count) -> string { return(<ok>) }");
     Assert.False(invalid.Success);
     Assert.Contains("signature", invalid.Error.Resolve(invalid.Strings));
   }
@@ -87,7 +87,7 @@ public sealed class HixExecutionTests {
       local visible = <local>
       emit($visible)
       emit(read(<parameter>))
-      """, "pure func read { return($0) }");
+      """, "pure func read(any __arg0) -> any { return($0) }");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"local", "parameter"}, result.Outputs.Select(output => output.ReadText()));
 
@@ -136,20 +136,20 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void CheckedFailuresCanBeHandledButElvisDoesNotCatchErrors() {
-    var result = Run("local x = [error<bad>?]\nemit(kind(local#x))\nemit(catch(local#x) ?: <fallback>)");
+    var result = Run("local x = [cast(<bad>, error)?]\nemit(pattern(local#x))\nemit(catch(local#x) ?: <fallback>)");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"error", "fallback"}, result.Outputs.Select(output => output.ReadText()));
-    Assert.False(Run("emit(error<bad> ?: <fallback>)").Success);
-    Assert.False(Run("emit(catch(error<bad>))").Success);
+    Assert.False(Run("emit(cast(<bad>, error) ?: <fallback>)").Success);
+    Assert.False(Run("emit(catch(cast(<bad>, error)))").Success);
   }
 
   [Fact]
   public void WhenChainsSelectValuesLazilyAndIndependentGuardsContinue() {
     var result = Run("""
       local suffix = when {
-        (false, error<unreachable>) -> error<unreachable>
+        (false, cast(<unreachable>, error)) -> cast(<unreachable>, error)
         (true) -> <, value>
-        else -> error<unreachable>
+        else -> cast(<unreachable>, error)
       }
       when(true) { emit @> first{{local#suffix}}
       }
@@ -166,11 +166,11 @@ public sealed class HixExecutionTests {
     var result = Run("""
       local selected = when <yes> {
         <yes> -> <selected>
-        else -> error<unreachable>
+        else -> cast(<unreachable>, error)
       }
       emit(local#selected)
-      emit([<present>] ?: error<unreachable>)
-      when(false, error<unreachable>) { fail<unreachable> }
+      emit([<present>] ?: cast(<unreachable>, error))
+      when(false, cast(<unreachable>, error)) { fail<unreachable> }
       """);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"selected", "present"}, result.Outputs.Select(output => output.ReadText()));
@@ -179,9 +179,9 @@ public sealed class HixExecutionTests {
   [Fact]
   public void CollectionCallbacksSupportPositionalSmartAccess() {
     var result = Run("""
-      local changed = map(@[number<2>, number<3>], describe)
+      local changed = map(@[cast(<2>, number), cast(<3>, number)], describe)
       emit(join(local#changed, <,>))
-      emit(reduce(@[number<2>, number<3>], sum, number<0>))
+      emit(reduce(@[cast(<2>, number), cast(<3>, number)], sum, cast(<0>, number)))
       emit(any(@[], yes))
       emit(all(@[], yes))
       """, """
@@ -200,7 +200,7 @@ public sealed class HixExecutionTests {
       emit(join(map(@[<a>, <b>], func { return(<[$0]?>) }), <,>))
       emit(apply(<global>))
       """;
-    var result = Run(statements, "pure func apply { return(call(func => <[$0]~>, $0)) }");
+    var result = Run(statements, "pure func apply(any __arg0) -> any { return(call(func => <[$0]~>, $0)) }");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"a!,b!", "a?,b?", "global~"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -218,8 +218,8 @@ public sealed class HixExecutionTests {
   [Fact]
   public void SmartItAliasesTheCompleteParameterValue() {
     var result = Run("emit(single(<value>))\nemit(join(pair(<left>, <right>), <,>))", """
-      pure func single { return($it) }
-      pure func pair { return($it) }
+      pure func single [any] -> any { return($it) }
+      pure func pair(any first, any second) -> tuple { return(@[$it#first, $it#second]) }
       """);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"value", "left,right"}, result.Outputs.Select(output => output.ReadText()));
@@ -227,7 +227,7 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void SmartNamesDoNotSelectFieldsFromTableParameters() {
-    var result = Run("emit(read(@{name=<Ada>}))", "pure func read { return($name) }");
+    var result = Run("emit(read(@{name=<Ada>}))", "pure func read(any __arg0) -> any { return($name) }");
     Assert.False(result.Success);
     Assert.Contains("unknown local or parameter 'name'", result.Error.Resolve(result.Strings));
   }
@@ -242,8 +242,8 @@ public sealed class HixExecutionTests {
   [Fact]
   public void NamedFunctionsSupportArrowBodiesIncludingEffects() {
     var result = Run("emit(answer())", """
-      pure func answer => 42;
-      func announce => emit(<announced>);
+      pure func answer() -> number => 42;
+      func announce() -> null => emit(<announced>);
       """, "announce()");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"announced", "42"}, result.Outputs.Select(output => output.ReadText()));
@@ -263,22 +263,22 @@ public sealed class HixExecutionTests {
   [Fact]
   public void CarriedLocalsBelongToTheUnitAndAreNotInheritedByFunctions() {
     var result = Run("emit(read())\nemit(local#value)",
-      "pure func read { return(local#value) }", "carry local value = <unit>");
+      "pure func read() -> any { return(local#value) }", "carry local value = <unit>");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"missing", "unit"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
   public void CompilerExpandsInlineFunctionsBeforeHoistingHostValues() {
-    var result = Run("emit(host())", "inline func host { return(this) }", context: new HixCoroutine(new Context(new TestSymbol())));
+    var result = Run("%inline emit(host())", "func host() -> any { return(this) }", context: new HixCoroutine(new Context(new TestSymbol())));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("TestSymbol", Assert.Single(result.Outputs).ReadText());
   }
 
   [Fact]
   public void InlineRewritePreservesLocalsAndEarlyReturns() {
-    var result = Run("emit(choose(<selected>, true))", """
-      inline func choose {
+    var result = Run("%inline emit(choose(<selected>, true))", """
+      func choose(any __arg0, any __arg1) -> any {
         local copy @= $0;
         when($1) { return(local#copy) }
         return(<fallback>)
@@ -290,8 +290,8 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void ExplicitInlineCallExpandsAnInlineableFunction() {
-    var result = Run("emit(inline(decorate, <value>))", """
-      func decorate {
+    var result = Run("%inline emit(decorate(<value>))", """
+      func decorate(string value) -> string {
         local copy @= $0;
         return(<[local#copy]!>)
       }
@@ -312,7 +312,7 @@ public sealed class HixExecutionTests {
   [Fact]
   public void FailedCalleesRollBackWritesAndOutput() {
     var result = Run("emit(var#value)", """
-      func broken { var<value> @= <bad>; emit<discarded>; fail<bad> }
+      func broken() -> any { var<value> @= <bad>; emit<discarded>; fail<bad> }
       """, "var<value> @= <good>;\nlocal failure = [broken()?]\nassert(is(local#failure, error))");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("good", Assert.Single(result.Outputs).ReadText());
@@ -321,7 +321,7 @@ public sealed class HixExecutionTests {
   [Fact]
   public void CheckedControlFlowFailuresRollBackTheCallee() {
     var result = Run("emit(var#value)", """
-      func broken { var<value> @= <bad>; emit<discarded>; goto outside }
+      func broken() -> any { var<value> @= <bad>; emit<discarded>; goto outside }
       """, "var<value> @= <good>;\nlocal failure = [broken()?]\nassert(is(local#failure, error))");
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("good", Assert.Single(result.Outputs).ReadText());
@@ -330,8 +330,8 @@ public sealed class HixExecutionTests {
   [Fact]
   public void SnapshotRoundTripPreservesCheckedErrorKinds() {
     var variables = new Dictionary<string, object>();
-    Assert.True(Run("var<failure> @= [error<saved>?];", variables: variables).Success);
-    var result = Run("emit(kind(var#failure))\nemit(catch(var#failure) ?: <handled>)", variables: variables);
+    Assert.True(Run("var<failure> @= [cast(<saved>, error)?];", variables: variables).Success);
+    var result = Run("emit(pattern(var#failure))\nemit(catch(var#failure) ?: <handled>)", variables: variables);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"error", "handled"}, result.Outputs.Select(output => output.ReadText()));
   }
@@ -343,7 +343,7 @@ public sealed class HixExecutionTests {
       pure func choose (number value) -> string { return(<global number>) }
       mixin Example {
         pure func choose (string value) -> string { return(<local string>) }
-        expression { emit(choose(<text>)); emit(choose(number<2>)) }
+        expression { emit(choose(<text>)); emit(choose(cast(<2>, number))) }
       }
       """);
     Assert.Empty(unit.Diagnostics);
@@ -361,11 +361,11 @@ public sealed class HixExecutionTests {
   [Fact]
   public void FunctionBindingsKeepTheirDeclarationScopeAcrossCalls() {
     var unit = AntlrSyntax.Parse("""
-      pure func choose { return(<global>) }
-      pure func exported { return(choose) }
-      pure func invoke { return(call(param)) }
+      pure func choose() -> string { return(<global>) }
+      pure func exported() -> any { return(choose) }
+      pure func invoke(any __arg0) -> any { return(call($0)) }
       mixin Example {
-        pure func choose { return(<local>) }
+        pure func choose() -> string { return(<local>) }
         expression {
           emit(choose())
           emit(invoke(choose))
@@ -516,11 +516,11 @@ public sealed class HixExecutionTests {
       type Positive = %min<1> number
       type Handler = delegate(Person self, string value) -> null
       mixin Example { expression {
-        local person = Person(@{name=<Ada>, aliases=@[<A>, <B>], attributes=@{role=<admin>}})
-        local nullable = NullableString(null)
+        local person = cast(@{name=<Ada>, aliases=@[<A>, <B>], attributes=@{role=<admin>}}, Person)
+        local nullable = cast(null, NullableString)
         emit(local#person#name)
         emit(local#nullable)
-        emit(Positive(2))
+        emit(cast(2, Positive))
       } }
       """;
     var unit = AntlrSyntax.Parse(source);
@@ -529,7 +529,7 @@ public sealed class HixExecutionTests {
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"Ada", "", "2"}, result.Outputs.Select(output => output.ReadText()));
 
-    var rejected = AntlrSyntax.Parse("type Positive = %min<1> number\nmixin Example { expression { emit(Positive(0)) } }");
+    var rejected = AntlrSyntax.Parse("type Positive = %min<1> number\nmixin Example { expression { emit(cast(0, Positive)) } }");
     Assert.Empty(rejected.Diagnostics);
     var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixCoroutine(new Context()));
     Assert.False(failure.Success);
@@ -547,7 +547,7 @@ public sealed class HixExecutionTests {
         local positional = Person(<Grace>, 21)
         local pair = Pair(<left>, 2)
         local namedPair = Pair(right = 4, left = <named>)
-        local identity = Person(@{name=<Existing>, age=30})
+        local identity = cast(@{name=<Existing>, age=30}, Person)
         local pet = Pet(name = <Milo>)
         emit(local#named#name)
         emit(local#named#age)
@@ -583,18 +583,17 @@ public sealed class HixExecutionTests {
     var diagnostic = Assert.Single(unit.Diagnostics.Where(item => item.Message.Contains("no constructor of 'Person'")));
     Assert.Contains("missing required argument 'name'", diagnostic.Message);
     Assert.Contains("Person(name: string, age: number?)", diagnostic.Message);
-    Assert.Contains("Person(value: Person)", diagnostic.Message);
   }
 
   [Fact]
-  public void InferredCallsUseStaticSignaturesWhileVariablesRemainDynamic() {
+  public void InferredCallsUseStaticSignaturesAndCastsNarrowVariables() {
     var unit = AntlrSyntax.Parse("""
       pure func choose(string value) -> string { return(<string>) }
       pure func choose(number value) -> string { return(<number>) }
       mixin Example { expression {
         local known = choose(<value>)
         var<dynamic> @= <value>;
-        local unknown = choose(var#dynamic)
+        local unknown = choose(cast(var#dynamic, string))
         emit(local#known)
         emit(local#unknown)
       } }
@@ -603,8 +602,8 @@ public sealed class HixExecutionTests {
     var program = TestCompiler.Compile(unit, "Example", TestBackend.Instance);
     var dump = program.Disassemble();
     Assert.Contains("CALL c", dump);
-    Assert.Equal(2, HixInstruction.ReadAll(program.Bytecode)
-      .Count(item => item.Instruction.Opcode == HixOpcode.CallDynamic));
+    Assert.All(program.ConstantPool.OfType<FunctionReferenceHixValue>().Where(reference => reference.Signature.Name == "choose"),
+      reference => Assert.Equal("string", reference.Signature.Parameters[0].Pattern.Display));
     Assert.Contains("static emit(any", dump);
     var result = HixVM.Execute(program, new HixCoroutine(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
@@ -722,7 +721,7 @@ public sealed class HixExecutionTests {
     var dynamic = new LanguageAnalysis("""
       pure func choose(string value) -> string { return(<string>) }
       pure func choose(number value) -> string { return(<number>) }
-      mixin Example { expression { var<value> @= <x>; local result = choose(var#value) } }
+      mixin Example { expression { var<value> @= <x>; local result = call(choose, var#value) } }
       """);
     Assert.Contains(dynamic.TypeFacts, fact => fact.Kind == "DynamicCall" && fact.Documentation.Contains("runtime"));
 
@@ -759,8 +758,8 @@ public sealed class HixExecutionTests {
 
   [Fact]
   public void DynamicArrowFunctionsAcceptAnyArgumentShape() {
-    var result = Run("emit(inspect(<left>, 2))", """
-      pure func inspect -> string { return(<[kind($it)]-[param#0]-[param#1]>) }
+    var result = Run("emit(call(inspect, <left>, 2))", """
+      pure func inspect -> string { return(<[pattern($it)]-[param#0]-[param#1]>) }
       """);
 
     Assert.True(result.Success, result.Error.Resolve(result.Strings));

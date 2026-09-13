@@ -1,26 +1,26 @@
 %test
 %testcase(@[], null)
-func bareReturn { return; error<unreachable> }
+func bareReturn { return; cast(<unreachable>, error) }
 
 %test
 %testcase(@[], null)
-func emptyReturn { return(); error<unreachable> }
+func emptyReturn { return(); cast(<unreachable>, error) }
 
 %test
 %testcase(@[], 7)
-func scalarReturn { return(7); error<unreachable> }
+func scalarReturn { return(7); cast(<unreachable>, error) }
 
 %test
 %testcase(@[], <value>)
-func angleReturn { return<value>; error<unreachable> }
+func angleReturn { return<value>; cast(<unreachable>, error) }
 
 %test
 %testcase(@[], @[<left>, 2, true])
-func packedReturn { return(<left>, 2, true,); error<unreachable> }
+func packedReturn { return(<left>, 2, true,); cast(<unreachable>, error) }
 
 %test
 %testcase(@[], @[<left>, <right>])
-func adjacentAngleReturn { return<left><right>; error<unreachable> }
+func adjacentAngleReturn { return<left><right>; cast(<unreachable>, error) }
 
 %test
 %testcase(@[true], <yes>)
@@ -90,7 +90,7 @@ func selectorTransformations(number value) -> string {
 
 %test
 %testcase(@[], <nested>)
-func nestedSelectionBlocks -> string {
+func nestedSelectionBlocks() -> string {
   when [<outer>] {
     <outer> -> {
       when [true] {
@@ -105,9 +105,9 @@ func nestedSelectionBlocks -> string {
 
 %test
 %testcase(@[], <done>)
-func forwardGotoSkipsStatements -> string {
+func forwardGotoSkipsStatements() -> string {
   goto finished
-  error<unreachable>
+  cast(<unreachable>, error)
   :finished
   return<done>
 }
@@ -125,15 +125,15 @@ func backwardGotoRevisitsLabel(number start) -> number {
 
 %test
 %testcase(@[], <done>)
-func gotoLeavesNestedBlock -> string {
-  { { goto finished } error<unreachable> }
+func gotoLeavesNestedBlock() -> string {
+  { { goto finished } cast(<unreachable>, error) }
   :finished
   return<done>
 }
 
 %test
 %testcase(@[], 2)
-func breakLeavesCurrentBlock -> number {
+func breakLeavesCurrentBlock() -> number {
   local value = 1
   { $value = 2; break; $value = 99 }
   return($value)
@@ -141,7 +141,7 @@ func breakLeavesCurrentBlock -> number {
 
 %test
 %testcase(@[], 2)
-func nestedBreakOnlyLeavesInnerBlock -> number {
+func nestedBreakOnlyLeavesInnerBlock() -> number {
   local value = 0
   { { $value = 1; break; $value = 99 } $value = 2 }
   return($value)
@@ -149,7 +149,7 @@ func nestedBreakOnlyLeavesInnerBlock -> number {
 
 %test
 %testcase(@[], 3)
-func continueRestartsCurrentBlock -> number {
+func continueRestartsCurrentBlock() -> number {
   local count = 0
   {
     $count = plus($count, 1)
@@ -163,30 +163,30 @@ func continueRestartsCurrentBlock -> number {
 
 %test
 %testcase(@[], <labelled>)
-func labelledStatementBlock -> string {
+func labelledStatementBlock() -> string {
   :named { return<labelled> }
   return<unreachable>
 }
 
 %test
 %testcase(@[], 3)
-func semicolonsAndAdjacentStatements -> number { ; local n = 1; ; $n = plus($n, 2); return($n); }
+func semicolonsAndAdjacentStatements() -> number { ; local n = 1; ; $n = plus($n, 2); return($n); }
 
 %test
 %testcase(@[], <selected>)
-func guardShortCircuitsUnselectedConditions -> string {
-  when(false, error<unreachable>) { error<unreachable> }
+func guardShortCircuitsUnselectedConditions() -> string {
+  when(false, cast(<unreachable>, error)) { cast(<unreachable>, error) }
   local result = when {
-    (false, error<unreachable>) -> error<unreachable>
+    (false, cast(<unreachable>, error)) -> cast(<unreachable>, error)
     (true) -> <selected>
-    else -> error<unreachable>
+    else -> cast(<unreachable>, error)
   }
   return($result)
 }
 
 %test
 %testcase(@[], <fallback>)
-func unmatchedSelectionFallsThrough -> string {
+func unmatchedSelectionFallsThrough() -> string {
   when [1] {
     2 -> return<wrong>
   }
@@ -195,7 +195,7 @@ func unmatchedSelectionFallsThrough -> string {
 
 %test
 %testcase(@[], <selected>)
-func selectorlessValueBranches -> string {
+func selectorlessValueBranches() -> string {
   when {
     false -> return<wrong>
     true -> return<selected>
@@ -218,7 +218,7 @@ func selectionReassignsLocal(bool selected) -> string {
 
 %test
 %testcase(@[], <firstsecond>)
-func independentGuardsBothExecute -> string {
+func independentGuardsBothExecute() -> string {
   local value = <>
   when(true) { $value = join(@[$value, <first>], <>) }
   when(true) { $value = join(@[$value, <second>], <>) }

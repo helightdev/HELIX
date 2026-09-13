@@ -50,10 +50,10 @@ class HixDocumentationProvider : DocumentationProvider {
             metadataDefinition?.argumentTypes?.getOrNull(argument.index)
                 ?: if (metadataDefinition?.variadic == true) metadataDefinition.argumentTypes.lastOrNull() else null
         }
-        val role = if (metadataArgumentKind == "Pattern") HixLookup.SemanticRole.Pattern
+        val role = if (metadataArgumentKind.equals("pattern", ignoreCase = true)) HixLookup.SemanticRole.Pattern
             else HixLookup.semanticRoleAt(parsed, offset)
         val catalogKind = when (role) {
-            HixLookup.SemanticRole.Pattern -> "Kind"
+            HixLookup.SemanticRole.Pattern -> "PrimitivePattern"
             HixLookup.SemanticRole.PatternMetadata -> "PatternMetadata"
             HixLookup.SemanticRole.TypeMetadata -> "TypeMetadata"
             HixLookup.SemanticRole.DeclarationMetadata -> "DeclarationMetadata"

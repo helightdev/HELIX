@@ -9,6 +9,16 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `statement inline metadata and receiver first casts parse locally`() {
+        val parsed = HixAntlrSyntax.parse(
+            "type path.Record = @{string name}; pure func path.echo(string value) -> string => ${'$'}value; " +
+                "func main() -> string { %inline local value = path.echo(<a>); " +
+                "return(${'$'}value:as(string):path.echo()) }"
+        )
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+    }
+
+    @Test
     fun `metadata declarations accept retention modifiers`() {
         val parsed = HixAntlrSyntax.parse(
             "compiler meta erased(string text) for type;\n" +
@@ -50,11 +60,11 @@ class HixLocalSyntaxTest {
     fun `decompiled inline blocks and explicit dispatch parse locally`() {
         val source = "pure func main { local result = [do { local value = 1 } => local#value]; " +
             "@= [plus(1, 2) @static(\"plus(number 0, number 1) -> number\")]; " +
-            "return([main() @dynamic]) }"
+            "%inline return(call(main)) }"
         val parsed = HixAntlrSyntax.parse(source)
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
         assertEquals(1, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.InlineBlockValueContext })
-        assertEquals(2, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.CallBindingContext })
+        assertEquals(1, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.CallBindingContext })
         assertSame(HixColors.KEYWORD,
             HixSyntaxHighlighter(null).getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.BEGIN_INLINE_BLOCK]).single())
     }

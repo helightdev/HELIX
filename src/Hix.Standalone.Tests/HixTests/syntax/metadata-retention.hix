@@ -7,4 +7,4 @@ runtime meta retention.loaded(string text) for function;
 %retention.loaded<retained in loaded descriptors>
 %test
 %testcase(@[], <ok>)
-func metadataRetentionModifiers -> string { return(<ok>) }
+func metadataRetentionModifiers() -> string { return(<ok>) }

@@ -26,11 +26,11 @@ mixin HELIX.Boot.CommandAttribute(string? name = [null], string? description = [
     using @> HELIX.Boot;
     local TargetName @= target:name;
     local StructName @> {{$TargetName}}_Args
-    local StructHandle @= inline(DeriveParameters, target);
+    %inline local StructHandle @= DeriveParameters(target);
     local InvokeArguments @= $StructHandle:map(func => <[$0#value#modifier] args.[$0#value#name]>):join<, >;
     local InvokeLambda @> args => {{$TargetName}}({{$InvokeArguments}})
     local CommandName @= $name;
-    local CmdName @= $CommandName:csharpLiteral;
+    local CmdName @= $name:csharpLiteral;
     when($CommandName:eq(null)) {
       $CmdName @> "{{$TargetName}}"
     }

@@ -1,0 +1,114 @@
+pure func static.units.choose(string value) -> string => <text:[$value]>;
+pure func static.units.choose(number value) -> string => <number:[$value]>;
+pure func static.units.echo(string value) -> string => $value;
+%generic<T>
+pure func static.units.identity(T value) -> T => $value;
+
+type StaticRecord = @{string name, %optional number age};
+type StaticNumbers = %many<number>;
+
+%test
+%testcase(@[], <text:12>)
+func castKindSelectsStaticOverload() -> string {
+  var<payload> @= 12;
+  return(static.units.choose(cast(var#payload, string)))
+}
+
+%test
+%testcase(@[], 13)
+func castKindWorksInChains() -> number {
+  local value = <12>
+  return($value:cast(number):plus(1))
+}
+
+%test
+%testcase(@[], <text:Ada>)
+func castPatternWorksInChains() -> string {
+  local record = StaticRecord(name = <Ada>)
+  return($record:cast(StaticRecord)#name:static.units.choose())
+}
+
+%test
+%testcase(@[], 2)
+func castCollectionPatternKeepsStaticBinding() -> number {
+  local values = @[1, 2]
+  return($values:cast(StaticNumbers):length)
+}
+
+%test
+%testcase(@[], <text:value>)
+func inlineUsesTheBoundOverload() -> string {
+  %inline return(static.units.choose(<value>))
+}
+
+%test
+%testcase(@[], <text:value>)
+func inlineGenericAtStatementRoot() -> string {
+  %inline static.units.echo(<ignored>)
+  %inline local copied = static.units.identity(<value>)
+  return(static.units.choose($copied))
+}
+
+%test
+%testcase(@[<12>], <text:12>)
+%testcase(@[12], <number:12>)
+func explicitRuntimeOverloadSelection(any value) -> any {
+  return(call(cast(<static.units.choose>, function), $value))
+}
+
+pure func static.units.numberIdentity(number value) -> number => $value;
+pure noinline func static.units.kept(string value) -> string => $value;
+pure func static.units.wrapper(string value) -> string => static.units.kept($value);
+
+%test
+%testcase(@[], 12)
+func inlinePreservesArgumentConversions() -> number {
+  %inline return(static.units.numberIdentity(<12>))
+}
+
+%test
+%testcase(@[], <value>)
+func inlineAppliesToTheAnnotatedStatement() -> string {
+  %inline return(static.units.wrapper(<value>))
+}
+
+%alias<static.units.combine>
+%alias<combineText>
+pure func static.units.join(string left, string right) -> string => <[$left]/[$right]>;
+
+%alias<AliasedRecord>
+%alias<static.units.Record>
+type ExportRecord = @{string name, number age = 4};
+
+%test
+%testcase(@[], <a/b>)
+func repeatableFunctionAliasesBindStatically() -> string {
+  static.units.combine(<ignored>, <call>)
+  local value = combineText(<a>, <b>)
+  return(<[$value]>)
+}
+
+%test
+%testcase(@[], true)
+func typeAliasesExportNamedFactories() -> bool {
+  local first = ExportRecord.new(name = <Ada>)
+  local second = AliasedRecord.new(name = <Ada>)
+  local third = static.units.Record.new(name = <Ada>)
+  return(and(eq($first, $second), eq($second, $third)))
+}
+
+pure func nullableCastResult(any value) -> number? => $value:as(number);
+
+%test
+%testcase(@[], true)
+func genericCastThrowsAndAsReturnsNull() -> bool {
+  assert(eq(nullableCastResult(<12>), 12))
+  assert(eq(nullableCastResult(<invalid>), null))
+  assert(eq(as(<unknown>, ComparisonOperator), null))
+  assert(eq(as(<lt>, ComparisonOperator), <lt>))
+  assert(is([cast(<invalid>, number)?], error))
+  local value = ExportRecord.new(name = <Ada>)
+  assert(eq(as($value, AliasedRecord), $value))
+  assert(eq(as(<invalid>, AliasedRecord), null))
+  return(true)
+}

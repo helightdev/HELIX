@@ -30,7 +30,7 @@ func syntaxFeaturesExecuteFromTheirCanonicalParse {
 
 %test
 func nullableUnionTupleDelegateAndTaggedPatternsCompile {
-  assert(eq(NullableString(null), null))
+  assert(eq(cast(null, NullableString), null))
   assert(eq(Pair(<left>, 2), @[<left>, 2]))
   local house = House(pet = Cat(name = <Milo>))
   assert(eq($house#pet#name, <Milo>))

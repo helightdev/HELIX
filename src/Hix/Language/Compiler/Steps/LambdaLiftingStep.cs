@@ -39,7 +39,7 @@ public sealed class LambdaLiftingStep : HixLoweringStep {
       do name = "__lambda_" + sequence++.ToString(CultureInfo.InvariantCulture);
       while (!names.Add(name));
       var body = Rewrite(lambda.Body);
-      lifted.Add(CopyLocation(lambda, new FunctionDeclarationIr(name, true, true, false, [], body, [HixMetadataCompiler.Synthetic()])));
+      lifted.Add(CopyLocation(lambda, new FunctionDeclarationIr(name, true, false, [], body, [HixMetadataCompiler.Synthetic()])));
       return CopyLocation(lambda, new RootExpressionIr(name));
     }
   }

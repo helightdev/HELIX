@@ -51,5 +51,5 @@ func failedCompilationIsInspectableWithoutFailingExecution {
   assert(eq(length(instructions($compiled)), 0))
   assert(eq(disassemble($compiled), <>))
   local diagnostic = get(diagnostics($compiled), 0)
-  assert(contains($diagnostic, <no overload of 'replaceAll'>))
+  assert(contains(cast($diagnostic, string), <no overload of 'replaceAll'>))
 }

@@ -33,10 +33,13 @@ public sealed class LanguageAnalysis {
 
   private IReadOnlyList<TypeFact> CollectTypeFacts() {
     var facts = new List<TypeFact>();
-    var patterns = Program.Declarations.OfType<TypeDeclarationIr>().ToDictionary(type => type.Name,
+    IReadOnlyList<HixIrNode> exports;
+    try { exports = DeclarationExports.Expand(Program.Declarations); }
+    catch (ArgumentException) { exports = Program.Declarations; }
+    var patterns = backend.Functions.Types.Concat(exports.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name).Select(group => group.Last()).ToDictionary(type => type.Name,
       type => type.Pattern, StringComparer.Ordinal);
-    var functions = Program.Declarations.OfType<FunctionDeclarationIr>().Concat(
-        Program.Declarations.OfType<MixinDeclarationIr>().SelectMany(mixin => mixin.Declarations.OfType<FunctionDeclarationIr>()))
+    var functions = exports.OfType<FunctionDeclarationIr>().Concat(
+        exports.OfType<MixinDeclarationIr>().SelectMany(mixin => mixin.Declarations.OfType<FunctionDeclarationIr>()))
       .GroupBy(function => function.Name, StringComparer.Ordinal).ToDictionary(group => group.Key,
         group => group.ToArray(), StringComparer.Ordinal);
     foreach (var type in Program.Declarations.OfType<TypeDeclarationIr>())
@@ -141,6 +144,13 @@ public sealed class LanguageAnalysis {
               new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters));
           result = Union(results);
           break;
+        case RootExpressionIr {IsSmart: false, Name: "args"}: result = new TupleHixPattern(parameters.Select(field => field.AsPatternField()).ToArray()); break;
+        case RootExpressionIr {IsSmart: false, Name: "local" or "var" or "tar" or "param"}: result = HixPattern.Any; break;
+        case RootExpressionIr {IsSmart: false, Name: "null"}: result = new KindHixPattern(HixValueKind.Null); break;
+      case RootExpressionIr {IsSmart: false, Name: "missing"}: result = new KindHixPattern(HixValueKind.Missing); break;
+      case RootExpressionIr {IsSmart: false} root when HixPatterns.TryPrimitive(root.Name, out _): result = new KindHixPattern(HixValueKind.Pattern); break;
+        case RootExpressionIr {IsSmart: false} root when patterns.ContainsKey(root.Name): result = new KindHixPattern(HixValueKind.Pattern); break;
+        case RootExpressionIr {IsSmart: false} root when backend.Functions.Resolve(root.Name).Count != 0 && !functions.ContainsKey(root.Name): result = new KindHixPattern(HixValueKind.Function); break;
         case RootExpressionIr {IsSmart: false} root when functions.TryGetValue(root.Name, out var methods):
           var method = methods.FirstOrDefault();
           var signature = method?.Signatures.FirstOrDefault();
@@ -154,16 +164,16 @@ public sealed class LanguageAnalysis {
           var argumentPatterns = call.Arguments.Select(argument => Infer(argument, locals, parameters)).ToArray();
           string documentation;
           var dynamic = false;
-          if (patterns.ContainsKey(call.Name)) {
+          if (backend.Functions.Resolve(call.Name).Count == 0 && patterns.ContainsKey(call.Name)) {
             result = new NamedHixPattern(call.Name);
-            documentation = "Validate a value against pattern `" + call.Name + "`.";
+            documentation = "Construct a value of pattern `" + call.Name + "`. Use as(value, " + call.Name + ") to cast a value.";
           } else {
             var resolution = HixCallResolver.Resolve(call, functions, backend, patterns,
               value => { var position = call.Arguments.ToList().IndexOf(value);
                 return position >= 0 ? argumentPatterns[position] : Infer(value, locals, parameters); }, out var ambiguous);
             call.Resolution = resolution;
             result = resolution?.Signature.Result ?? HixPattern.Any;
-            dynamic = ambiguous || resolution?.Binding.Kind == HixCallKind.Dynamic || resolution == null && functions.ContainsKey(call.Name);
+            dynamic = call.Name == "call";
             documentation = resolution?.Signature.Display ?? call.Name;
             if (resolution?.Binding.Function is { } languageFunction)
               documentation = DeclarationDocumentation(documentation, languageFunction.Metadata);
@@ -426,7 +436,7 @@ public sealed class LanguageAnalysis {
   private bool IsFunctionReference(string name) => !backend.Roots.ContainsKey(name) && name is not
     ("local" or "var" or "tar" or
      "param" or "true" or "false" or "null" or "string" or "bool" or "number" or
-     "tuple" or "table" or "opaque" or "function" or "error" or "kind" or "pattern");
+     "tuple" or "table" or "opaque" or "function" or "error" or "pattern");
 
   private HixSourceRange IdentifierRange(HixIrNode node, string name) {
     if (node is RootExpressionIr root && name == root.Name) name = root.OriginalName;

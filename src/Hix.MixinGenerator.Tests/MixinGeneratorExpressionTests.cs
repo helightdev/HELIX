@@ -76,7 +76,7 @@ public sealed class MixinGeneratorExpressionTests {
 
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
 
-    Assert.DoesNotContain(diagnostics, item => item.Id == "HLXM08");
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var generated = Assert.Single(driver.GetRunResult().Results.SelectMany(item => item.GeneratedSources))
       .SourceText.ToString();
     Assert.Contains("this.Value == other.Value", generated);

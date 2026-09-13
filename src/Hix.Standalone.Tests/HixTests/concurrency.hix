@@ -60,7 +60,7 @@ func concurrencyFailuresAreCheckable {
 
 %test
 %testcase(@[], 42)
-func opaqueTasksInferLambdaResults -> number {
+func opaqueTasksInferLambdaResults() -> number {
   local task = spawn(func => plus($0, 1), @[41])
   local number result = awaitTask(local#task)
   assert(is(local#task, opaque))
@@ -73,7 +73,7 @@ func opaqueDefaultChild(number value = [42]) -> number { return($value) }
 
 %test
 %testcase(@[], 42)
-func opaqueTasksInferOverloadsAndDefaults -> number {
+func opaqueTasksInferOverloadsAndDefaults() -> number {
   local number first = awaitTask(spawn(opaqueOverloadedChild, @[20]))
   local number second = awaitTask(spawn(opaqueDefaultChild))
   return(plus(local#first, minus(local#second, 20)))

@@ -16,10 +16,19 @@ public abstract record HixPattern {
 public static class HixPatterns {
   public static HixPattern Named(string name) {
     if (string.IsNullOrEmpty(name) || name == "any") return HixPattern.Any;
-    return Enum.TryParse<HixValueKind>(name, true, out var kind) && kind != HixValueKind.Any &&
+    return Enum.TryParse<HixValueKind>(name, true, out var kind) && kind != HixValueKind.Any && kind != HixValueKind.Kind &&
       string.Equals(name, kind.ToString(), StringComparison.OrdinalIgnoreCase)
       ? new KindHixPattern(kind) : new NamedHixPattern(name);
   }
+
+  private static readonly IReadOnlyDictionary<HixValueKind, PatternHixValue> PrimitiveValues =
+    Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>().ToDictionary(kind => kind,
+      kind => new PatternHixValue(kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind)));
+  private static readonly IReadOnlyDictionary<string, PatternHixValue> Primitives = PrimitiveValues
+    .Where(item => item.Key is not (HixValueKind.Kind or HixValueKind.Null or HixValueKind.Missing))
+    .ToDictionary(item => item.Key.ToString().ToLowerInvariant(), item => item.Value, StringComparer.Ordinal);
+  public static PatternHixValue Primitive(HixValueKind kind) => PrimitiveValues[kind];
+  public static bool TryPrimitive(string name, out PatternHixValue pattern) => Primitives.TryGetValue(name, out pattern);
 
   public static HixPattern Union(IEnumerable<HixPattern> values) {
     var members = values.Where(value => value != null).SelectMany(value => value is UnionHixPattern union

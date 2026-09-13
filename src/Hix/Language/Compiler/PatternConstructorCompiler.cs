@@ -8,16 +8,11 @@ namespace Hix.Compiler;
 internal static class PatternConstructorCompiler {
   internal static IEnumerable<FunctionDeclarationIr> Compile(string name, HixPattern pattern,
     IReadOnlyDictionary<string, HixPattern> patterns) {
+    var visited = new HashSet<string>();
+    while (pattern is NamedHixPattern named && visited.Add(named.Name) && patterns.TryGetValue(named.Name, out var resolved))
+      pattern = resolved;
     HixPatterns.TryStructural(pattern, patterns, out var structural);
     var result = new NamedHixPattern(name);
-    ExpressionIr identity = new RootExpressionIr("param");
-    if (pattern is TaggedHixPattern tagged) {
-      var key = new StringExpressionIr(TaggedHixPattern.FieldName);
-      identity = new CallExpressionIr("put", [identity, key,
-        new CallExpressionIr("get", [new RootExpressionIr("param"),
-          new StringExpressionIr(TaggedHixPattern.FieldName), new StringExpressionIr(tagged.Discriminator)])]);
-    }
-    yield return Method(name, new FunctionSignature(structural ?? HixPattern.Any, null, result, null), identity);
     if (structural == null) yield break;
     var fields = structural is TableHixPattern table ? table.Fields : ((TupleHixPattern)structural).Fields;
     var inputs = fields.Select(field => new SignatureField(field.Name, field.Pattern, optional: field.Optional,
@@ -39,23 +34,27 @@ internal static class PatternConstructorCompiler {
         new StringExpressionIr(TaggedHixPattern.FieldName), new CallExpressionIr("get", [Local(),
           new StringExpressionIr(TaggedHixPattern.FieldName), new StringExpressionIr(tag.Discriminator)])]);
       statements.Add(new ControlFlowStatementIr(ControlFlowKind.Return, null, [value]));
-      yield return new FunctionDeclarationIr(name, true, false, true,
+      var factory = new FunctionDeclarationIr(name, true, true,
         [new FunctionSignature(null, inputs, result, null)], new BlockStatementIr(statements), [HixMetadataCompiler.Synthetic()]);
+      yield return factory;
+      yield return DeclarationExports.Rename(factory, name + ".new");
     } else {
       var branches = Enumerable.Range(0, fields.Count).Reverse().Select(index =>
         new SelectionBranchIr([new UnaryExpressionIr(UnaryOperation.Not, IsMissing(index))],
           new TupleExpressionIr(Enumerable.Range(0, index + 1).Select(Argument).ToArray()))).ToArray();
       construction = new SelectionExpressionIr(null, branches, new TupleExpressionIr([]));
-      yield return Method(name, new FunctionSignature(null, inputs, result, null), construction);
+      var factory = Method(name, new FunctionSignature(null, inputs, result, null), construction);
+      yield return factory;
+      yield return DeclarationExports.Rename(factory, name + ".new");
     }
   }
 
   private static FunctionDeclarationIr Method(string name, FunctionSignature signature, ExpressionIr result) =>
-    new(name, true, false, true, [signature],
+    new(name, true, true, [signature],
       new BlockStatementIr([new ControlFlowStatementIr(ControlFlowKind.Return, null, [result])]), [HixMetadataCompiler.Synthetic()]);
   private static ExpressionIr Argument(int index) => new RootExpressionIr(index.ToString(), true);
   private static ExpressionIr Local() => new MemberExpressionIr(new RootExpressionIr("local"), "__value");
-  private static ExpressionIr IsMissing(int index) => new CallExpressionIr("is", [Argument(index), new RootExpressionIr("missing")]);
+  private static ExpressionIr IsMissing(int index) => new CallExpressionIr("eq", [Argument(index), new MissingExpressionIr()]);
 
   private static ExpressionIr Literal(object value) => value switch {
     null or NullHixValue => new NullExpressionIr(),

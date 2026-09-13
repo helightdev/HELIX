@@ -65,6 +65,9 @@ public static class PatternTypeAnalysis {
   public static void Validate(IReadOnlyList<HixIrNode> declarations, IReadOnlyDictionary<string, HixPattern> patterns,
     ICollection<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
+    declarations = DeclarationExports.Expand(declarations);
+    patterns = backend.Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name)
+      .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
     var functions = declarations.OfType<FunctionDeclarationIr>().GroupBy(value => value.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
     foreach (var function in declarations.OfType<FunctionDeclarationIr>().Where(function => !function.IsExternal)) {
@@ -190,6 +193,13 @@ public static class PatternTypeAnalysis {
       case RootExpressionIr {IsSmart: true} smart:
         return locals.TryGetValue(smart.Name, out var smartLocal) ? smartLocal :
           parameters.FirstOrDefault(parameter => parameter.Name == smart.Name)?.Pattern ?? HixPattern.Any;
+      case RootExpressionIr {IsSmart: false, Name: "args"}: return new TupleHixPattern(parameters.ToArray());
+      case RootExpressionIr {IsSmart: false, Name: "local" or "var" or "tar" or "param"}: return HixPattern.Any;
+      case RootExpressionIr {IsSmart: false, Name: "null"}: return new KindHixPattern(HixValueKind.Null);
+      case RootExpressionIr {IsSmart: false, Name: "missing"}: return new KindHixPattern(HixValueKind.Missing);
+      case RootExpressionIr {IsSmart: false} root when HixPatterns.TryPrimitive(root.Name, out _): return new KindHixPattern(HixValueKind.Pattern);
+      case RootExpressionIr {IsSmart: false} root when patterns.ContainsKey(root.Name): return new KindHixPattern(HixValueKind.Pattern);
+      case RootExpressionIr {IsSmart: false} root when backend.Functions.Resolve(root.Name).Count != 0 && !functions.ContainsKey(root.Name): return new KindHixPattern(HixValueKind.Function);
       case RootExpressionIr {IsSmart: false} root when functions.TryGetValue(root.Name, out var methods):
         var method = methods.FirstOrDefault();
         var signature = method?.Signatures.FirstOrDefault();
@@ -220,17 +230,14 @@ public static class PatternTypeAnalysis {
         return Union(results);
       case CallExpressionIr call:
         var supplied = call.Arguments.Select(value => Infer(value, locals, parameters, functions, patterns, diagnostics, backend)).ToArray();
-        if (patterns.TryGetValue(call.Name, out var checkedPattern)) {
-          var identity = supplied.Length == 1 && call.ArgumentNames.All(name => name == null) &&
-            HixPatternRelations.Relate(supplied[0], checkedPattern, patterns) != HixPatternRelation.Never;
-          if (!identity && (!HixPatterns.TryStructural(checkedPattern, patterns, out var structural) ||
+        if (backend.Functions.Resolve(call.Name).Count == 0 && patterns.TryGetValue(call.Name, out var checkedPattern)) {
+          if (!HixPatterns.TryStructural(checkedPattern, patterns, out var structural) ||
               !AcceptsConstructor(call, supplied, structural is TableHixPattern table ? table.Fields :
-                ((TupleHixPattern)structural).Fields, patterns))) {
+                ((TupleHixPattern)structural).Fields, patterns)) {
             if (structural != null) diagnostics.Add(new(call.Line, PatternConstructorDiagnostics.Describe(call.Name,
               call.ArgumentNames, supplied, structural is TableHixPattern mismatchTable ? mismatchTable.Fields :
                 ((TupleHixPattern)structural).Fields, patterns)));
-            else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' only accepts " + call.Name +
-              "(value: " + call.Name + ")"));
+            else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' has no constructor; use cast(value, " + call.Name + ")"));
           }
           return new NamedHixPattern(call.Name);
         }
@@ -338,15 +345,20 @@ public static class PatternTypeAnalysis {
     return fields.Select((field, index) => assigned[index] || field.AllowsMissing).All(value => value);
   }
 
-  private static HixPattern Member(HixPattern receiver, string name, IReadOnlyDictionary<string, HixPattern> patterns) {
-    if (receiver is NamedHixPattern named && patterns.TryGetValue(named.Name, out var resolved)) receiver = resolved;
-    if (receiver is TaggedHixPattern tagged) {
-      if (name == TaggedHixPattern.FieldName)
-        return new ConstantHixPattern(tagged.Discriminator, new KindHixPattern(HixValueKind.String));
-      receiver = tagged.Underlying;
-    }
-    return receiver is TableHixPattern table
-      ? table.Fields.FirstOrDefault(field => field.Name == name)?.Pattern ?? HixPattern.Any : HixPattern.Any;
+  internal static HixPattern Member(HixPattern receiver, string name, IReadOnlyDictionary<string, HixPattern> patterns) {
+    var active = new HashSet<string>();
+    while (receiver is NamedHixPattern named && active.Add(named.Name) && patterns.TryGetValue(named.Name, out var resolved)) receiver = resolved;
+    if (receiver is TaggedHixPattern tagged && name == TaggedHixPattern.FieldName)
+      return new ConstantHixPattern(tagged.Discriminator, new KindHixPattern(HixValueKind.String));
+    if (receiver is UnionHixPattern union) return HixPatterns.Union(union.Patterns.Select(pattern => Member(pattern, name, patterns)));
+    if (HixPatterns.TryStructural(receiver, patterns, out var structural)) receiver = structural;
+    return receiver switch {
+      TableHixPattern table => table.Fields.FirstOrDefault(field => field.Name == name)?.Pattern ?? HixPattern.Any,
+      TupleHixPattern tuple when int.TryParse(name, out var index) && index >= 0 && index < tuple.Fields.Count => tuple.Fields[index].Pattern,
+      ManyHixPattern many when int.TryParse(name, out _) => many.Element,
+      MapHixPattern map => map.Value,
+      _ => HixPattern.Any
+    };
   }
 
   private static HixPattern ReturnPattern(FunctionSignature signature) => signature.Outputs == null

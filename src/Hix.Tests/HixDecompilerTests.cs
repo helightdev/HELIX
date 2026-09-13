@@ -29,7 +29,7 @@ public class HixDecompilerTests {
   [Theory]
   [InlineData("pure func main { return(1, true, false, null, missing, @[], @{}, @[2, 3], @{key=4}) }")]
   [InlineData("""pure func main { local value = "line\n\"quoted\""; return(<[$value]:[uppercase($value)]>) }""")]
-  [InlineData("pure func main { return(!false, [error<oops>?], [null ?: <fallback>]) }")]
+  [InlineData("pure func main { return(!false, [cast(<oops>, error)?], [null ?: <fallback>]) }")]
   [InlineData("pure func main(number value) -> string { local result = when [$value] {\n 1 -> <one>\n 2 -> <two>\n else -> <other>\n }; return($result) }")]
   [InlineData("pure func main { when(true) { return(<yes>) }; return(<no>) }")]
   [InlineData("pure func main { local count = 0; :again\n $count = plus($count, 1); when(compare($count, <lt>, 3)) { goto again }; return($count) }")]
@@ -37,7 +37,7 @@ public class HixDecompilerTests {
   [InlineData("pure func helper(%optional string value, string fallback = [<default>]) -> any { return($value, $fallback) } pure func main { return(helper(fallback = <other>)) }")]
   [InlineData("type Settings = @{%optional string name, number count = [2]} pure func main { return(Settings(count = 3)) }")]
   [InlineData("pure func main { local result = when [<ab>] {\n [:startsWith<a>] -> <yes>\n else -> <no>\n }; return($result) }")]
-  [InlineData("pure func choose(string value) -> string => <string>; pure func choose(number value) -> string => <number>; pure func main { local any value = 1; return(choose($value)) }")]
+  [InlineData("pure func choose(string value) -> string => <string>; pure func choose(number value) -> string => <number>; pure func main { local any value = 1; return(choose(cast($value, number))) }")]
   [InlineData("pure func main { return(@root(\"null\"), @root(\"missing\"), null, missing) }")]
   [InlineData("pure func main { return() }")]
   [InlineData("pure func main { local count = 0; { $count = plus($count, 1); when {\n (compare($count, <lt>, 3)) -> continue\n else -> break\n } }; return($count) }")]
@@ -48,8 +48,8 @@ public class HixDecompilerTests {
   [InlineData("pure func main { return($unknown) }")]
   [InlineData("pure func main { goto missingLabel }")]
   [InlineData("pure func main { local __selector_0 = 4; local __selector_value = 5; return($__selector_0, $__selector_value) }")]
-  [InlineData("pure func truth { return(true) } pure func main { return([@{value=2}#value], [truth() @dynamic @bool]) }")]
-  [InlineData("type Shape = @{string value} | null; pure func main { return(Shape(@{value=<text>})) }")]
+  [InlineData("pure func truth() -> bool { return(true) } pure func main { return([@{value=2}#value], [call(truth) @bool]) }")]
+  [InlineData("type Shape = @{string value} | null; pure func main { return(cast(@{value=<text>}, Shape)) }")]
   [InlineData("pure func choose(string value) -> string => <string>; pure func main { return(choose(1)) } pure func choose(number value) -> string => <number>;")]
   public void FunctionLibrariesRoundTrip(string source) => RoundTrip(source);
 
@@ -71,7 +71,7 @@ public class HixDecompilerTests {
 
   [Fact]
   public void PreparedInlineExpressionsKeepChecksAndFallbackLazy() {
-    const string source = "inline pure func decorate(string value) -> string { return(uppercase($value)) } mixin Example { expression { local value = [null ?: decorate(<hello>)]; emit($value) } }";
+    const string source = "pure func decorate(string value) -> string { return(uppercase($value)) } mixin Example { expression { %inline local value = [null ?: decorate(<hello>)]; emit($value) } }";
     var unit = AntlrSyntax.Parse(source, TestBackend.Instance);
     var globals = HixCompiler.PrepareGlobals([unit], TestBackend.Instance);
     var declaration = unit.Declarations.OfType<MixinDeclarationIr>().Single();
@@ -112,10 +112,10 @@ public class HixDecompilerTests {
   }
 
   [Theory]
-  [InlineData("[error<failed>?]", "[error<failed>?]")]
-  [InlineData("[[<kept>] ?: error<unreachable>]", "[[<kept>] ?: error<unreachable>]")]
+  [InlineData("[cast(<failed>, error)?]", "[cast(<failed>, error)?]")]
+  [InlineData("[[<kept>] ?: cast(<unreachable>, error)]", "[[<kept>] ?: cast(<unreachable>, error)]")]
   public void InlineCallsInsideCheckedAndFallbackExpressionsPreserveExecution(string first, string second) {
-    var source = "inline func identity(any value) -> any { return($value) } mixin Example { expression { local result = [identity(" + first + ")?]; emit(kind($result)); local other = " + second + "; emit(kind($other)) } }";
+    var source = "func identity(any value) -> any { return($value) } mixin Example { expression { %inline local result = [identity(" + first + ")?]; emit(pattern($result)); local other = " + second + "; emit(pattern($other)) } }";
     var baseline = HixCompiler.Compile(source, "Example", TestBackend.Instance);
     var roundtrip = HixCompiler.Compile(HixDecompiler.ToSource(HixDecompiler.Decompile(baseline, "Example")), "Example", TestBackend.Instance);
     HixRoundTripAssertions.Equal(baseline, roundtrip);

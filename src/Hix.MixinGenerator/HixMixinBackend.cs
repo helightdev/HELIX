@@ -39,17 +39,17 @@ public class HixMixinBackend : HixRoslynBackend {
     base.RegisterFunctions(functions);
     functions.AddLibrary("""
       %description("Renders and emits generated source text, optionally to a named generator destination.")
-      func <emit>(any arg0) -> null external mixin_emit;
+      func <emit>(string arg0) -> null external mixin_emit;
       %description("Renders and emits generated source text, optionally to a named generator destination.")
-      func <emit>(string arg0, any arg1) -> null external mixin_emit;
+      func <emit>(string arg0, string arg1) -> null external mixin_emit;
 
       %description("Adds a namespace import to the generated source.")
       func <using>(string arg0) -> null external mixin_using;
 
       %description("Emits generated text into a named injection target, with an optional priority.")
-      func <inject>(string arg0, any arg1) -> null external mixin_inject;
+      func <inject>(string arg0, string arg1) -> null external mixin_inject;
       %description("Emits generated text into a named injection target, with an optional priority.")
-      func <inject>(string arg0, number arg1, any arg2) -> null external mixin_inject;
+      func <inject>(string arg0, number arg1, string arg2) -> null external mixin_inject;
 
       %requiresPrelude()
       %description("Resolves a named mixin for the supplied operand during the prelude.")

@@ -12,12 +12,37 @@ public sealed class HixExternalFunctionTests {
   public void HostDefinitionsExposeOnlyTheirNameAndReceiveErrorsUnchanged() {
     Assert.Equal(new[] {"Name"}, typeof(FunctionDefinition).GetProperties().Select(property => property.Name));
     var backend = new ErrorHandlingBackend();
-    var program = HixCompiler.CompileFunctions(["pure func main { return(handle([error<kept>?])) }"], backend);
+    var program = HixCompiler.CompileFunctions(["pure func main { return(handle([cast(<kept>, error)?])) }"], backend);
     using var vm = new HixVM([program]);
     var result = vm.Invoke(program, backend.CreateCoroutine());
     Assert.True(result.Success);
     Assert.Equal(42, Assert.IsType<NumberHixValue>(result.Value).Value);
     Assert.IsType<ErrorHixValue>(backend.Received);
+  }
+
+  [Fact]
+  public void EmbeddedOpaqueDeclarationsRegisterNominalPatternConstructors() {
+    var backend = new LibraryBackend("""
+      %opaque<tests.box>(1)
+      type box = opaque;
+      pure func identity(number value) -> number external hostIdentity;
+      """);
+    var definition = Assert.Single(backend.Functions.OpaqueTypes);
+    Assert.Equal("tests.box", definition.Identity);
+    Assert.Equal(1, definition.Arity);
+    var unit = AntlrSyntax.Parse("type NumberBox = %box<number>;", backend);
+    Assert.Empty(unit.Diagnostics);
+    var pattern = Assert.IsType<OpaqueHixPattern>(Assert.IsType<TypeDeclarationIr>(Assert.Single(unit.Declarations)).Pattern);
+    Assert.Equal("box<number>", pattern.Display);
+  }
+
+  [Theory]
+  [InlineData("%opaque<tests.box>(-1)")]
+  [InlineData("%opaque<tests.box>(0.5)")]
+  [InlineData("%opaque<>(1)")]
+  public void InvalidEmbeddedOpaqueDeclarationsAreRejected(string metadata) {
+    var backend = new LibraryBackend(metadata + " type box = opaque; pure func identity(number value) -> number external hostIdentity;");
+    Assert.Throws<ArgumentException>(() => backend.Functions);
   }
 
   private sealed class ErrorHandlingBackend : HixBackend {

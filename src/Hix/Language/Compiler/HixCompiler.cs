@@ -20,12 +20,11 @@ public static class HixCompiler {
     using var profile = HixCompilerProfiler.Measure("compiler.prepare_globals");
     backend ??= HixCoreBackend.Instance;
     var syntax = units.ToArray();
-    var declaredPatterns = new HashSet<string>(syntax.SelectMany(unit => unit.Declarations).OfType<TypeDeclarationIr>()
-      .Select(type => type.Name), StringComparer.Ordinal);
+    var declaredPatterns = new HashSet<string>(backend.Functions.Types.Concat(DeclarationExports.Expand(syntax.SelectMany(unit => unit.Declarations)).OfType<TypeDeclarationIr>()).Select(type => type.Name), StringComparer.Ordinal);
     var errors = syntax.SelectMany(unit => unit.Diagnostics)
       .Where(diagnostic => !ResolvedPatternDiagnostic(diagnostic.Message, declaredPatterns)).ToArray();
     if (errors.Length != 0) throw new ArgumentException(errors[0].Message);
-    var declarations = syntax.SelectMany(unit => unit.Declarations).Select(declaration =>
+    var declarations = DeclarationExports.Expand(syntax.SelectMany(unit => unit.Declarations)).Select(declaration =>
       declaration is FunctionDeclarationIr function ? SignatureParameterBindingStep.Rewrite(function) : declaration).ToArray();
     var diagnostics = new List<HixParseDiagnostic>();
     LanguageValidation.Validate(declarations, diagnostics, backend);
@@ -39,8 +38,8 @@ public static class HixCompiler {
     var functions = LambdaLiftingStep.RewriteFunctions(declarations.OfType<FunctionDeclarationIr>().ToArray())
       .Select(SignatureParameterBindingStep.Rewrite).ToArray();
     var derivations = declarations.OfType<MixinDeclarationIr>().Where(mixin => mixin.IsDerivation).ToArray();
-    var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
-      .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
+    var patterns = backend.Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
     functions = functions.Concat(patterns.SelectMany(item =>
       PatternConstructorCompiler.Compile(item.Key, item.Value, patterns))).ToArray();
     // The functions are the module being prepared here. Supplying them as catalog imports as well
@@ -115,10 +114,11 @@ public static class HixCompiler {
   }
 
   public static HixModuleIr PrepareIr(MixinDeclarationIr declaration, HixCompilerCatalog globals) {
-    var expressions = declaration.Declarations.OfType<ExpressionDeclarationIr>().ToArray();
+    var exported = DeclarationExports.Expand(declaration.Declarations);
+    var expressions = exported.OfType<ExpressionDeclarationIr>().ToArray();
     var syntax = new HixModuleIr(expressions.Where(expression => expression.IsPrelude).ToArray(),
       expressions.Where(expression => !expression.IsPrelude).ToArray(),
-      declaration.Declarations.OfType<FunctionDeclarationIr>().ToArray(), declaration.Parameters);
+      exported.OfType<FunctionDeclarationIr>().ToArray(), declaration.Parameters);
     return RunSteps(syntax, globals);
   }
 
@@ -128,7 +128,7 @@ public static class HixCompiler {
       using var stepProfile = HixCompilerProfiler.Measure("compiler.step." + step.GetType().Name);
       step.Run(compilation);
     }
-    if (compilation.Diagnostics.Count != 0) throw new ArgumentException(compilation.Diagnostics[0].Message);
+    if (compilation.Diagnostics.Count != 0) throw new ArgumentException("line " + compilation.Diagnostics[0].Line + ": " + compilation.Diagnostics[0].Message);
     return compilation.Module;
   }
 }

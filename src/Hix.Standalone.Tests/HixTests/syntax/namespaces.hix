@@ -11,41 +11,41 @@ pure func join(string first, string second = <right>) -> string => <fallback>;
 %syntax.note<qualified metadata>
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceCall -> string { return(syntax.paths.join(<left>)) }
+func qualifiedNamespaceCall() -> string { return(syntax.paths.join(<left>)) }
 
 %test
 %testcase(@[], <left:right>)
-func importedNamespaceCall -> string { return(join(<left>)) }
+func importedNamespaceCall() -> string { return(join(<left>)) }
 
 %test
 %testcase(@[], <left:right>)
-func aliasedNamespaceCall -> string { return(p.join(second = <right>, first = <left>)) }
+func aliasedNamespaceCall() -> string { return(p.join(second = <right>, first = <left>)) }
 
 %test
 %testcase(@[], <left:right>)
-func importedNamespaceChain -> string { local value = <left> return($value:join<right>) }
+func importedNamespaceChain() -> string { local value = <left> return($value:join<right>) }
 
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceChain -> string { local value = <left> return($value:syntax.paths.join<right>) }
+func qualifiedNamespaceChain() -> string { local value = <left> return($value:syntax.paths.join<right>) }
 
 %test
 %testcase(@[], <left:right>)
-func aliasedNamespaceChain -> string { local value = <left> return($value:p.join<right>) }
+func aliasedNamespaceChain() -> string { local value = <left> return($value:p.join<right>) }
 
 %note<imported metadata>
 %test
 %testcase(@[], <left:right>)
-func importedTypeAndMetadata -> Text { return(join(<left>)) }
+func importedTypeAndMetadata() -> Text { return(join(<left>)) }
 
 %s.note<aliased metadata>
 %test
 %testcase(@[], <left:right>)
-func aliasedTypeAndMetadata -> s.Text { return(p.join(<left>)) }
+func aliasedTypeAndMetadata() -> s.Text { return(p.join(<left>)) }
 
 %test
 %testcase(@[], <left:right>)
-func importedFunctionReference -> string {
+func importedFunctionReference() -> string {
   local callable = [join]
   return(call($callable, <left>))
 }
@@ -56,11 +56,11 @@ pure func choice(number value, number other) -> string => <fallback>;
 
 %test
 %testcase(@[], <fallback>)
-func unmatchedImportedOverloadFallsBack -> string { return(choice(<text>)) }
+func unmatchedImportedOverloadFallsBack() -> string { return(choice(<text>)) }
 
 %test
 %testcase(@[], <imported>)
-func matchingImportedOverloadWins -> string { return(choice(1, 2)) }
+func matchingImportedOverloadWins() -> string { return(choice(1, 2)) }
 
 // Calls at statement-block roots use the default lexer mode, without inline brackets.
 %test
@@ -86,60 +86,60 @@ func importedNamespaceInvocation {
 
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceInvocationInitializer -> string {
+func qualifiedNamespaceInvocationInitializer() -> string {
   local result = syntax.paths.join(<left>, <right>)
   return($result)
 }
 
 %test
 %testcase(@[], <left:right>)
-func aliasedNamespaceInvocationInitializer -> string {
+func aliasedNamespaceInvocationInitializer() -> string {
   local result = p.join(second = <right>, first = <left>)
   return($result)
 }
 
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceInvocationWithValueTail -> string {
+func qualifiedNamespaceInvocationWithValueTail() -> string {
   local result = syntax.paths.join<left> [<right>]
   return($result)
 }
 
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceInvocationWithContentTail -> string {
+func qualifiedNamespaceInvocationWithContentTail() -> string {
   local result = syntax.paths.join<left> @> right
   return($result)
 }
 
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceExpressionInitializer -> string {
+func qualifiedNamespaceExpressionInitializer() -> string {
   local result @= syntax.paths.join(<left>, <right>);
   return($result)
 }
 
 %test
 %testcase(@[], <joined left:right>)
-func qualifiedNamespaceAngleInterpolation -> string {
+func qualifiedNamespaceAngleInterpolation() -> string {
   return(<joined [syntax.paths.join(<left>, <right>)]>)
 }
 
 %test
 %testcase(@[], <joined left:right>)
-func aliasedNamespaceAngleInterpolation -> string {
+func aliasedNamespaceAngleInterpolation() -> string {
   return(<joined [p.join(second = <right>, first = <left>)]>)
 }
 
 %test
 %testcase(@[], <joined left:right>)
-func importedNamespaceAngleInterpolation -> string {
+func importedNamespaceAngleInterpolation() -> string {
   return(<joined [join(<left>, <right>)]>)
 }
 
 %test
 %testcase(@[], <joined left:right>)
-func qualifiedNamespaceContentInterpolation -> string {
+func qualifiedNamespaceContentInterpolation() -> string {
   local first = <left>
   local result @> joined {{$first:syntax.paths.join<right>}}
   return($result)
@@ -147,7 +147,7 @@ func qualifiedNamespaceContentInterpolation -> string {
 
 %test
 %testcase(@[], <joined left:right>)
-func aliasedNamespaceContentInterpolation -> string {
+func aliasedNamespaceContentInterpolation() -> string {
   local first = <left>
   local result @> joined {{$first:p.join(second = <right>)}}
   return($result)
@@ -155,7 +155,7 @@ func aliasedNamespaceContentInterpolation -> string {
 
 %test
 %testcase(@[], <joined left:right>)
-func importedNamespaceContentInterpolation -> string {
+func importedNamespaceContentInterpolation() -> string {
   local first = <left>
   local result @> joined {{$first:join<right>}}
   return($result)
@@ -163,12 +163,12 @@ func importedNamespaceContentInterpolation -> string {
 
 %test
 %testcase(@[], <left:right>)
-func qualifiedNamespaceDirectFunctionReference -> string {
+func qualifiedNamespaceDirectFunctionReference() -> string {
   return(call(syntax.paths.join, <left>))
 }
 
 %test
 %testcase(@[], <left:right>)
-func aliasedNamespaceDirectFunctionReference -> string {
+func aliasedNamespaceDirectFunctionReference() -> string {
   return(call(p.join, <left>))
 }

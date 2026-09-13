@@ -1,4 +1,4 @@
-pure func privateInner { local value = <callee>; return($it) }
+pure func privateInner(any __arg0) -> any { local value = <callee>; return($0) }
 pure func privateOuter(string value) -> string {
   local value = <outer>
   local nested = privateInner(<nested>)
@@ -32,14 +32,15 @@ func signatureBindingPrefersExactThenImplicitConversion {
   assert(eq(overload(<56>), <string>))
 }
 
-pure func completeParameter { return($it) }
-pure func dynamicShape -> string => <[kind($it)]-[$0]-[$1]>;
+pure func completeParameter(any __arg0) -> any { return($0) }
+pure func completeParameter(any __arg0, any __arg1) -> tuple { return(@[$0, $1]) }
+pure func dynamicShape -> string => <[pattern($it)]-[$0]-[$1]>;
 
 %test
 func completeParameterPreservesOneOrManyArguments {
   assert(eq(completeParameter(<value>), <value>))
   assert(eq(completeParameter(<left>, <right>), @[<left>, <right>]))
-  assert(eq(dynamicShape(<left>, 2), <tuple-left-2>))
+  assert(eq(call(dynamicShape, <left>, 2), <tuple-left-2>))
 }
 
 pure func apply(any value) -> any { return(call(func => <[$0]~>, $value)) }
@@ -49,7 +50,7 @@ func functionsAreFirstClassValues {
   local callback = func => uppercase($0);
   assert(eq(call($callback, <hello>), <HELLO>))
   assert(eq(apply(<global>), <global~>))
-  assert(eq(call(function(<overload>), 12), <number>))
+  assert(eq(call(cast(<overload>, function), 12), <number>))
 }
 
 pure func optionalValue(%optional string value) -> any => $value;
@@ -90,10 +91,10 @@ func whenExpressionsSelectLazily {
   assert(eq(selected(false, true), <neither>))
   local value = when <yes> {
     <yes> -> <selected>
-    else -> error<unreachable>
+    else -> cast(<unreachable>, error)
   }
   assert(eq($value, <selected>))
-  assert(eq([<present>] ?: error<unreachable>, <present>))
+  assert(eq([<present>] ?: cast(<unreachable>, error), <present>))
 }
 
 pure func factorial(number value) -> number {

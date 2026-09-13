@@ -93,7 +93,7 @@ public class HixImageCommandTests : IDisposable {
     var image = FilePath("bad.hixbc"); File.WriteAllText(image, "{}");
     var error = new StringWriter();
     Assert.Equal(1, Program.Run(["run", image], new StringWriter(), error)); Assert.Contains("format", error.ToString());
-    File.WriteAllText(FilePath("error.hix"), "func main { return(error<failure>) }");
+    File.WriteAllText(FilePath("error.hix"), "func main { return(cast(<failure>, error)) }");
     Run("compile", FilePath("error.hix"), "-o", image);
     error = new StringWriter(); Assert.Equal(1, Program.Run(["run", image], new StringWriter(), error));
     Assert.Contains("failure", error.ToString());

@@ -32,8 +32,8 @@ func unknownFunctionCall {
 }
 
 %test
-func callbackWithMultipleUnpackedArguments {
-  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { call(pair, <a>, <b>) }"
+func dynamicCallDoesNotAcceptNamedTargetArguments {
+  local source = "pure func pair(string first, string second) -> string => $first;\nfunc invalid { call(pair, unknown = <b>) }"
   assertCompilationFails($source, <no overload of 'call'>)
 }
 
@@ -55,3 +55,61 @@ func unclosedCallParameterList {
   assertRejected($source)
 }
 
+
+%test
+func ordinaryCallsRejectUnknownSignatures {
+  local source = "func target { return($0) } func main() -> any { return(target(1)) }"
+  assertCompilationFails($source, <cannot bind signature>)
+}
+
+%test
+func ordinaryCallsRejectUnknownFunctions {
+  local source = "func main() -> any { return(doesNotExist(1)) }"
+  assertCompilationFails($source, <cannot bind signature>)
+}
+
+%test
+func ordinaryCallsRejectUncertainOverloads {
+  local source = "pure func choose(string value) -> string => $value; pure func choose(number value) -> number => $value; func main(any value) -> any { return(choose($value)) }"
+  assertCompilationFails($source, <ambiguous overload>)
+}
+
+%test
+func ordinaryCallsRejectUnknownArity {
+  local source = "pure func target(number value) -> number => $value; func main() -> any { return(target()) }"
+  assertCompilationFails($source, <no overload of>)
+}
+
+%test
+func castInvocationsAreRemoved {
+  local source = "func main() -> number { return(number(<12>)) }"
+  assertCompilationFails($source, <cannot bind signature>)
+}
+
+%test
+func dynamicDispatchSyntaxIsRemoved {
+  local source = "pure func target() -> number => 1; func main() -> any { return([target() @dynamic]) }"
+  assertRejected($source)
+}
+
+%test
+func runtimeKindTypeIsNotALanguagePattern {
+  assertCompilationFails("func invalid(kind value) -> any { return($value) }", <unknown pattern 'kind'>)
+  assertRejected("func invalid { emit(kind) }")
+  assertRejected("func invalid { kind(1) }")
+}
+
+%test
+func invalidExportAliasIsRejected {
+  assertRejected("%alias<bad name> pure func original(string value) -> string => $value;")
+}
+
+%test
+func duplicateExportAliasIsRejected {
+  assertRejected("%alias<same> %alias<same> pure func original(string value) -> string => $value;")
+}
+
+%test
+func nullableAsCannotChooseConcreteOverloads {
+  assertRejected("pure func choose(number value) -> number => $value; pure func choose(null value) -> null => null; func invalid(any value) { choose(as($value, number)) }")
+}

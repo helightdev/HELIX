@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Hix.Compiler;
 
@@ -14,10 +15,14 @@ public sealed class HixCompilerCatalog {
     StringPool = strings;
     Functions = functions;
     Derivations = derivations;
-    Patterns = patterns ?? new Dictionary<string, HixPattern>();
+    var visiblePatterns = Backend.Functions.Types.ToDictionary(type => type.Name, type => type.Pattern);
+    foreach (var item in patterns ?? new Dictionary<string, HixPattern>())
+      visiblePatterns[item.Key] = item.Value;
+    Patterns = visiblePatterns;
     MetadataDefinitions = metadataDefinitions ?? [];
     Metadata = metadata ?? [];
-    Types = types ?? [];
+    Types = Backend.Functions.Types.Concat(types ?? []).GroupBy(type => type.Name, System.StringComparer.Ordinal)
+      .Select(group => group.Last()).ToArray();
   }
   public IReadOnlyList<MetadataDeclarationIr> MetadataDefinitions { get; }
   public IReadOnlyList<MetadataIr> Metadata { get; }

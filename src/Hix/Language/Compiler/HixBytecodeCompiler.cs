@@ -253,11 +253,9 @@ public sealed class HixBytecodeCompiler {
           throw new ArgumentException("External function '" + call.Name + "' has no implementation.");
         var arguments = call.EffectiveArguments;
         foreach (var argument in arguments) Value(argument);
-        if (call.Binding.Kind == HixCallKind.Unbound)
+        if (call.Binding.Kind != HixCallKind.Static)
           throw new InvalidOperationException("Call '" + call.Name + "' must be bound before bytecode generation");
-        if (call.Binding.Kind == HixCallKind.Static)
-          Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature, call.Resolution?.DeclarationSignature), arguments.Count, line: line);
-        else Emit(HixOpcode.CallDynamic, S(call.Name), arguments.Count, line: line);
+        Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature, call.Resolution?.DeclarationSignature), arguments.Count, line: line);
         if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;
       case InlineExpressionIr inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;

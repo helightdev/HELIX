@@ -110,9 +110,12 @@ public sealed class HixAnalyzerService {
         definition.Documentation)));
     var roots = backend.Roots.Values.Select(root => new HixDefinition(root.Name, "Root", 0, false, "None",
       "None", root.Pattern.Display, [], "Backend root"));
-    var kinds = Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>().Select(kind => new HixDefinition(
-      kind.ToString().ToLowerInvariant(), "Kind", 0, false, "None", "None", "Kind", [],
-      "Matches values of kind `" + kind.ToString().ToLowerInvariant() + "`."));
+    var primitives = Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>()
+      .Where(kind => kind != HixValueKind.Kind).Select(kind => new HixDefinition(
+        kind.ToString().ToLowerInvariant(), "PrimitivePattern", 0, false, "None", "None", "pattern", [],
+        "Primitive pattern matching `" + kind.ToString().ToLowerInvariant() + "` values."));
+    var types = backend.Functions.Types.Select(type => new HixDefinition(type.Name, "Type", 0, false,
+      "None", "None", "pattern", [], "pattern " + type.Name + " = " + type.Pattern.Display));
     var metadata = all.Where(definition => (definition.Metadata &
         (HixMetadataKind.Pattern | HixMetadataKind.PatternField)) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
@@ -134,7 +137,7 @@ public sealed class HixAnalyzerService {
         signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
     var opaqueTypes = backend.Functions.OpaqueTypes.Select(type => new HixDefinition(type.Name, "Type", 0, false,
       "None", "None", "opaque", [], type.Documentation));
-    return functions.Concat(roots).Concat(kinds).Concat(opaqueTypes).Concat(metadata).Concat(typeMetadata)
+    return functions.Concat(roots).Concat(primitives).Concat(types).Concat(opaqueTypes).Concat(metadata).Concat(typeMetadata)
       .Concat(declarationMetadata).Concat(fileMetadata).ToArray();
   }
 

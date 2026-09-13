@@ -208,7 +208,7 @@ internal object HixLookup {
         if (actual.startsWith("@{")) return expected == "table"
         if (actual.startsWith("@[")) return expected == "tuple"
         // Named patterns and unions remain unknown here; their authoritative resolution belongs to the compiler.
-        return actual !in setOf("string", "number", "bool", "null", "opaque", "tuple", "table", "kind", "function", "error", "pattern")
+        return actual !in setOf("string", "number", "bool", "null", "opaque", "tuple", "table", "function", "error", "pattern")
     }
 
     fun signature(definition: MixinLanguageDefinition): String =
