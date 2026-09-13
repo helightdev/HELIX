@@ -62,7 +62,7 @@ public static class HixDecompiler {
           // Pattern metadata has already been incorporated in Pattern by the parser.
           Metadatas(type.Metadata.Where(item => !item.IsPatternDirective && !PatternMetadata.Contains(item.Name ?? "")));
           var typePattern = TypePattern(type.Pattern);
-          Line("type " + type.Name + " = " + Pattern(typePattern)); break;
+          Line((typePattern is TraitHixPattern ? "trait " : "") + "type " + type.Name + " = " + Pattern(typePattern is TraitHixPattern trait ? trait.Underlying : typePattern)); break;
         case MixinDeclarationIr mixin:
           Metadatas(mixin.Metadata);
           Line((mixin.IsDerivation ? "derivation " : "") + "mixin " + DeclarationName(mixin.Name, true) +
@@ -114,7 +114,7 @@ public static class HixDecompiler {
     private string Fields(IReadOnlyList<SignatureField> fields) => "(" + string.Join(", ", fields.Select(field => {
       var extra = field.Metadata.Where(item => !item.IsPatternDirective && !PatternMetadata.Contains(item.Name ?? ""));
       return string.Concat(extra.Select(item => Metadata(item) + " ")) + (field.Optional ? "%optional " : "") +
-        (field.Variadic ? "%variadic " : "") + Pattern(field.Pattern) + " " + field.Name +
+        (field.Variadic ? "%variadic " : "") + Pattern(field.Pattern) + " " + FieldName(field.Name) +
         (field.DefaultValue == null ? "" : " = [" + Value(field.DefaultValue) + "]");
     })) + ")";
     private void Statements(BlockStatementIr block) { foreach (var statement in block.Statements) Statement(statement); }
@@ -192,7 +192,7 @@ public static class HixDecompiler {
     }
     private static string Constraint(CallExpressionIr call) {
       var kind = call.DispatchConstraint?.Kind ?? call.Binding.Kind;
-      return kind == HixCallKind.Static ? " @static(" + Quote(call.DispatchConstraint?.Signature ?? call.Binding.Signature.Display) + ")" : "";
+      return kind == HixCallKind.Static ? " @static(" + Quote(call.DispatchConstraint?.Signature ?? HixGenericTypes.SignatureIdentity(call.Binding.Signature)) + ")" : "";
     }
     private string Chain(ExpressionIr expression) => expression switch {
       RootExpressionIr root => root.IsSmart ? "$" + root.Name : RootName(root.Name),
@@ -211,12 +211,12 @@ public static class HixDecompiler {
         case TupleExpressionIr tuple: return "@[" + string.Join(", ", tuple.Values.Select(Value)) + "]";
         case TableExpressionIr table: return "@{" + string.Join(", ", table.Entries.Select(entry => {
           var metadata = table.FieldMetadata.FirstOrDefault(item => item.Key == entry.Key).Value ?? [];
-          return string.Concat(metadata.Select(item => Metadata(item) + " ")) + entry.Key + "=" + Value(entry.Value);
+          return string.Concat(metadata.Select(item => Metadata(item) + " ")) + FieldName(entry.Key) + "=" + Value(entry.Value);
         })) + "}";
         case CallExpressionIr call:
           var args = call.BoundArguments ?? call.Arguments;
           var invocation = call.Name + "(" + string.Join(", ", args.Select((arg, index) =>
-            (call.BoundArguments == null && call.ArgumentNames[index] != null ? call.ArgumentNames[index] + " = " : "") + Value(arg))) + ")";
+            (call.BoundArguments == null && call.ArgumentNames[index] != null ? FieldName(call.ArgumentNames[index]) + " = " : "") + Value(arg))) + ")";
           return Constraint(call).Length == 0 && !call.CoerceBoolean ? invocation :
             "[" + invocation + Constraint(call) + (call.CoerceBoolean ? " @bool" : "") + "]";
         case UnaryExpressionIr unary: return unary.Operation == UnaryOperation.Not ? "![" + Value(unary.Value) + "]" : "[" + Value(unary.Value) + "?]";
@@ -239,7 +239,7 @@ public static class HixDecompiler {
     foreach (var child in node.Children) foreach (var descendant in Descendants(child)) yield return descendant;
   }
   private static readonly HashSet<string> PatternMetadata = new(StringComparer.Ordinal) {
-    "optional", "variadic", "default", "graph", "many", "map", "union", "tagged", "const", "enum", "title", "description", "min", "max", "length", "matches"
+    "optional", "variadic", "default", "graph", "many", "map", "union", "inherit", "trait", "intersect", "tagged", "const", "enum", "title", "description", "min", "max", "length", "matches"
   };
   private static bool Identifier(string name) => name.Length != 0 && (name[0] == '_' || name[0] is >= 'A' and <= 'Z' or >= 'a' and <= 'z') &&
     name.All(character => character == '_' || character is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9');
@@ -247,6 +247,7 @@ public static class HixDecompiler {
     ? name : "@root(" + Quote(name) + ")";
   private static string DeclarationName(string name, bool namespaces = false) =>
     (namespaces ? name.Split('.').All(Identifier) : Identifier(name)) ? name : "<[" + Quote(name) + "]>";
+  private static string FieldName(string name) => name.Split('.').All(Identifier) ? name : Quote(name);
   private static string Quote(string value) {
     var result = new StringBuilder("\"");
     foreach (var character in value) result.Append(character switch {
@@ -279,6 +280,10 @@ public static class HixDecompiler {
     DelegateHixPattern callable => "delegate(" + string.Join(", ", callable.Parameters.Select(PatternField)) + ") -> " + Pattern(callable.Result),
     ManyHixPattern many => "%many " + Pattern(many.Element),
     MapHixPattern map => "%map<[" + Quote(Pattern(map.Key)) + "]><[" + Quote(Pattern(map.Value)) + "]>",
+    InheritedHixPattern inherited => "%inherit(" + TypeValue(inherited.Parent) + ") " + Pattern(inherited.Underlying),
+    TraitUsageHixPattern usage => "%trait(" + TypeValue(usage.Trait) + ") " + Pattern(usage.Underlying),
+    TraitHixPattern trait => Pattern(trait.Requirement),
+    IntersectionHixPattern intersection => "%intersect(" + TypeValue(intersection.Left) + ", " + TypeValue(intersection.Right) + ")",
     TaggedHixPattern tagged => "%tagged(" + Quote(tagged.Discriminator) + ") " + Pattern(tagged.Underlying),
     ConstantHixPattern constant => "%const(" + ObjectSource(constant.Value) + ") " + Pattern(constant.Underlying),
     EnumHixPattern enumeration => "%enum(" + string.Join(", ", enumeration.Values.Select(ObjectSource)) + ") " + Pattern(enumeration.Underlying),
@@ -294,21 +299,29 @@ public static class HixDecompiler {
     ManyHixPattern many => "many(" + TypeValue(many.Element) + ")",
     MapHixPattern map => "map(" + TypeValue(map.Key) + ", " + TypeValue(map.Value) + ")",
     UnionHixPattern union => "union(" + string.Join(", ", union.Patterns.Select(TypeValue)) + ")",
-    TupleHixPattern tuple => "@[" + string.Join(", ", tuple.Fields.Select(field => TypeValue(field.Pattern))) + "]",
-    TableHixPattern table => "@{" + string.Join(", ", table.Fields.Select(field => field.Name + "=" + TypeValue(field.Pattern))) + "}",
+    TupleHixPattern tuple => "pattern(" + Quote(Pattern(tuple)) + ")",
+    TableHixPattern table => "pattern(" + Quote(Pattern(table)) + ")",
+    IntersectionHixPattern intersection => "intersect(" + TypeValue(intersection.Left) + ", " + TypeValue(intersection.Right) + ")",
+    ConstrainedHixPattern constrained => "constraint(" + Quote(HixPatternDisplay.Constraint(constrained.Constraint)) + ", " + ObjectSource(constrained.Argument) + ", " +
+      (constrained.Exclusive ? "true" : "false") + ", " + TypeValue(constrained.Underlying) + ")",
+    ConstantHixPattern constant => "constant(" + ObjectSource(constant.Value) + ", " + TypeValue(constant.Underlying) + ")",
+    EnumHixPattern enumeration => "enumeration(@[" + string.Join(", ", enumeration.Values.Select(ObjectSource)) + "], " + TypeValue(enumeration.Underlying) + ")",
+    DocumentedHixPattern documented => "documented(" + ObjectSource(documented.Title) + ", " + ObjectSource(documented.Description) + ", " + TypeValue(documented.Underlying) + ")",
+    TaggedHixPattern tagged => "tagged(" + Quote(tagged.Discriminator) + ", " + TypeValue(tagged.Underlying) + ")",
     AnyHixPattern or KindHixPattern or NamedHixPattern or TypeParameterHixPattern => Quote(pattern.Display),
-    _ => throw new NotSupportedException("Cannot render type argument " + pattern.GetType().Name)
+    TraitHixPattern trait => Quote(trait.Name),
+    _ => "pattern(" + Quote(Pattern(pattern)) + ")"
   };
   private static string PatternField(HixPatternField field) => string.Concat(field.Metadata.Select(item =>
     "%" + item.Name + (item.Values.Count == 0 ? "" : "(" + string.Join(", ", item.Values.Select(value => ObjectSource(value))) + ")") + " ")) +
     (field.Optional ? "%optional " : "") +
     (field.Graph == null ? "" : "%graph(" + Quote(field.Graph.Value.ToString().ToLowerInvariant()) + ") ") + Pattern(field.Pattern) +
-    (string.IsNullOrEmpty(field.Name) ? "" : " " + field.Name) + (field.HasDefault ? " = [" + ObjectSource(field.DefaultValue) + "]" : "");
+    (string.IsNullOrEmpty(field.Name) ? "" : " " + FieldName(field.Name)) + (field.HasDefault ? " = [" + ObjectSource(field.DefaultValue) + "]" : "");
   private static string ObjectSource(object value) => value switch {
     null or NullHixValue => "null", MissingHixValue => "missing", string literal => Quote(literal),
     bool boolean => boolean ? "true" : "false", double number => Number(number),
     IHixValue hix => ToSource(Literal(hix, null)),
-    IReadOnlyDictionary<string, object> table => "@{" + string.Join(", ", table.Select(item => item.Key + "=" + ObjectSource(item.Value))) + "}",
+    IReadOnlyDictionary<string, object> table => "@{" + string.Join(", ", table.Select(item => FieldName(item.Key) + "=" + ObjectSource(item.Value))) + "}",
     IEnumerable<object> tuple => "@[" + string.Join(", ", tuple.Select(ObjectSource)) + "]",
     IConvertible convertible => Number(convertible.ToDouble(CultureInfo.InvariantCulture)),
     _ => throw new NotSupportedException("Cannot render constant " + value.GetType().Name)
@@ -369,8 +382,8 @@ public static class HixDecompiler {
         image.TypeMetadata.TryGetValue(pattern.Key, out var metadata) ? Metadata(metadata) : []));
       var constructors = image.Patterns.SelectMany(item => PatternConstructorCompiler.Compile(item.Key, item.Value, image.Patterns)).ToArray();
       bool Constructor(BytecodeFunction function) => constructors.Any(candidate => candidate.Name == function.Name &&
-        candidate.Signatures.Count == function.Signatures.Count && candidate.Signatures.Select(signature => signature.Constant(candidate.Name).Display)
-          .SequenceEqual(function.Signatures.Select(signature => signature.Constant(function.Name).Display)));
+        candidate.Signatures.Count == function.Signatures.Count && candidate.Signatures.Select(signature => HixGenericTypes.SignatureIdentity(signature.Constant(candidate.Name)))
+          .SequenceEqual(function.Signatures.Select(signature => HixGenericTypes.SignatureIdentity(signature.Constant(function.Name)))));
       foreach (var function in image.Scope.DisassemblyFunctions("mixin").Where(item => item.Scope == "global").OrderBy(item => item.Function.Body))
         if (!Constructor(function.Function)) declarations.Add(Function(function.Function));
       foreach (var derivation in image.Derivations) {
@@ -462,7 +475,7 @@ public static class HixDecompiler {
           case HixOpcode.Not: value = new UnaryExpressionIr(UnaryOperation.Not, Pop(stack, offset)); break;
           case HixOpcode.Call:
             var reference = (FunctionReferenceHixValue)image.ConstantPool[instruction.A];
-            value = new CallExpressionIr(reference.Signature.Name, PopMany(stack, instruction.B, offset)) {DispatchConstraint = new(HixCallKind.Static, reference.Signature.Display)}; break;
+            value = new CallExpressionIr(reference.Signature.Name, PopMany(stack, instruction.B, offset)) {DispatchConstraint = new(HixCallKind.Static, HixGenericTypes.SignatureIdentity(reference.Signature))}; break;
           case HixOpcode.CastBoolean:
             if (Pop(stack, offset) is not CallExpressionIr call) throw Error(offset, "CastBoolean must follow a call");
             value = new CallExpressionIr(call.Name, call.Arguments, true) {DispatchConstraint = call.DispatchConstraint}; break;

@@ -151,7 +151,7 @@ class HixAnnotator : Annotator {
                     highlight(rule.IDENTIFIER(), metadataColor)
                 }
                 is HixParser.TypeDeclarationContext -> highlight(rule.IDENTIFIER(), HixColors.TYPE)
-                is HixParser.MetaDeclarationContext -> highlight(rule.IDENTIFIER(), HixColors.METADATA)
+                is HixParser.MetaDeclarationContext -> highlight(rule.IDENTIFIER() ?: rule.KEYWORD_TRAIT(), HixColors.METADATA)
                 is HixParser.MetaTargetContext -> highlight(rule.IDENTIFIER(), HixColors.KEYWORD)
                 is HixParser.PatternIdentifierContext -> {
                     highlight(rule.IDENTIFIER(), HixColors.TYPE)
@@ -161,10 +161,10 @@ class HixAnnotator : Annotator {
                     highlight(rule.IDENTIFIER(), HixColors.TYPE)
                     highlight(rule.ROOT_IDENTIFIER(), HixColors.TYPE)
                 }
-                is HixParser.PatternFieldContext -> highlight(rule.ROOT_IDENTIFIER(),
+                is HixParser.PatternFieldContext -> highlight(rule.ROOT_IDENTIFIER() ?: rule.STRING(),
                     if (hasAncestor(rule, HixParser.PatternParameterListContext::class.java))
                         HixColors.PARAMETER else HixColors.FIELD)
-                is HixParser.TableKeyedEntryContext -> highlight(rule.ROOT_IDENTIFIER(), HixColors.FIELD)
+                is HixParser.TableKeyedEntryContext -> highlight(rule.ROOT_IDENTIFIER() ?: rule.STRING(), HixColors.FIELD)
                 is HixParser.FuncDeclarationContext ->
                     highlight(rule.functionDeclarationIdentifier().IDENTIFIER(), HixColors.FUNCTION_IDENTIFIER)
                 is HixParser.MixinIdentifierContext -> {
@@ -175,7 +175,7 @@ class HixAnnotator : Annotator {
                     highlight(rule.IDENTIFIER(), HixColors.LOCAL)
                 }
                 is HixParser.DerivationRootContext -> {
-                    val root = rule.ROOT_IDENTIFIER()
+                    val root = rule.ROOT_IDENTIFIER() ?: rule.IDENTIFIER()
                     val currentScope = scope(rule)
                     when (root?.text) {
                         in parameterNames[currentScope].orEmpty() -> highlight(root, HixColors.PARAMETER)
@@ -186,6 +186,7 @@ class HixAnnotator : Annotator {
                     highlight(rule.invocationIdentifier().IDENTIFIER(), HixColors.FUNCTION)
                 is HixParser.FunctionIdentifierContext -> {
                     highlight(rule.FUNCTION_IDENTIFIER(), HixColors.FUNCTION)
+                    highlight(rule.LABEL_IDENTIFIER(), HixColors.FUNCTION)
                     highlight(rule.ROOT_IDENTIFIER(), HixColors.FUNCTION)
                 }
             }

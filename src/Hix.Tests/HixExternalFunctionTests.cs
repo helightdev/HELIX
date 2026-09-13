@@ -33,7 +33,7 @@ public sealed class HixExternalFunctionTests {
     var unit = AntlrSyntax.Parse("type NumberBox = %box<number>;", backend);
     Assert.Empty(unit.Diagnostics);
     var pattern = Assert.IsType<OpaqueHixPattern>(Assert.IsType<TypeDeclarationIr>(Assert.Single(unit.Declarations)).Pattern);
-    Assert.Equal("box<number>", pattern.Display);
+    Assert.Equal("box(number)", pattern.Display);
   }
 
   [Theory]

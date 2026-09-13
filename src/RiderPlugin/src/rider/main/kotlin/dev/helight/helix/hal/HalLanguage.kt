@@ -1,5 +1,7 @@
 package dev.helight.helix.hal
 
+import dev.helight.helix.hix.HixLookup
+import dev.helight.helix.hix.HixAntlrSyntax
 import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.codeInsight.editorActions.SimpleTokenSetQuoteHandler
@@ -270,25 +272,23 @@ internal object HalManifest {
         }
         collect(base, ""); return files
     }
-    fun types(text: String) = Regex("\\btype\\s+([A-Za-z_][\\w.]*)\\s*=").findAll(text)
-        .map { it.groupValues[1] }.distinct().toList()
+    fun types(text: String): List<String> {
+        val parsed = HixAntlrSyntax.parse(text)
+        val traits = HixLookup.patterns(parsed).filter { it.trait }.map { it.name }.toSet()
+        return HixAntlrSyntax.rules(parsed.tree)
+            .filterIsInstance<dev.helight.helix.hix.generated.HixParser.TypeDeclarationContext>()
+            .filter { it.KEYWORD_TRAIT() == null && it.IDENTIFIER()?.text !in traits }
+            .mapNotNull { it.IDENTIFIER()?.text }.distinct().toList()
+    }
     fun fieldDefinitions(text: String, type: String): List<Field> {
         dependencyFields(type).takeIf { it.isNotEmpty() }?.let { return it }
-        val body = Pattern.compile("(?s)\\btype\\s+" + Pattern.quote(type) + "\\s*=\\s*(?:%[^{\\n]+\\s+)*@?\\{(.*?)\\}")
-            .matcher(text).let { if (it.find()) it.group(1) else return emptyList() }
-        return body.split(',').mapNotNull { source ->
-            val entry = source.trim()
-            val metadata = Regex("^((?:%\\S+\\s+)*)").find(entry)?.groupValues?.get(1).orEmpty()
-            val declaration = entry.removePrefix(metadata).substringBefore('=').trim()
-            val words = Regex("[A-Za-z_][\\w.]*").findAll(declaration).map { it.value }.toList()
-            val manyType = Regex("%many<([^>]+)>").find(metadata)?.groupValues?.get(1)
-            val many = manyType != null || Regex("(?:^|\\s)%many(?:\\s|$)").containsMatchIn(metadata)
-            val name = words.lastOrNull() ?: return@mapNotNull null
-            val fieldType = manyType ?: words.getOrNull(words.lastIndex - 1) ?: if (many) "any" else return@mapNotNull null
-            val optional = Regex("(?:^|\\s)%optional(?:\\s|$)").containsMatchIn(metadata)
-            Field(fieldType, name, !entry.contains('=') && !optional, many)
+        val shape = HixLookup.patterns(HixAntlrSyntax.parse(text)).firstOrNull { it.name == type }
+            ?: return emptyList()
+        if (shape.tuple) return emptyList()
+        return shape.fields.map { field ->
+            val manyType = Regex("%many<([^>]+)>").find(field.type)?.groupValues?.get(1)
+            Field(manyType ?: field.type, field.name, !field.optional && !field.defaulted, manyType != null)
         }
-            .distinctBy { it.name }.toList()
     }
     fun manyElement(text: String, type: String): String? {
         val declaration = Regex("(?s)\\btype\\s+" + Pattern.quote(type) + "\\s*=\\s*(.*?)(?=\\n\\s*(?:%|type\\s|func\\s|mixin\\s)|\\z)")
@@ -412,7 +412,7 @@ class HalCompletionContributor : CompletionContributor() {
                     else -> HalManifest.fieldDefinitions(manifest, type)
                 }
                 fields.filter { it.name !in assigned }.forEach {
-                    result.addElement(LookupElementBuilder.create("${it.name} = ").withPresentableText(it.name).withTypeText(it.type))
+                    result.addElement(LookupElementBuilder.create("${HixLookup.fieldName(it.name)} = ").withPresentableText(it.name).withTypeText(it.type))
                 }
             }
             if (line.contains("ref(") || line.trimStart().startsWith("ref"))

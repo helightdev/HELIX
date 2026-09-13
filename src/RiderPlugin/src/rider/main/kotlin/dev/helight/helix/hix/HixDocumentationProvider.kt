@@ -105,10 +105,13 @@ class HixDocumentationProvider : DocumentationProvider {
         return open > 0 && close > open
     }
 
-    private fun render(title: String, documentation: String): String =
-        "<div class='definition'><code>${StringUtil.escapeXmlEntities(title)}</code></div>" +
-            if (documentation.isBlank()) "" else
-                "<div class='content'>${StringUtil.escapeXmlEntities(documentation).replace("\n", "<br>")}</div>"
+    private fun render(title: String, documentation: String): String {
+        val lines = documentation.lines()
+        val content = if (lines.firstOrNull() == title) lines.drop(1).joinToString("\n") else documentation
+        return "<div class='definition'><code>${StringUtil.escapeXmlEntities(title)}</code></div>" +
+            if (content.isBlank()) "" else
+                "<div class='content'>${StringUtil.escapeXmlEntities(content).replace("\n", "<br>")}</div>"
+    }
 
     private class LookupDocumentation(private val context: PsiElement, val title: String,
                                       val documentation: String) : FakePsiElement() {

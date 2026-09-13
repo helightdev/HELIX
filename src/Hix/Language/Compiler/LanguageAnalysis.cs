@@ -38,35 +38,36 @@ public sealed class LanguageAnalysis {
     catch (ArgumentException) { exports = Program.Declarations; }
     var patterns = backend.Functions.Types.Concat(exports.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name).Select(group => group.Last()).ToDictionary(type => type.Name,
       type => type.Pattern, StringComparer.Ordinal);
+    try { patterns = PatternComposition.ResolveDefinitions(patterns).ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal); }
+    catch (ArgumentException) { }
     var functions = exports.OfType<FunctionDeclarationIr>().Concat(
         exports.OfType<MixinDeclarationIr>().SelectMany(mixin => mixin.Declarations.OfType<FunctionDeclarationIr>()))
       .GroupBy(function => function.Name, StringComparer.Ordinal).ToDictionary(group => group.Key,
         group => group.ToArray(), StringComparer.Ordinal);
     foreach (var type in Program.Declarations.OfType<TypeDeclarationIr>())
       facts.Add(new(IdentifierRange(type, type.Name), type.Name,
-        DeclarationDocumentation("pattern " + type.Name + " = " + type.Pattern.Display, type.Metadata), false));
+        DeclarationDocumentation(type.Name, type.Metadata), false));
     foreach (var metadata in Program.Declarations.OfType<MetadataDeclarationIr>())
       facts.Add(new(IdentifierRange(metadata, metadata.Name), "metadata", DeclarationDocumentation(
         metadata.Retention.ToString().ToLowerInvariant() + " meta " + metadata.Name + "(" + string.Join(", ", metadata.Arguments.Select(argument =>
-          (argument.Variadic ? "%variadic " : "") + argument.Pattern.Display + " " + argument.Name)) + ") for " +
+          argument.AsPatternField().Display)) + ") for " +
         string.Join(" ", HixMetadataTargets.Names(metadata.Targets)), metadata.Metadata), false));
     foreach (var mixin in Program.Declarations.OfType<MixinDeclarationIr>())
       facts.Add(new(IdentifierRange(mixin, mixin.Name), "mixin",
         DeclarationDocumentation("mixin " + mixin.Name + "(" + string.Join(", ", mixin.Parameters.Select(field =>
-          field.Pattern.Display + " " + field.Name + (field.HasDefault ? " = [...]" : ""))) + ")", mixin.Metadata), false));
+          field.AsPatternField().Display)) + ")", mixin.Metadata), false));
     foreach (var function in functions.Values.SelectMany(group => group))
       facts.Add(new(IdentifierRange(function, function.Name), FunctionResult(function), FunctionDocumentation(function), false));
     foreach (var function in functions.Values.SelectMany(group => group)) {
       foreach (var parameter in function.TypeParameters) {
         var bounds = (parameter.Bound == null ? Array.Empty<HixPattern>() : new[] {parameter.Bound})
           .Concat(parameter.AdditionalBounds).ToArray();
-        var documentation = "generic " + parameter.Name + (bounds.Length == 0 ? " (unbounded)" :
+        var documentation = "generic " + parameter.Name + (parameter.ComputedPath == null ? "" : " computed from " + parameter.ComputedPath) + (bounds.Length == 0 ? " (unbounded)" :
           " bounded by " + string.Join(" and ", bounds.Select(bound => bound.Display)));
         foreach (var token in function.Tokens.Where(token => token.Text == parameter.Name))
           facts.Add(new(HixSourceRange.FromToken(token), parameter.Name, documentation, false));
-        var metadata = function.Metadata.FirstOrDefault(item => item.Name == "generic" &&
-          item.Values.FirstOrDefault() is StringExpressionIr name && name.Value == parameter.Name);
-        if (metadata != null) facts.Add(new(StringContentRange(metadata.Values[0]), parameter.Name, documentation, false));
+        if (GenericParameterLocation(function, parameter.Name) is { } location)
+          facts.Add(new(location.Range, parameter.Name, documentation, false));
       }
     }
     foreach (var function in functions.Values.SelectMany(group => group)) {
@@ -170,7 +171,7 @@ public sealed class LanguageAnalysis {
             if (resolution?.Binding.Function is { } languageFunction)
               documentation = DeclarationDocumentation(documentation, languageFunction.Metadata);
             if (resolution?.Binding.Backend is { } definition)
-              documentation = resolution.Signature.Name + "(" + string.Join(", ", resolution.Signature.Parameters.Select(field => field.Pattern.Display)) +
+              documentation = resolution.Signature.Name + "(" + string.Join(", ", resolution.Signature.Parameters.Select(field => field.Display)) +
                 ") -> " + resolution.Signature.Result.Display + "\n" + definition.Documentation;
             else if (resolution == null && !functions.ContainsKey(call.Name))
               documentation = string.Join("\n", backend.Functions.Resolve(call.Name).SelectMany(definition =>
@@ -180,7 +181,10 @@ public sealed class LanguageAnalysis {
                 var target = resolution.Signature.Parameters[Math.Min(position, resolution.Signature.Parameters.Count - 1)].Pattern;
                 var sourcePosition = call.Arguments.ToList().IndexOf(resolution.Arguments[position]);
                 var actual = sourcePosition >= 0 ? argumentPatterns[sourcePosition] : HixPattern.Any;
-                if (target is KindHixPattern targetKind && Conversion(actual, targetKind.ValueKind) > 0)
+                if (resolution.PatternConversions.Contains(position))
+                  facts.Add(new(resolution.Arguments[position].SourceRange, "pattern",
+                    "Resolved literal pattern name '" + ((RootExpressionIr)resolution.Arguments[position]).Name + "' at compile time.", true, "Coercion"));
+                else if (target is KindHixPattern targetKind && Conversion(actual, targetKind.ValueKind) > 0)
                   facts.Add(new(resolution.Arguments[position].SourceRange, target.Display,
                     "Implicitly coerced from " + actual.Display + " to " + target.Display + ".", true, "Coercion"));
               }
@@ -257,7 +261,8 @@ public sealed class LanguageAnalysis {
   }
   private static string DefinitionDocumentation(HixFunctionEntry definition, global::Hix.FunctionSignature signature) =>
     definition.Name + "(" + string.Join(", ", signature.ArgumentPatterns.Select((type, index) =>
-      (signature.IsVariadic && index == signature.ArgumentPatterns.Count - 1 ? "..." : "") + type.Display)) +
+      (signature.IsVariadic && index == signature.ArgumentPatterns.Count - 1 ? "..." : "") +
+      new HixPatternField(signature.GetArgumentName(index), type, HasDefault: signature.GetArgumentDefault(index) != null).Display)) +
     ") -> " + signature.ResultPattern.Display +
     (string.IsNullOrEmpty(definition.Documentation) ? "" : "\n" + definition.Documentation);
 
@@ -314,11 +319,9 @@ public sealed class LanguageAnalysis {
         declarations.Add(new Symbol(function.Name, "Function", IdentifierRange(function, function.Name),
           Scope(function.Parent), function));
         foreach (var parameter in function.TypeParameters) {
-          var metadata = function.Metadata.FirstOrDefault(item => item.Name == "generic" &&
-            item.Values.FirstOrDefault() is StringExpressionIr name && name.Value == parameter.Name);
-          if (metadata != null)
-            declarations.Add(new Symbol(parameter.Name, "Pattern", StringContentRange(metadata.Values[0]),
-              function.SourceRange with {Start = function.Metadata.Min(item => item.SourceRange.Start)}, metadata));
+          if (GenericParameterLocation(function, parameter.Name) is { } location)
+            declarations.Add(new Symbol(parameter.Name, "Pattern", location.Range,
+              function.SourceRange with {Start = function.Metadata.Min(item => item.SourceRange.Start)}, location.Metadata));
         }
         foreach (var signature in function.Signatures) {
           if (signature.InputPattern != null) AddPatternReferences(signature.InputPattern, function, references);
@@ -353,6 +356,18 @@ public sealed class LanguageAnalysis {
       case RootExpressionIr root when IsFunctionReference(root.Name):
         references.Add(new Reference(root.Name, "Function", IdentifierRange(root, root.Name), root));
         break;
+      case MetadataIr metadata when metadata.Name == "computedGeneric":
+        if (metadata.Values.ElementAtOrDefault(1) is StringExpressionIr pointer) {
+          try {
+            var parts = ComputedGenericPath.Parse(pointer.Value);
+            if (parts[0] == "generics") {
+              var range = StringContentRange(pointer);
+              references.Add(new Reference(parts[1], "Pattern", range with {Start = range.Start + "/generics/".Length, End = range.Start + "/generics/".Length + parts[1].Length}, pointer));
+            }
+          } catch (ArgumentException) { }
+        }
+        foreach (var argument in metadata.Values.Skip(2)) AddTypeArgumentReferences(argument, references);
+        return;
       case MetadataIr metadata when metadata.Name == "generic":
         foreach (var argument in metadata.Values.Skip(1)) AddTypeArgumentReferences(argument, references);
         return;
@@ -396,6 +411,10 @@ public sealed class LanguageAnalysis {
       case EnumHixPattern enumeration: AddPatternReferences(enumeration.Underlying, owner, references); break;
       case DocumentedHixPattern documented: AddPatternReferences(documented.Underlying, owner, references); break;
       case ConstrainedHixPattern constrained: AddPatternReferences(constrained.Underlying, owner, references); break;
+      case TraitHixPattern trait: AddPatternReferences(trait.Underlying, owner, references); break;
+      case InheritedHixPattern inherited: AddPatternReferences(inherited.Parent, owner, references); AddPatternReferences(inherited.Underlying, owner, references); break;
+      case TraitUsageHixPattern usage: AddPatternReferences(usage.Trait, owner, references); AddPatternReferences(usage.Underlying, owner, references); break;
+      case IntersectionHixPattern intersection: AddPatternReferences(intersection.Left, owner, references); AddPatternReferences(intersection.Right, owner, references); break;
       case TaggedHixPattern tagged: AddPatternReferences(tagged.Underlying, owner, references); break;
       case DelegateHixPattern callable:
         foreach (var field in callable.Parameters) AddPatternReferences(field.Pattern, owner, references);
@@ -404,6 +423,13 @@ public sealed class LanguageAnalysis {
   }
 
   private void AddCallReferences(CallExpressionIr call, ICollection<Reference> references) {
+    if (call.Resolution is { } resolution)
+      foreach (var position in resolution.PatternConversions) {
+        var target = (RootExpressionIr)resolution.Arguments[position];
+        if (call.Arguments.FirstOrDefault(argument => argument.SourceRange == target.SourceRange) is StringExpressionIr literal &&
+            HixPatterns.Named(target.Name) is NamedHixPattern)
+          references.Add(new Reference(target.Name, "Pattern", StringContentRange(literal), literal));
+      }
     if (Program.Declarations.OfType<TypeDeclarationIr>().Any(type => type.Name == call.Name)) {
       references.Add(new Reference(call.Name, "Pattern", TrailingIdentifierRange(call, call.Name), call));
       return;
@@ -448,6 +474,23 @@ public sealed class LanguageAnalysis {
       ? source.LastIndexOf(text, Math.Max(within.Start, within.End - 1), within.Length, StringComparison.Ordinal)
       : source.IndexOf(text, within.Start, within.Length, StringComparison.Ordinal);
     return start < 0 ? within : new HixSourceRange(start, start + text.Length, within.Line, within.Column);
+  }
+
+  private static (MetadataIr Metadata, HixSourceRange Range)? GenericParameterLocation(FunctionDeclarationIr function, string name) {
+    foreach (var metadata in function.Metadata.Where(item => item.Name is "generic" or "computedGeneric")) {
+      foreach (var value in metadata.Values.Take(1).OfType<StringExpressionIr>()) {
+        var offset = 0;
+        foreach (var part in value.Value.Split(',')) {
+          if (part.Trim() == name) {
+            var range = StringContentRange(value);
+            var start = range.Start + offset + part.IndexOf(name, StringComparison.Ordinal);
+            return (metadata, range with {Start = start, End = start + name.Length});
+          }
+          offset += part.Length + 1;
+        }
+      }
+    }
+    return null;
   }
 
   private static HixSourceRange StringContentRange(ExpressionIr expression) {

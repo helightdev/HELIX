@@ -1,0 +1,56 @@
+type GenericPerson = @{string name = <Ada>};
+trait type GenericNamed = @{string name};
+type GenericEntity = %trait<GenericNamed> @{number id};
+
+%computedGeneric<TValue></arguments/target/pattern>
+pure func genericConstruct(pattern target, any value) -> TValue { return(new($target, $value)) }
+
+%computedGeneric<TValue></arguments/target/pattern/data>
+pure func genericExtract(pattern target, any value) -> TValue { return(cast($value, $target)) }
+
+%test
+func genericPatternConversions {
+  local target = [GenericPerson]
+  assert(eq(new($target, GenericPerson()), @{name = <Ada>}))
+  assert(eq(genericConstruct(string, 42), <42>))
+  assert(eq(cast(42, string), <42>))
+  assert(eq(as(<bad>, number), null))
+  local entity = GenericEntity(id = 1, "$GenericNamed" = @{name = <Ada>})
+  assert(eq(genericExtract(GenericNamed, $entity), @{name = <Ada>}))
+  assert(eq(parseJson(writeJson($entity), GenericNamed), $entity))
+}
+
+%test
+func genericCollections {
+  assert(eq(map(@[1, 2], func => plus($0, 1)), @[2, 3]))
+  assert(eq(map(@[], func => <empty>), @[]))
+  assert(eq(where(@[1, <a>], func => true), @[1, <a>]))
+  assert(eq(reduce(@[1, 2], func => plus($0, $1), 0), 3))
+  assert(eq(reduce(@[], func => $0, <initial>), <initial>))
+  assert(eq(get(@[1], 5), missing))
+  assert(eq(get(@{a = 1}, <b>, <fallback>), <fallback>))
+  assert(eq(push(@[1], <a>), @[1, <a>]))
+  assert(eq(pop(@[1, <a>]), @[1]))
+  assert(eq(values(@{a = 1}), @[1]))
+  assert(eq(entries(@{a = 1}), @[@[<a>, 1]]))
+  assert(eq(put(@{a = 1}, <b>, <x>), @{a = 1, b = <x>}))
+  assert(eq(remove(@{a = 1, b = <x>}, <a>), @{b = <x>}))
+  assert(eq(catch(42), 42))
+  local failure = [cast(<bad>, error)?]
+  assert(eq(catch($failure, func => <fallback>), <fallback>))
+}
+
+%test
+func computedGenericsRejectMalformedDeclarations {
+  assert(not(success(compile("%computedGeneric<T></arguments/unknown/pattern> pure func bad(pattern target) -> T external;"))))
+  assert(not(success(compile("%computedGeneric<T></arguments/target/unknown> pure func bad(pattern target) -> T external;"))))
+  assert(not(success(compile("%computedGeneric<T></generics/T> pure func bad(pattern target) -> T external;"))))
+  assert(not(success(compile("%generic<T> %computedGeneric<T></arguments/target/pattern> pure func bad(pattern target) -> T external;"))))
+  assert(not(success(compile("%computedGeneric<A></generics/B> %computedGeneric<B></generics/A> pure func bad(pattern target) -> A external;"))))
+  assert(not(success(compile("%computedGeneric<T></invoke/value/arguments/result> pure func bad(number value, tuple arguments) -> T external;"))))
+  assert(not(success(compile("%computedGeneric<T></arguments/target/pattern>(number) pure func bad(pattern target) -> T external; func main { return(bad(string)) }"))))
+  local traitConstructor = compile("trait type Named = @{string name}; func bad { local target = [Named]\n return(new($target)) }")
+  assert(not(success($traitConstructor)))
+  local accumulator = compile("func bad { return(reduce(@[1], func => <wrong>, 0)) }")
+  assert(not(success($accumulator)))
+}

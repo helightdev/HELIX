@@ -70,35 +70,6 @@ public sealed class FunctionLibrary {
         .Select(group => new LibraryFunction(group.ToArray()))));
   }
 
-  private static FunctionSignature ConfigureDeclarationInference(FunctionDeclarationIr declaration, FunctionSignature signature) {
-    int Argument(string name) {
-      var index = (declaration.Signatures[0].Inputs ?? []).ToList().FindIndex(field => field.Name == name);
-      if (index < 0) throw new ArgumentException("unknown inference argument '" + name + "'");
-      return index;
-    }
-    var invocation = declaration.Metadata.Where(item => item.Name == "invokeArguments").ToArray();
-    if (invocation.Length != 0) signature = signature with {
-      CallableArguments = invocation.ToDictionary(item => Argument(((StringExpressionIr)item.Values[0]).Value),
-        item => Argument(((StringExpressionIr)item.Values[1]).Value))
-    };
-    var projection = declaration.Metadata.FirstOrDefault(item => item.Name is "tupleResults" or "firstResult");
-    if (projection != null) {
-      var index = Argument(((StringExpressionIr)projection.Values[0]).Value);
-      var slot = ((NumberExpressionIr)projection.Values[1]).Value;
-      if (slot < 0 || slot != Math.Truncate(slot) || slot > int.MaxValue)
-        throw new ArgumentException("result projection requires a non-negative integer type argument index");
-      signature = signature with { InferResult = values => {
-        if (values[index] is not TupleHixPattern tuple) return signature.ResultPattern;
-        var results = tuple.Fields.Select(field => field.Pattern is OpaqueHixPattern opaque && slot < opaque.Arguments.Count
-          ? opaque.Arguments[(int)slot] : HixPattern.Any).ToArray();
-        return projection.Name == "tupleResults" ? new TupleHixPattern(results.Select((pattern, position) =>
-          new HixPatternField(position.ToString(), pattern)).ToArray()) :
-          new TableHixPattern([new("index", new KindHixPattern(HixValueKind.Number)), new("value", HixPatterns.Union(results))]);
-      }};
-    }
-    return signature;
-  }
-
   private sealed class LibraryFunction : HixFunctionEntry {
     public LibraryFunction(LibraryFunction[] overloads)
       : base(overloads[0].Name, overloads.SelectMany(entry => entry.Signatures).ToArray(), overloads[0].Documentation, overloads[0].Metadata) {
@@ -120,7 +91,7 @@ public sealed class FunctionLibrary {
           signature.Inputs?.LastOrDefault()?.Variadic == true,
           pattern.Parameters.Select(field => field.Name).ToArray(),
           signature.Inputs?.Select(field => field.DefaultValue).ToArray(), declaration.TypeParameters);
-        return ConfigureDeclarationInference(declaration, builder.ConfigureInference(declaration.Name, result));
+        return builder.ConfigureInference(declaration.Name, result);
       }).ToArray(), string.Join("\n", declaration.Metadata.Where(item => item.Name is "description" or "doc")
         .SelectMany(item => item.Values).OfType<StringExpressionIr>().Select(item => item.Value))) {
       Handler = handler;

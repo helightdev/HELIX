@@ -41,7 +41,13 @@ public sealed record HixOpaqueTypeDefinition(string Identity, string Name, int A
 /// <summary>Scope identity prevents unrelated declarations named T from sharing substitutions.</summary>
 public sealed record HixTypeParameter(string Scope, string Name, HixPattern Bound = null) {
   public TypeParameterHixPattern Pattern => new(this);
+  public string ComputedPath { get; init; }
   public IReadOnlyList<HixPattern> AdditionalBounds { get; init; } = Array.Empty<HixPattern>();
+}
+
+/// <summary>Compiler-only witness of the schema represented by a pattern value.</summary>
+public sealed record PatternValueHixPattern(HixPattern ValuePattern) : HixPattern {
+  public override string Display => "pattern";
 }
 
 public sealed record TypeParameterHixPattern(HixTypeParameter Parameter) : HixPattern {
@@ -52,8 +58,8 @@ public sealed record OpaqueHixPattern(HixOpaqueTypeDefinition Definition, IReadO
   public IReadOnlyList<HixPattern> Arguments { get; } = Arguments != null && Arguments.Count == Definition.Arity &&
     Arguments.All(argument => argument != null) ? Array.AsReadOnly(Arguments.ToArray()) :
     throw new ArgumentException("Opaque type arguments do not match declared arity.");
-  public override string Display => Definition.Name + (Arguments.Count == 0 ? "" : "<" +
-    string.Join(", ", Arguments.Select(argument => argument.Display)) + ">");
+  public override string Display => Definition.Name + (Arguments.Count == 0 ? "" : "(" +
+    string.Join(", ", Arguments.Select(argument => argument.Display)) + ")");
 }
 
 public static class HixGenericTypes {
@@ -64,27 +70,41 @@ public static class HixGenericTypes {
     parameter.AdditionalBounds.All(bound => SatisfiesBound(value, Substitute(bound, substitutions, true), definitions));
 
   public static string SignatureIdentity(SignatureHixPattern signature) => signature.Name + "(" +
-    string.Join(",", signature.Parameters.Select(field => Identity(field.Pattern))) + ")->" + Identity(signature.Result);
+    string.Join(",", signature.Parameters.Select(field => PatternIdentity(field.Pattern))) + ")->" + PatternIdentity(signature.Result);
 
-  private static string Identity(HixPattern pattern) => pattern switch {
-    OpaqueHixPattern opaque => opaque.Definition.Identity + "<" + string.Join(",", opaque.Arguments.Select(Identity)) + ">",
+  public static string PatternIdentity(HixPattern pattern) => pattern switch {
+    PatternValueHixPattern witness => "patternValue<" + PatternIdentity(witness.ValuePattern) + ">",
+    OpaqueHixPattern opaque => opaque.Definition.Identity + "<" + string.Join(",", opaque.Arguments.Select(PatternIdentity)) + ">",
     TypeParameterHixPattern parameter => parameter.Parameter.Scope + ":" + parameter.Parameter.Name,
-    TupleHixPattern tuple => "tuple[" + string.Join(",", tuple.Fields.Select(field => Identity(field.Pattern))) + "]",
-    TableHixPattern table => "table{" + string.Join(",", table.Fields.Select(field => field.Name + ":" + Identity(field.Pattern))) + "}",
-    ManyHixPattern many => "many<" + Identity(many.Element) + ">",
-    MapHixPattern map => "map<" + Identity(map.Key) + "," + Identity(map.Value) + ">",
-    DelegateHixPattern callable => "delegate(" + string.Join(",", callable.Parameters.Select(field => Identity(field.Pattern))) + ")->" + Identity(callable.Result),
-    UnionHixPattern union => string.Join("|", union.Patterns.Select(Identity)),
-    DocumentedHixPattern documented => Identity(documented.Underlying),
-    ConstrainedHixPattern constrained => constrained.Constraint + "<" + constrained.Argument + ">" + Identity(constrained.Underlying),
-    TaggedHixPattern tagged => tagged.Discriminator + ":" + Identity(tagged.Underlying),
-    ConstantHixPattern constant => constant.Value + ":" + Identity(constant.Underlying),
-    EnumHixPattern enumeration => enumeration.Display + ":" + Identity(enumeration.Underlying),
-    DefinedHixPattern defined => Identity(defined.Root),
-    _ => pattern?.Display ?? "any"
+    TupleHixPattern tuple => "tuple[" + string.Join(",", tuple.Fields.Select(FieldIdentity)) + "]",
+    TableHixPattern table => "table{" + string.Join(",", table.Fields.Select(FieldIdentity)) + "}",
+    ManyHixPattern many => "many<" + PatternIdentity(many.Element) + ">",
+    MapHixPattern map => "map<" + PatternIdentity(map.Key) + "," + PatternIdentity(map.Value) + ">",
+    DelegateHixPattern callable => "delegate(" + string.Join(",", callable.Parameters.Select(field => PatternIdentity(field.Pattern))) + ")->" + PatternIdentity(callable.Result),
+    UnionHixPattern union => string.Join("|", union.Patterns.Select(PatternIdentity)),
+    DocumentedHixPattern documented => PatternIdentity(documented.Underlying),
+    ConstrainedHixPattern constrained => constrained.Constraint + "<" + constrained.Argument + ">" + PatternIdentity(constrained.Underlying),
+    TraitHixPattern trait => "trait:" + trait.Name + ":" + PatternIdentity(trait.Underlying),
+    IntersectionHixPattern intersection => "intersection(" + PatternIdentity(intersection.Left) + "," + PatternIdentity(intersection.Right) + ")",
+    InheritedHixPattern inherited => "inherit(" + PatternIdentity(inherited.Parent) + "," + PatternIdentity(inherited.Underlying) + ")",
+    TraitUsageHixPattern usage => "traitUsage(" + PatternIdentity(usage.Trait) + "," + PatternIdentity(usage.Underlying) + ")",
+    TaggedHixPattern tagged => tagged.Discriminator + ":" + PatternIdentity(tagged.Underlying),
+    ConstantHixPattern constant => constant.Value + ":" + PatternIdentity(constant.Underlying),
+    EnumHixPattern enumeration => "%enum" + string.Concat(enumeration.Values.Select(value => "<" +
+      Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) + ">")) + " " +
+      PatternIdentity(enumeration.Underlying) + ":" + PatternIdentity(enumeration.Underlying),
+    DefinedHixPattern defined => PatternIdentity(defined.Root),
+    SignatureHixPattern signature => SignatureIdentity(signature),
+    AnyHixPattern or null => "any",
+    KindHixPattern kind => kind.ValueKind.ToString().ToLowerInvariant(),
+    NamedHixPattern named => named.Name,
+    _ => throw new ArgumentException("unsupported pattern identity")
   };
+  private static string FieldIdentity(HixPatternField field) => field.Name + ":" +
+    (field.Optional ? "optional:" : "") + (field.HasDefault ? "default:" : "") +
+    (field.Graph == null ? "" : field.Graph + ":") + PatternIdentity(field.Pattern);
   public static bool RequiresErasure(HixPattern pattern) => pattern switch {
-    OpaqueHixPattern or TypeParameterHixPattern => true,
+    PatternValueHixPattern or OpaqueHixPattern or TypeParameterHixPattern => true,
     TupleHixPattern tuple => tuple.Fields.Any(field => RequiresErasure(field.Pattern)),
     TableHixPattern table => table.Fields.Any(field => RequiresErasure(field.Pattern)),
     ManyHixPattern many => RequiresErasure(many.Element),
@@ -93,6 +113,8 @@ public static class HixGenericTypes {
     UnionHixPattern union => union.Patterns.Any(RequiresErasure),
     DocumentedHixPattern documented => RequiresErasure(documented.Underlying),
     ConstrainedHixPattern constrained => RequiresErasure(constrained.Underlying),
+    TraitHixPattern trait => RequiresErasure(trait.Underlying),
+    IntersectionHixPattern intersection => RequiresErasure(intersection.Left) || RequiresErasure(intersection.Right),
     TaggedHixPattern tagged => RequiresErasure(tagged.Underlying),
     ConstantHixPattern constant => RequiresErasure(constant.Underlying),
     EnumHixPattern enumeration => RequiresErasure(enumeration.Underlying),
@@ -103,6 +125,7 @@ public static class HixGenericTypes {
     if (!RequiresErasure(pattern)) return pattern;
     HixPatternField Field(HixPatternField field) => field with { Pattern = ErasePattern(field.Pattern) };
     return pattern switch {
+      PatternValueHixPattern => new KindHixPattern(HixValueKind.Pattern),
       OpaqueHixPattern => new KindHixPattern(HixValueKind.Opaque),
       TypeParameterHixPattern parameter => ErasePattern(parameter.Parameter.Bound ?? HixPattern.Any),
       TupleHixPattern tuple => new TupleHixPattern(tuple.Fields.Select(Field).ToArray()),
@@ -113,6 +136,8 @@ public static class HixGenericTypes {
       UnionHixPattern union => HixPatterns.Union(union.Patterns.Select(ErasePattern)),
       DocumentedHixPattern documented => documented with { Underlying = ErasePattern(documented.Underlying) },
       ConstrainedHixPattern constrained => constrained with { Underlying = ErasePattern(constrained.Underlying) },
+      TraitHixPattern trait => trait with { Underlying = ErasePattern(trait.Underlying) },
+      IntersectionHixPattern intersection => intersection with { Left = ErasePattern(intersection.Left), Right = ErasePattern(intersection.Right) },
       TaggedHixPattern tagged => tagged with { Underlying = ErasePattern(tagged.Underlying) },
       ConstantHixPattern constant => constant with { Underlying = ErasePattern(constant.Underlying) },
       EnumHixPattern enumeration => enumeration with { Underlying = ErasePattern(enumeration.Underlying) },
@@ -121,6 +146,7 @@ public static class HixGenericTypes {
     };
   }
   public static HixValueKind Erase(HixPattern pattern) => pattern switch {
+    PatternValueHixPattern => HixValueKind.Pattern,
     KindHixPattern kind => kind.ValueKind,
     OpaqueHixPattern => HixValueKind.Opaque,
     TypeParameterHixPattern parameter => Erase(parameter.Parameter.Bound ?? HixPattern.Any),
@@ -129,6 +155,8 @@ public static class HixGenericTypes {
     DelegateHixPattern => HixValueKind.Function,
     DocumentedHixPattern documented => Erase(documented.Underlying),
     ConstrainedHixPattern constrained => Erase(constrained.Underlying),
+    TraitHixPattern => HixValueKind.Table,
+    IntersectionHixPattern intersection => Erase(intersection.Left),
     TaggedHixPattern tagged => Erase(tagged.Underlying),
     ConstantHixPattern constant => Erase(constant.Underlying),
     EnumHixPattern enumeration => Erase(enumeration.Underlying),
@@ -141,6 +169,7 @@ public static class HixGenericTypes {
     HixPattern Apply(HixPattern value) => Substitute(value, substitutions, eraseUnresolved);
     HixPatternField Field(HixPatternField field) => field with { Pattern = Apply(field.Pattern) };
     return pattern switch {
+      PatternValueHixPattern witness => witness with { ValuePattern = Apply(witness.ValuePattern) },
       TypeParameterHixPattern parameter => substitutions.TryGetValue(parameter.Parameter, out var resolved) ? resolved :
         eraseUnresolved ? Apply(parameter.Parameter.Bound ?? HixPattern.Any) : parameter,
       OpaqueHixPattern opaque => opaque.Definition.Construct(opaque.Arguments.Select(Apply).ToArray()),
@@ -152,6 +181,8 @@ public static class HixGenericTypes {
       DelegateHixPattern callable => new DelegateHixPattern(callable.Parameters.Select(Field).ToArray(), Apply(callable.Result)),
       DocumentedHixPattern documented => documented with { Underlying = Apply(documented.Underlying) },
       ConstrainedHixPattern constrained => constrained with { Underlying = Apply(constrained.Underlying) },
+      TraitHixPattern trait => trait with { Underlying = Apply(trait.Underlying) },
+      IntersectionHixPattern intersection => intersection with { Left = Apply(intersection.Left), Right = Apply(intersection.Right) },
       TaggedHixPattern tagged => tagged with { Underlying = Apply(tagged.Underlying) },
       ConstantHixPattern constant => constant with { Underlying = Apply(constant.Underlying) },
       EnumHixPattern enumeration => enumeration with { Underlying = Apply(enumeration.Underlying) },
@@ -161,6 +192,7 @@ public static class HixGenericTypes {
   }
 
   public static bool Equivalent(HixPattern left, HixPattern right) {
+    if (left is PatternValueHixPattern witness) return right is PatternValueHixPattern otherWitness && Equivalent(witness.ValuePattern, otherWitness.ValuePattern);
     if (left is OpaqueHixPattern a) return right is OpaqueHixPattern b && a.Definition.Identity == b.Definition.Identity &&
       a.Arguments.Count == b.Arguments.Count && a.Arguments.Zip(b.Arguments, Equivalent).All(value => value);
     if (left is TypeParameterHixPattern parameter) return right is TypeParameterHixPattern other && parameter.Parameter == other.Parameter;

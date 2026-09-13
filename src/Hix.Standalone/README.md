@@ -262,10 +262,15 @@ Programmatic `FunctionDeclarationIr`/IR signatures can declare `TypeParameters`,
 `CallExpressionIr.TypeArguments` supplies explicit type arguments. Compile these through
 `HixCompiler.CompileFunctions(IEnumerable<CompilationUnitIr>, backend)`. Generic bodies emit once
 with bounds/`any` and opaque types erased; declaration identity metadata preserves static overload
-binding when signatures erase identically. `%invokeArguments<function><arguments>` connects a callable parameter to its positional argument tuple, providing contextual lambda inference and signature validation.
-`%tupleResults<tasks>(0)` projects type argument zero of each opaque handle into an ordered result tuple.
-`%firstResult<tasks>(0)` infers a table with an index and the union of the projected result types.
-These compiler metadata entries configure inference from Hix declarations; C# handlers only implement execution.
+binding when signatures erase identically. `%computedGeneric<T></invoke/function/arguments/result>`
+infers a callback result using its named positional argument tuple.
+`%computedGeneric<Results></arguments/tasks/*/typeArguments/0>` projects type argument zero
+of each opaque handle into an ordered result tuple. A second declaration,
+`%computedGeneric<T></generics/Results/union>`, selects their result union.
+`/arguments/target/pattern` selects a represented pattern schema; adding `/data` selects trait
+component data. Paths use JSON Pointer escapes (`~0` and `~1`) and support field, callable,
+collection, and opaque type argument selectors. These compiler declarations replace the
+specialized inference metadata; C# handlers only implement execution.
 Opaque types have no JSON/JSON Schema representation.
 
 ### Metadata-based generic types

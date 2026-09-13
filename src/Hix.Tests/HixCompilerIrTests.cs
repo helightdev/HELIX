@@ -110,8 +110,8 @@ public sealed class HixCompilerIrTests {
     Assert.DoesNotContain("Returns a tuple unchanged.", fact.Documentation);
     var builtin = new LanguageAnalysis("mixin Test { expression { emit(length(@[1, 2])) } }");
     var docs = Assert.Single(builtin.TypeFacts.Where(fact => fact.Kind == "Call" && fact.Documentation.StartsWith("length(")));
-    Assert.Contains("length(tuple)", docs.Documentation);
-    Assert.DoesNotContain("length(string)", docs.Documentation);
+    Assert.Contains("length(tuple arg0)", docs.Documentation);
+    Assert.DoesNotContain("length(string arg0)", docs.Documentation);
     Assert.DoesNotContain("Transforms the", docs.Documentation);
   }
 

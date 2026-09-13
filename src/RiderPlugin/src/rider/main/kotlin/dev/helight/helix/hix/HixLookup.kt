@@ -12,31 +12,75 @@ internal object HixLookup {
     data class MetadataArgument(val name: String, val index: Int)
     data class Site(val chained: Boolean, val member: Boolean, val receiverEnd: Int)
     data class ConstructorField(val name: String, val type: String, val optional: Boolean, val defaulted: Boolean)
-    data class Constructor(val name: String, val fields: List<ConstructorField>, val tuple: Boolean)
+    data class Constructor(val name: String, val fields: List<ConstructorField>, val tuple: Boolean, val trait: Boolean = false, val traitName: String = name)
     data class ConstructorCall(val name: String, val assigned: Set<String>)
 
-    fun constructors(parsed: HelixAntlrParse): List<Constructor> {
+    fun fieldName(name: String): String = if (Regex("[A-Za-z_][\\w.]*").matches(name)) name
+        else "\"" + name.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+    private fun key(identifier: TerminalNode?, quoted: TerminalNode?): String? =
+        identifier?.text ?: quoted?.text?.removeSurrounding("\"")?.replace("\\\"", "\"")?.replace("\\\\", "\\")
+
+    /** Local shape projection for completion; diagnostics and executable binding remain compiler-owned. */
+    fun patterns(parsed: HelixAntlrParse): List<Constructor> {
         val declarations = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
-            .associateBy { it.IDENTIFIER().text }
-        fun resolve(name: String, active: MutableSet<String>): Pair<List<HixParser.PatternFieldContext>, Boolean>? {
-            if (!active.add(name)) return null
-            val primary = declarations[name]?.patternExpression()?.patternUnion()?.patternTerm()?.singleOrNull()
-                ?.patternPrimary() ?: return null
-            primary.tablePattern()?.let { return it.patternField() to false }
-            primary.tuplePattern()?.let { return it.patternField() to true }
-            val alias = primary.patternIdentifier()?.text ?: return null
-            return resolve(alias, active)
-        }
-        return declarations.keys.mapNotNull { name ->
-            val (fields, tuple) = resolve(name, mutableSetOf()) ?: return@mapNotNull null
-            Constructor(name, fields.mapIndexed { index, field ->
-                val fieldName = field.ROOT_IDENTIFIER()?.text ?: if (tuple) index.toString()
-                    else field.patternUnion()?.text ?: index.toString()
-                ConstructorField(fieldName, field.patternUnion()?.text ?: "any",
+            .associateBy { it.IDENTIFIER()?.text ?: "" }
+        fun resolve(name: String, active: Set<String>): Constructor? {
+            if (name in active) return null
+            val declaration = declarations[name] ?: return null
+            val expression = declaration.patternExpression() ?: return null
+            val primary = expression.patternUnion()?.patternTerm()?.singleOrNull()?.patternPrimary() ?: return null
+            val tuple = primary.tuplePattern() != null
+            val sourceFields = primary.tablePattern()?.patternField() ?: primary.tuplePattern()?.patternField()
+            var shape = if (sourceFields != null) Constructor(name, sourceFields.mapIndexed { index, field ->
+                ConstructorField(key(field.ROOT_IDENTIFIER(), field.STRING()) ?: if (tuple) index.toString()
+                    else field.patternUnion()?.text ?: index.toString(),
+                    field.metadataList()?.metadata()?.firstOrNull { it.IDENTIFIER()?.text == "many" }?.text
+                        ?: field.patternUnion()?.text ?: "any",
                     field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "optional" } == true,
                     field.value() != null || field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "default" } == true)
-            }, tuple)
+            }, tuple) else resolve(primary.patternIdentifier()?.text ?: return null, active + name)?.copy(name = name)
+                ?: return null
+            val directives = (expression.inlineMetadataList()?.metadata() ?: emptyList()) +
+                ((declaration.parent as? HixParser.TopLevelDeclarationContext)?.metadataList()?.metadata() ?: emptyList())
+            for (directive in directives) {
+                val kind = directive.IDENTIFIER()?.text
+                if (kind !in setOf("inherit", "trait")) continue
+                val target = directive.argumentValue().firstOrNull()?.text?.removeSurrounding("<", ">")
+                    ?: directive.valueList()?.value()?.firstOrNull()?.text?.removeSurrounding("\"") ?: continue
+                val inherited = resolve(target, active + name) ?: continue
+                if (kind == "trait") {
+                    if (!shape.tuple && inherited.trait) shape = shape.copy(fields = shape.fields +
+                        ConstructorField("$" + inherited.traitName, target, false, false))
+                } else if (shape.tuple == inherited.tuple && !inherited.trait) {
+                    val fields = if (shape.tuple) shape.fields.mapIndexed { index, field ->
+                        val parent = inherited.fields.getOrNull(index)
+                        if (parent == null) field else field.copy(optional = field.optional && parent.optional,
+                            defaulted = field.defaulted && parent.defaulted)
+                    } else {
+                        val merged = inherited.fields.associateBy { it.name }.toMutableMap()
+                        shape.fields.forEach { field ->
+                            val parent = merged[field.name]
+                            merged[field.name] = if (parent == null) field else field.copy(
+                                optional = (field.optional || field.defaulted) && (parent.optional || parent.defaulted),
+                                defaulted = (field.defaulted || parent.defaulted) &&
+                                    (field.optional || field.defaulted) && (parent.optional || parent.defaulted))
+                        }
+                        merged.values.toList()
+                    }
+                    shape = shape.copy(fields = fields)
+                }
+            }
+            return if (declaration.KEYWORD_TRAIT() != null) shape.copy(trait = true, traitName = name) else shape
         }
+        return declarations.keys.mapNotNull { resolve(it, emptySet()) }
+    }
+
+    fun constructors(parsed: HelixAntlrParse): List<Constructor> = patterns(parsed).map { shape ->
+        shape.copy(fields = shape.fields.map { field ->
+            if (field.name.startsWith("$") && shape.fields.none { it.name == field.name.drop(1) })
+                field.copy(name = field.name.drop(1)) else field
+        })
     }
 
     fun constructorCallAt(parsed: HelixAntlrParse, offset: Int): ConstructorCall? {
@@ -49,7 +93,7 @@ internal object HixLookup {
             is HixParser.InvocationStatementContext -> owner.invocationIdentifier().text
             else -> null
         } ?: return null
-        return ConstructorCall(name, list.callArgument().mapNotNull { it.ROOT_IDENTIFIER()?.text }.toSet())
+        return ConstructorCall(name, list.callArgument().mapNotNull { key(it.ROOT_IDENTIFIER(), it.STRING()) }.toSet())
     }
 
     fun semanticRoleAt(parsed: HelixAntlrParse, offset: Int): SemanticRole? {
@@ -163,14 +207,14 @@ internal object HixLookup {
 
         val entry = HixAntlrSyntax.rules(local).filterIsInstance<HixParser.TableKeyedEntryContext>()
             .filter(::contains).minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return emptyList()
-        val fieldName = entry.ROOT_IDENTIFIER()?.text ?: return emptyList()
+        val fieldName = key(entry.ROOT_IDENTIFIER(), entry.STRING()) ?: return emptyList()
         val typeName = local.patternExpression()?.patternUnion()?.patternTerm()?.firstOrNull()
             ?.patternPrimary()?.patternIdentifier()?.text ?: return emptyList()
         val declaration = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
             .firstOrNull { it.IDENTIFIER()?.text == typeName } ?: return emptyList()
         val field = declaration.patternExpression()?.patternUnion()?.patternTerm()?.firstOrNull()
             ?.patternPrimary()?.tablePattern()?.patternField()
-            ?.firstOrNull { it.ROOT_IDENTIFIER()?.text == fieldName }
+            ?.firstOrNull { key(it.ROOT_IDENTIFIER(), it.STRING()) == fieldName }
         return values(field?.metadataList()?.metadata()?.asIterable())
     }
     fun site(parsed: HelixAntlrParse, offset: Int): Site {
@@ -178,9 +222,9 @@ internal object HixLookup {
             HixLexer.OUTER_WHITESPACE, HixLexer.VALUE_WHITESPACE, HixLexer.METADATA_WHITESPACE,
             HixLexer.COMMENT, HixLexer.SLASH_COMMENT) }
         var previous = tokens.lastOrNull()
-        if (previous?.type in setOf(HixLexer.FUNCTION_IDENTIFIER, HixLexer.MEMBER_IDENTIFIER) &&
+        if (previous?.type in setOf(HixLexer.FUNCTION_IDENTIFIER, HixLexer.LABEL_IDENTIFIER, HixLexer.MEMBER_IDENTIFIER) &&
             previous!!.end >= offset) previous = tokens.getOrNull(tokens.lastIndex - 1)
-        return Site(previous?.type in setOf(HixLexer.VALUE_FUNCTION, HixLexer.VALUE_PREDICATE),
+        return Site(previous?.type in setOf(HixLexer.VALUE_FUNCTION, HixLexer.VALUE_PREDICATE, HixLexer.LABEL_PREFIX),
             previous?.type == HixLexer.VALUE_MEMBER, previous?.start ?: offset)
     }
 
@@ -212,7 +256,7 @@ internal object HixLookup {
     }
 
     fun signature(definition: MixinLanguageDefinition): String =
-        definition.name + "(" + definition.argumentTypes.mapIndexed { index, type ->
-            (if (definition.variadic && index == definition.argumentTypes.lastIndex) "..." else "") + type.lowercase()
-        }.joinToString(", ") + ") -> " + definition.resultType.lowercase()
+        if (definition.kind == "Type" || definition.kind == "PrimitivePattern") definition.name else definition.name + "(" + definition.argumentTypes.mapIndexed { index, type ->
+            (if (definition.variadic && index == definition.argumentTypes.lastIndex) "..." else "") + type
+        }.joinToString(", ") + ") -> " + definition.resultType
 }

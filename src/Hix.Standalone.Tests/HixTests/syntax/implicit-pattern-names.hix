@@ -1,0 +1,42 @@
+type ImplicitPerson = @{string name = <Ada>};
+trait type ImplicitNamed = @{string name};
+type ImplicitNamedAlias = ImplicitNamed;
+type ImplicitEntity = %trait<ImplicitNamed> @{number id};
+
+pure func implicitExact(string target) -> string => <string>;
+pure func implicitExact(pattern target) -> string => <pattern>;
+%generic<T>
+pure func implicitIdentity(T value) -> T => $value;
+%computedGeneric<V></arguments/target/pattern>
+pure func implicitConstruct(pattern target, any value) -> V { return(new($target, $value)) }
+
+%test
+%testcase(@[], 42)
+func chainedLiteralPatternCast() -> number { return([<42>]:cast<number>) }
+
+%test
+func implicitPatternNames {
+  assert(eq(cast(42, <string>), <42>))
+  assert(eq(cast(target = <number>, value = <42>), 42))
+  assert(eq(new(<number>), 0))
+  assert(eq(implicitConstruct(<string>, 42), <42>))
+  assert(eq(cast(@{name = <Ada>}, <ImplicitPerson>), ImplicitPerson()))
+  assert(eq(parseJson("{\"name\":\"Ada\"}", <ImplicitPerson>), ImplicitPerson()))
+  assert(is(@{name = <Ada>}, <ImplicitPerson>))
+  assert(eq(as(<bad>, <number>), null))
+  assert(eq(implicitExact(<number>), <string>))
+  assert(eq(implicitIdentity(<number>), <number>))
+  local entity = ImplicitEntity(id = 1, "$ImplicitNamed" = @{name = <Ada>})
+  assert(eq($entity:cast<ImplicitNamedAlias>, @{name = <Ada>}))
+  assert(eq(parseJson(writeJson($entity), <ImplicitNamed>), $entity))
+  $entity = ImplicitEntity(id = 1, ImplicitNamed = ImplicitNamed("Ada"))
+  assert(eq($entity:cast<ImplicitNamedAlias>, @{name = <Ada>}))
+  assert(eq(parseJson(writeJson($entity), <ImplicitNamed>), $entity))
+}
+
+%test
+func implicitPatternNamesRejectInvalidTargets {
+  assert(not(success(compile("func bad { return(cast(42, <UnknownPattern>)) }"))))
+  assert(not(success(compile("func bad(string target) -> any { return(cast(42, $target)) }"))))
+  assert(not(success(compile("trait type Named = @{string name}; func bad { return(new(<Named>)) }"))))
+}

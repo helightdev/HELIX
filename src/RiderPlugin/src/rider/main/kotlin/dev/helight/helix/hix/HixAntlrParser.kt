@@ -116,7 +116,8 @@ class HixPsiParser(@Suppress("UNUSED_PARAMETER") project: Project) : PsiParser {
         val marker = builder.mark()
         for (child in context.children.orEmpty()) {
             if (child is ParserRuleContext) node(builder, child)
-            else if (child is TerminalNode && child.symbol.type == HixLexer.IDENTIFIER &&
+            else if (child is TerminalNode && (child.symbol.type == HixLexer.IDENTIFIER ||
+                context is HixParser.MetaDeclarationContext && child.symbol.type == HixLexer.KEYWORD_TRAIT) &&
                 (context is HixParser.FuncDeclarationContext || context is HixParser.MetaDeclarationContext || context is HixParser.InvocationStatementContext ||
                     context is HixParser.ControlflowStatementContext)) {
                 while (!builder.eof() && builder.currentOffset < child.symbol.startIndex) builder.advanceLexer()

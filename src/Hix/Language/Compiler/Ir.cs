@@ -133,7 +133,9 @@ public sealed record SignatureField {
   public bool HasDefault => DefaultValue != null;
   public bool AllowsMissing => Optional || HasDefault;
   public IReadOnlyList<MetadataIr> Metadata { get; }
-  public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault);
+  public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault) {
+    Metadata = Variadic ? [new BytecodeMetadata("variadic", [], HixMetadataRetention.Compiler)] : []
+  };
 }
 
 public sealed record FunctionSignature {

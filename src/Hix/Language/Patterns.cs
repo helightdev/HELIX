@@ -42,6 +42,17 @@ public static class HixPatterns {
 
   public static HixPattern Nullable(HixPattern value) => Union([value, new KindHixPattern(HixValueKind.Null)]);
 
+  public static bool TryTrait(HixPattern pattern, IReadOnlyDictionary<string, HixPattern> definitions, out TraitHixPattern trait) {
+    var active = new HashSet<string>();
+    while (true) switch (pattern) {
+      case TraitHixPattern found: trait = found; return true;
+      case NamedHixPattern named when definitions != null && active.Add(named.Name) && definitions.TryGetValue(named.Name, out var resolved): pattern = resolved; continue;
+      case DocumentedHixPattern documented: pattern = documented.Underlying; continue;
+      case DefinedHixPattern defined: definitions = defined.Definitions; pattern = defined.Root; continue;
+      default: trait = null; return false;
+    }
+  }
+
   public static bool TryStructural(HixPattern pattern, IReadOnlyDictionary<string, HixPattern> definitions,
     out HixPattern structural) {
     var active = new HashSet<string>(StringComparer.Ordinal);
@@ -62,6 +73,23 @@ public static class HixPatterns {
   }
 }
 
+/// <summary>Compact human-readable formatting; source emission and binding identities are separate.</summary>
+internal static class HixPatternDisplay {
+  internal static string Union(IReadOnlyList<HixPattern> patterns) {
+    var nonNull = patterns.Where(pattern => pattern is not KindHixPattern {ValueKind: HixValueKind.Null}).ToArray();
+    if (nonNull.Length == patterns.Count - 1 && nonNull.Length != 0) {
+      var value = string.Join("|", nonNull.Select(pattern => pattern.Display));
+      return (nonNull.Length > 1 ? "(" + value + ")" : value) + "?";
+    }
+    return string.Join("|", patterns.Select(pattern => pattern.Display));
+  }
+  internal static string Constraint(HixPatternConstraintKind constraint) => constraint switch {
+    HixPatternConstraintKind.Minimum => "min", HixPatternConstraintKind.Maximum => "max",
+    HixPatternConstraintKind.Length => "length", HixPatternConstraintKind.Matches => "matches",
+    _ => throw new ArgumentOutOfRangeException(nameof(constraint))
+  };
+}
+
 public sealed record AnyHixPattern : HixPattern {
   public override string Display => "any";
 }
@@ -75,23 +103,23 @@ public sealed record NamedHixPattern(string Name) : HixPattern {
 }
 
 public sealed record UnionHixPattern(IReadOnlyList<HixPattern> Patterns) : HixPattern {
-  public override string Display => "%union" + string.Concat(Patterns.Select(value => "<" + value.Display + ">"));
+  public override string Display => HixPatternDisplay.Union(Patterns);
 }
 
 public sealed record TupleHixPattern(IReadOnlyList<HixPatternField> Fields) : HixPattern {
-  public override string Display => "@[" + string.Join(", ", Fields.Select(field => field.Display)) + "]";
+  public override string Display => "[]";
 }
 
 public sealed record TableHixPattern(IReadOnlyList<HixPatternField> Fields) : HixPattern {
-  public override string Display => "@{" + string.Join(", ", Fields.Select(field => field.Display)) + "}";
+  public override string Display => "{}";
 }
 
 public sealed record ManyHixPattern(HixPattern Element) : HixPattern {
-  public override string Display => "%many " + Element.Display;
+  public override string Display => "many(" + Element.Display + ")";
 }
 
 public sealed record MapHixPattern(HixPattern Key, HixPattern Value) : HixPattern {
-  public override string Display => "%map<" + Key.Display + "><" + Value.Display + ">";
+  public override string Display => "map(" + Key.Display + ", " + Value.Display + ")";
 }
 
 /// <summary>A self-contained pattern carrying definitions imported from an external schema.</summary>
@@ -99,24 +127,40 @@ public sealed record DefinedHixPattern(HixPattern Root, IReadOnlyDictionary<stri
   public override string Display => Root.Display;
 }
 
+/// <summary>A trait predicate matches its named component on a containing table.</summary>
+public sealed record TraitHixPattern(HixPattern Underlying, string Name) : HixPattern {
+  public string FieldName => "$" + Name;
+  public override string Display => Name;
+  public TableHixPattern Requirement => new(new[] { new HixPatternField(FieldName, Underlying) });
+}
+
+/// <summary>Compiler-only composition directives, resolved before bytecode generation.</summary>
+public sealed record InheritedHixPattern(HixPattern Underlying, HixPattern Parent) : HixPattern {
+  public override string Display => "inherit(" + Parent.Display + ", " + Underlying.Display + ")";
+}
+public sealed record TraitUsageHixPattern(HixPattern Underlying, HixPattern Trait) : HixPattern {
+  public override string Display => "trait(" + Trait.Display + ", " + Underlying.Display + ")";
+}
+public sealed record IntersectionHixPattern(HixPattern Left, HixPattern Right) : HixPattern {
+  public override string Display => Left.Display + " & " + Right.Display;
+}
+
 public sealed record TaggedHixPattern(HixPattern Underlying, string Discriminator) : HixPattern {
   public const string FieldName = "$type";
-  public override string Display => "%tagged<" + Discriminator + "> " + Underlying.Display;
+  public override string Display => "tagged(" + Discriminator + ", " + Underlying.Display + ")";
 }
 
 public sealed record ConstantHixPattern(object Value, HixPattern Underlying) : HixPattern {
-  public override string Display => "%const<" + Convert.ToString(Value, CultureInfo.InvariantCulture) + "> " + Underlying.Display;
+  public override string Display => "const(" + Convert.ToString(Value, CultureInfo.InvariantCulture) + ", " + Underlying.Display + ")";
 }
 
 public sealed record EnumHixPattern(IReadOnlyList<object> Values, HixPattern Underlying) : HixPattern {
-  public override string Display => "%enum" + string.Concat(Values.Select(value => "<" +
-    Convert.ToString(value, CultureInfo.InvariantCulture) + ">")) + " " + Underlying.Display;
+  public override string Display => "enum(" + string.Join(", ", Values.Select(value => Convert.ToString(value, CultureInfo.InvariantCulture))) + ")";
 }
 
 public sealed record DocumentedHixPattern(HixPattern Underlying, string Title = null, string Description = null)
   : HixPattern {
-  public override string Display => (Title == null ? "" : "%title<" + Title + "> ") +
-    (Description == null ? "" : "%description<" + Description + "> ") + Underlying.Display;
+  public override string Display => Underlying.Display;
 }
 
 public enum HixPatternConstraintKind { Minimum, Maximum, Length, Matches }
@@ -124,8 +168,8 @@ public enum HixPatternConstraintKind { Minimum, Maximum, Length, Matches }
 public sealed record ConstrainedHixPattern(HixPattern Underlying, HixPatternConstraintKind Constraint, object Argument,
   bool Exclusive = false)
   : HixPattern {
-  public override string Display => "%" + Constraint.ToString().ToLowerInvariant() + "<" +
-    Convert.ToString(Argument, CultureInfo.InvariantCulture) + "> " + Underlying.Display;
+  public override string Display => HixPatternDisplay.Constraint(Constraint) + "(" + Underlying.Display + ", " +
+    Convert.ToString(Argument, CultureInfo.InvariantCulture) + (Exclusive ? ", exclusive" : "") + ")";
 }
 
 public sealed record DelegateHixPattern(IReadOnlyList<HixPatternField> Parameters, HixPattern Result) : HixPattern {
@@ -139,9 +183,9 @@ public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optio
   object DefaultValue = null, bool HasDefault = false, HixGraphFieldKind? Graph = null) {
   public IReadOnlyList<Compiler.BytecodeMetadata> Metadata { get; init; } = [];
   public bool AllowsMissing => Optional || HasDefault;
-  public string Display => (Optional ? "%optional " : "") +
-    (Graph == null ? "" : "%graph<" + Graph.Value.ToString().ToLowerInvariant() + "> ") + Pattern.Display +
-    (string.IsNullOrEmpty(Name) ? "" : " " + Name) + (HasDefault ? " = [...]" : "");
+  public string Display => (Metadata.Any(item => item.Name == "variadic") ? "..." : "") +
+    Pattern.Display + (string.IsNullOrEmpty(Name) ? "" : " " + Name) +
+    (AllowsMissing ? (string.IsNullOrEmpty(Name) ? " ?" : "?") : "");
 }
 
 /// <summary>A signature is a constant callable pattern and is stored in the bytecode constant pool.</summary>
@@ -154,7 +198,7 @@ public sealed record PatternHixValue(HixPattern Pattern) : IHixValue {
   public bool IsTruthy(HixCoroutine context) => true;
   public HixString Render(HixCoroutine context) => HixString.Dynamic(Pattern.Display);
   public void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
-    builder.Append(nameof(PatternHixValue)); builder.Append(Pattern.Display);
+    builder.Append(nameof(PatternHixValue)); builder.Append(HixGenericTypes.PatternIdentity(Pattern));
   }
   public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;
   public object Unlink(HixCoroutine context) => this;
@@ -185,6 +229,13 @@ public static class HixPatternMatcher {
       return Matches(defined.Root, value, context, merged, path, active, out failure);
     }
     switch (pattern) {
+      case TraitHixPattern trait:
+        return Matches(trait.Requirement, value, context, definitions, path, active, out failure);
+      case IntersectionHixPattern intersection:
+        return Matches(intersection.Left, value, context, definitions, path, active, out failure) &&
+          Matches(intersection.Right, value, context, definitions, path, active, out failure);
+      case PatternValueHixPattern:
+        return Matches(new KindHixPattern(HixValueKind.Pattern), value, context, definitions, path, active, out failure);
       case OpaqueHixPattern:
         return Matches(new KindHixPattern(HixValueKind.Opaque), value, context, definitions, path, active, out failure);
       case TypeParameterHixPattern parameter:
@@ -313,6 +364,10 @@ public static class HixPatternRelations {
   public static HixPatternRelation Relate(HixPattern actual, HixPattern expected,
     IReadOnlyDictionary<string, HixPattern> definitions) {
     actual ??= HixPattern.Any; expected ??= HixPattern.Any;
+    if (actual is PatternValueHixPattern actualWitness && expected is PatternValueHixPattern expectedWitness)
+      return HixGenericTypes.Equivalent(actualWitness.ValuePattern, expectedWitness.ValuePattern) ? HixPatternRelation.Always : HixPatternRelation.Never;
+    if (actual is PatternValueHixPattern) actual = new KindHixPattern(HixValueKind.Pattern);
+    if (expected is PatternValueHixPattern) expected = new KindHixPattern(HixValueKind.Pattern);
     if (expected is AnyHixPattern) return HixPatternRelation.Always;
     if (actual is AnyHixPattern) return HixPatternRelation.Maybe;
     if (actual.Equals(expected)) return HixPatternRelation.Always;
@@ -350,6 +405,15 @@ public static class HixPatternRelations {
       return Relate(actualBody, expected, definitions);
     if (expected is NamedHixPattern namedExpected && definitions.TryGetValue(namedExpected.Name, out var expectedBody))
       return Relate(actual, expectedBody, definitions);
+    if (actual is TraitHixPattern traitActual) return Relate(traitActual.Requirement, expected, definitions);
+    if (expected is TraitHixPattern traitExpected) return Relate(actual, traitExpected.Requirement, definitions);
+    if (expected is IntersectionHixPattern intersectionExpected) return Merge(new[] {
+      Relate(actual, intersectionExpected.Left, definitions), Relate(actual, intersectionExpected.Right, definitions) });
+    if (actual is IntersectionHixPattern intersectionActual) {
+      var leftRelation = Relate(intersectionActual.Left, expected, definitions);
+      var rightRelation = Relate(intersectionActual.Right, expected, definitions);
+      return leftRelation == HixPatternRelation.Always || rightRelation == HixPatternRelation.Always ? HixPatternRelation.Always : HixPatternRelation.Maybe;
+    }
     if (actual is TaggedHixPattern taggedActual) return Relate(taggedActual.Underlying, expected, definitions);
     if (expected is TaggedHixPattern taggedExpected) {
       var relation = Relate(actual, taggedExpected.Underlying, definitions);

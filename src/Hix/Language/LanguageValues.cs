@@ -108,7 +108,7 @@ public record FunctionReferenceHixValue(SignatureHixPattern Signature) : IHixVal
   public bool IsTruthy(HixCoroutine context) => true;
   public HixString Render(HixCoroutine context) => HixString.Dynamic(Signature.Display);
   public virtual void Fingerprint(HixFingerprintBuilder builder, HixCoroutine context) {
-    builder.Append(Signature.Display);
+    builder.Append(HixGenericTypes.SignatureIdentity(Signature));
     if (DeclarationSignature != null) builder.Append(DeclarationSignature);
   }
   public IHixValue Select(HixCoroutine context, HixString member) => NullHixValue.Instance;

@@ -12,6 +12,8 @@ public static class LanguageValidation {
     void Error(HixIrNode node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
     var patterns = (backend ?? HixCoreBackend.Instance).Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
+    try { patterns = PatternComposition.ResolveDefinitions(patterns).ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal); }
+    catch (ArgumentException error) { diagnostics.Add(new HixParseDiagnostic(0, error.Message)); return; }
     var metadataSignatures = new Dictionary<string, HixMetadataKind>(StringComparer.Ordinal);
     foreach (var group in declarations.OfType<MetadataDeclarationIr>().GroupBy(metadata => metadata.Name))
       if (group.Select(metadata => metadata.Retention).Distinct().Count() > 1)
@@ -32,6 +34,16 @@ public static class LanguageValidation {
       }
     }
     void Signature(FunctionDeclarationIr function, FunctionSignature signature) {
+      foreach (var parameter in function.TypeParameters.Where(parameter => parameter.ComputedPath != null)) {
+        try { ComputedGenericPath.Validate(parameter.ComputedPath, signature.Constant(function.Name).Parameters, function.TypeParameters); }
+        catch (ArgumentException error) { Error(function, error.Message); }
+      }
+      try {
+        ComputedGenericPath.Invocations(function.TypeParameters, signature.Constant(function.Name).Parameters);
+        var placeholders = new Dictionary<HixTypeParameter, HixPattern>();
+        ComputedGenericPath.Infer(function.TypeParameters, signature.Constant(function.Name).Parameters,
+          signature.Constant(function.Name).Parameters.Select(_ => HixPattern.Any).ToArray(), placeholders, patterns);
+      } catch (ArgumentException error) { Error(function, error.Message); }
       void Fields(IReadOnlyList<SignatureField> fields, string kind, bool output) {
         if (fields == null) {
           var pattern = output ? signature.OutputPattern : signature.InputPattern;
@@ -83,8 +95,8 @@ public static class LanguageValidation {
           Error(function, "duplicate function '" + function.Name + "'");
         foreach (var signature in function.Signatures) {
           Signature(function, signature);
-          var key = function.Name + "(" + (signature.Inputs == null ? signature.InputKind ?? "*" :
-            string.Join(",", signature.Inputs.Select(field => (field.Variadic ? "..." : "") + field.Kind))) + ")";
+          var key = function.Name + "(" + (signature.Inputs == null ? signature.InputPattern == null ? "*" : HixGenericTypes.PatternIdentity(signature.InputPattern) :
+            string.Join(",", signature.Inputs.Select(field => (field.Variadic ? "..." : "") + HixGenericTypes.PatternIdentity(field.Pattern)))) + ")";
           if (!signatures.Add(key)) Error(function, "duplicate function signature '" + key + "'");
         }
         if (function.IsPure) Pure(function.Body);
@@ -133,7 +145,7 @@ public static class LanguageValidation {
       if (group.Count() > 1) Error(group.First(), "duplicate mixin '" + group.Key + "'");
     foreach (var group in declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal))
       if (group.Count() > 1) Error(group.First(), "duplicate pattern '" + group.Key + "'");
-    foreach (var type in declarations.OfType<TypeDeclarationIr>()) ValidatePattern(type.Pattern, type, new HashSet<string>());
+    foreach (var type in declarations.OfType<TypeDeclarationIr>()) ValidatePattern(patterns[type.Name], type, new HashSet<string>());
     foreach (var mixin in declarations.OfType<MixinDeclarationIr>()) {
       var names = new HashSet<string>(StringComparer.Ordinal);
       foreach (var parameter in mixin.Parameters) {
@@ -144,6 +156,8 @@ public static class LanguageValidation {
     Scope(declarations, []);
 
     void ValidatePattern(HixPattern pattern, HixIrNode owner, ISet<string> path) {
+      try { pattern = PatternComposition.Resolve(pattern, patterns); }
+      catch (ArgumentException error) { Error(owner, error.Message); return; }
       switch (pattern) {
         case OpaqueHixPattern opaque:
           if (opaque.Arguments.Count != opaque.Definition.Arity) Error(owner, "invalid opaque type arity");
@@ -175,6 +189,10 @@ public static class LanguageValidation {
         case EnumHixPattern enumeration: ValidatePattern(enumeration.Underlying, owner, path); break;
         case DocumentedHixPattern documented: ValidatePattern(documented.Underlying, owner, path); break;
         case ConstrainedHixPattern constrained: ValidatePattern(constrained.Underlying, owner, path); break;
+        case TraitHixPattern trait: ValidatePattern(trait.Underlying, owner, path); break;
+        case IntersectionHixPattern intersection:
+          ValidatePattern(intersection.Left, owner, new HashSet<string>(path));
+          ValidatePattern(intersection.Right, owner, new HashSet<string>(path)); break;
         case TaggedHixPattern tagged:
           if (!IsTablePattern(tagged.Underlying, new HashSet<string>()))
             Error(owner, "tagged type must be a table pattern");

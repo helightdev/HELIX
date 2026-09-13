@@ -277,7 +277,7 @@ public sealed class HixVM : IDisposable {
                 continue;
             var signature = reference.Signature;
             var owner = loadedScopes[scopes[index] ?? program.Scope];
-            var key = (owner, signature.Display + (reference.DeclarationSignature == null ? "" : "|" + reference.DeclarationSignature));
+            var key = (owner, HixGenericTypes.SignatureIdentity(signature) + (reference.DeclarationSignature == null ? "" : "|" + reference.DeclarationSignature));
             if (resolved.TryGetValue(key, out var cached)) {
                 constants[index] = cached;
                 continue;
@@ -291,7 +291,7 @@ public sealed class HixVM : IDisposable {
             }
 
             var definitions = Backend.Functions.Resolve(signature.Name, signature.Parameters.Count).SelectMany(definition => definition.Signatures.Select(item => (definition, signature: item))).Where(item =>
-                BuiltinSignature(item.definition.Name, item.signature).Display == signature.Display &&
+                HixGenericTypes.SignatureIdentity(BuiltinSignature(item.definition.Name, item.signature)) == HixGenericTypes.SignatureIdentity(signature) &&
                 (reference.DeclarationSignature == null || HixGenericTypes.SignatureIdentity(new SignatureHixPattern(item.definition.Name,
                   item.signature.ArgumentPatterns.Select((pattern, position) => new HixPatternField(
                     item.signature.GetArgumentName(position) ?? position.ToString(), pattern)).ToArray(), item.signature.ResultPattern)) == reference.DeclarationSignature)).ToArray();

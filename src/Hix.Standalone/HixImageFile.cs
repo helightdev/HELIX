@@ -90,7 +90,7 @@ public static class HixImageFile {
   private sealed class PatternConverter : JsonConverter {
     private static readonly Type[] Types = {
       typeof(AnyHixPattern), typeof(KindHixPattern), typeof(NamedHixPattern), typeof(UnionHixPattern), typeof(TupleHixPattern), typeof(TableHixPattern),
-      typeof(ManyHixPattern), typeof(MapHixPattern), typeof(DefinedHixPattern), typeof(TaggedHixPattern), typeof(ConstantHixPattern), typeof(EnumHixPattern),
+      typeof(ManyHixPattern), typeof(MapHixPattern), typeof(DefinedHixPattern), typeof(TaggedHixPattern), typeof(TraitHixPattern), typeof(IntersectionHixPattern), typeof(ConstantHixPattern), typeof(EnumHixPattern),
       typeof(DocumentedHixPattern), typeof(ConstrainedHixPattern), typeof(DelegateHixPattern), typeof(SignatureHixPattern), typeof(HixPatternField),
       typeof(OpaqueHixPattern), typeof(HixOpaqueTypeDefinition), typeof(TypeParameterHixPattern), typeof(HixTypeParameter)
     };

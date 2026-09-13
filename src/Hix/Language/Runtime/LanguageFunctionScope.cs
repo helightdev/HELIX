@@ -34,8 +34,8 @@ public sealed class LanguageFunctionScope {
     }
 
     public LanguageFunctionCandidate Resolve(SignatureHixPattern signature) {
-        var display = signature.Display;
-        return Candidates(signature.Name).SingleOrDefault(candidate => candidate.SignatureDisplay == display);
+        var identity = HixGenericTypes.SignatureIdentity(signature);
+        return Candidates(signature.Name).SingleOrDefault(candidate => candidate.SignatureIdentity == identity);
     }
 
     public bool Contains(string name) => candidates.ContainsKey(name);
@@ -46,7 +46,7 @@ public sealed class LanguageFunctionScope {
 
     : null;
 
-    public static string SignatureKey(BytecodeSignature signature) => signature == null ? "(*)" : signature.Inputs == null ? signature.InputPattern == null ? "(*)" : signature.InputKind : "(" + string.Join(",", signature.Inputs.Select(field => (field.Variadic ? "..." : "") + field.Kind)) + ")";
+    public static string SignatureKey(BytecodeSignature signature) => signature == null ? "(*)" : signature.Inputs == null ? signature.InputPattern == null ? "(*)" : HixGenericTypes.PatternIdentity(signature.InputPattern) : "(" + string.Join(",", signature.Inputs.Select(field => (field.Variadic ? "..." : "") + HixGenericTypes.PatternIdentity(field.Pattern))) + ")";
 
     public IEnumerable<(string Scope, BytecodeFunction Function)> DisassemblyFunctions(string name, bool includeParent = true) {
         if (includeParent && parent != null)
@@ -66,11 +66,11 @@ public sealed class LanguageFunctionScope {
                 builder.Append(function.IsPure ? 1 : 0);
                 HixMetadataCompiler.Fingerprint(builder, function.Metadata);
                 foreach (var signature in function.Signatures) {
-                    builder.Append(signature.InputKind);
-                    builder.Append(signature.OutputKind);
+                    builder.Append(signature.InputPattern == null ? null : HixGenericTypes.PatternIdentity(signature.InputPattern));
+                    builder.Append(signature.OutputPattern == null ? null : HixGenericTypes.PatternIdentity(signature.OutputPattern));
                     foreach (var field in (signature.Inputs ?? Array.Empty<BytecodeField>()).Concat(signature.Outputs ?? Array.Empty<BytecodeField>())) {
                         builder.Append(field.Name);
-                        builder.Append(field.Kind);
+                        builder.Append(HixGenericTypes.PatternIdentity(field.Pattern));
                         builder.Append(field.Variadic);
                         HixMetadataCompiler.Fingerprint(builder, field.Metadata);
                     }
@@ -107,6 +107,7 @@ public sealed class LanguageFunctionScope {
 
 public sealed record LanguageFunctionCandidate(BytecodeFunction Function, BytecodeSignature Signature, LanguageFunctionScope Owner) {
     public string SignatureDisplay { get; } = Signature?.Constant(Function.Name).Display;
+    public string SignatureIdentity { get; } = Signature == null ? null : HixGenericTypes.SignatureIdentity(Signature.Constant(Function.Name));
     public bool Variadic { get; } = Signature?.Inputs is { Count: > 0 } fields && fields[fields.Count - 1].Variadic;
     public int FixedCount { get; } = Signature?.Inputs is { } fields ? fields.Count(field => !field.AllowsMissing && !field.Variadic) : 0;
     public int BaseScore { get; } = Signature == null ? -10000 : Signature.Inputs == null ? Signature.InputPattern == null ? -9999 : Signature.InputKind == "any" ? 1000 : 1001 : (Signature.Inputs.Count > 0 && Signature.Inputs[Signature.Inputs.Count - 1].Variadic ? 0 : 1000) + Signature.Inputs.Count(field => field.Kind != "any");

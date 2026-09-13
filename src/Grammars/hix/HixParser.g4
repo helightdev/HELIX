@@ -27,9 +27,9 @@ metadataValue: BEGIN_METADATA_VALUE value VALUE_END_INLINE;
 // Declarations
 mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier patternParameterList? mixinBody;
 
-typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression SEMICOLON?;
+typeDeclaration: KEYWORD_TRAIT? KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression SEMICOLON?;
 
-metaDeclaration: metaModifier* KEYWORD_META IDENTIFIER patternParameterList KEYWORD_FOR metaTarget (COMMA? metaTarget)* SEMICOLON;
+metaDeclaration: metaModifier* KEYWORD_META (IDENTIFIER | KEYWORD_TRAIT) patternParameterList KEYWORD_FOR metaTarget (COMMA? metaTarget)* SEMICOLON;
 metaTarget: IDENTIFIER | KEYWORD_TYPE | KEYWORD_MIXIN | KEYWORD_EXPRESSION;
 
 mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
@@ -80,7 +80,7 @@ patternParameterList
     | EMPTY_PARAMETERS
     ;
 
-patternField: metadataList? patternUnion ROOT_IDENTIFIER? (VALUE_ASSIGN value)?;
+patternField: metadataList? patternUnion (ROOT_IDENTIFIER | STRING)? (VALUE_ASSIGN value)?;
 patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 
 // Actual Statements
@@ -103,6 +103,7 @@ statementBody
     | whenConditionStatement
     | whenChainStatement
     | valueExpression
+    | nonArgumentValue
     ;
 
 // Calls
@@ -226,7 +227,7 @@ tableValue
     | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* VALUE_DELIMITER? RC
     ;
 
-tableKeyedEntry: metadata* (ROOT_IDENTIFIER | MISSING) VALUE_ASSIGN value;
+tableKeyedEntry: metadata* (ROOT_IDENTIFIER | MISSING | STRING) VALUE_ASSIGN value;
 
 valueList
     : BEGIN_PARAMETERS value (VALUE_DELIMITER value)* VALUE_DELIMITER? END_PARAMETERS
@@ -244,13 +245,13 @@ callValueList
     | argumentValue+
     ;
 
-callArgument: (ROOT_IDENTIFIER | MISSING) VALUE_ASSIGN value | value;
+callArgument: (ROOT_IDENTIFIER | MISSING | STRING) VALUE_ASSIGN value | value;
 
 argumentValue: BEGIN_ARGUMENT argumentBody ARGUMENT_END;
 
 argumentBody: (ARGUMENT_TEXT | escaped | inlineValue)*;
 
-inlineValue: BEGIN_VALUE_INLINE value VALUE_END_INLINE;
+inlineValue: BEGIN_VALUE_INLINE value? VALUE_END_INLINE;
 
 inlineTransformation: BEGIN_VALUE_INLINE transformationPart+ VALUE_END_INLINE;
 
@@ -261,7 +262,7 @@ explicitRoot: EXPLICIT_ROOT valueList;
 derivationRoot
     : explicitRoot
     | ROOT_IDENTIFIER
-    | VALUE_SMART_ROOT (ROOT_IDENTIFIER | NUMBER | MISSING)
+    | VALUE_SMART_ROOT (ROOT_IDENTIFIER | IDENTIFIER | NUMBER | MISSING)
     ;
 
 elvisValue: VALUE_ELVIS value;
@@ -272,7 +273,7 @@ transformationPart
     | VALUE_WRAP
     ;
 
-functionChainType: VALUE_FUNCTION | VALUE_PREDICATE;
+functionChainType: VALUE_FUNCTION | VALUE_PREDICATE | LABEL_PREFIX;
 
 // Identifiers
 labelIdentifier: LABEL_PREFIX LABEL_IDENTIFIER;
@@ -280,7 +281,7 @@ memberIdentifier: VALUE_MEMBER MEMBER_IDENTIFIER;
 mixinIdentifier: IDENTIFIER | NAMESPACE_IDENTIFIER | argumentValue;
 functionDeclarationIdentifier: IDENTIFIER | argumentValue;
 variableIdentifier: IDENTIFIER;
-functionIdentifier: FUNCTION_IDENTIFIER | ROOT_IDENTIFIER;
+functionIdentifier: FUNCTION_IDENTIFIER | ROOT_IDENTIFIER | LABEL_IDENTIFIER;
 invocationIdentifier: IDENTIFIER | KEYWORD_LOCAL;
 kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL | MISSING;
 

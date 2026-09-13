@@ -11,10 +11,18 @@ internal static class PatternConstructorCompiler {
     var visited = new HashSet<string>();
     while (pattern is NamedHixPattern named && visited.Add(named.Name) && patterns.TryGetValue(named.Name, out var resolved))
       pattern = resolved;
+    var isTrait = HixPatterns.TryTrait(pattern, patterns, out var trait);
+    if (isTrait) pattern = trait.Underlying;
     HixPatterns.TryStructural(pattern, patterns, out var structural);
-    var result = new NamedHixPattern(name);
+    HixPattern result = isTrait ? pattern : new NamedHixPattern(name);
     if (structural == null) yield break;
     var fields = structural is TableHixPattern table ? table.Fields : ((TupleHixPattern)structural).Fields;
+    if (isTrait) {
+      // A trait-name pipeline extracts its component; the field overload constructs data.
+      yield return Method(name, new FunctionSignature(null,
+        [new SignatureField("value", trait.Requirement)], result, null),
+        new CallExpressionIr("cast", [Argument(0), new RootExpressionIr(name)]));
+    }
     var inputs = fields.Select(field => new SignatureField(field.Name, field.Pattern, optional: field.Optional,
       defaultValue: field.HasDefault ? Literal(field.DefaultValue) : null)).ToArray();
     ExpressionIr construction;

@@ -73,10 +73,10 @@ public static class HixFormatter {
         HixLexer.CONTENT_LINEBREAK or HixLexer.TERMINATOR) return false;
     if (IsComma(current.Type) || IsClosing(current.Type) || current.Type is HixLexer.SEMICOLON or HixLexer.VALUE_END or
         HixLexer.QUESTION or HixLexer.TOPLEVEL_QUESTION or HixLexer.VALUE_MEMBER or
-        HixLexer.VALUE_FUNCTION or HixLexer.VALUE_PREDICATE) return false;
+        HixLexer.VALUE_FUNCTION or HixLexer.VALUE_PREDICATE or HixLexer.LABEL_PREFIX) return false;
     if (IsOpening(previous.Type) || previous.Type is HixLexer.METADATA_PREFIX or HixLexer.VALUE_MEMBER or
         HixLexer.VALUE_FUNCTION or HixLexer.VALUE_PREDICATE or HixLexer.VALUE_SMART_ROOT or
-        HixLexer.TOPLEVEL_SMART_ROOT or HixLexer.LABEL_PREFIX) return false;
+        HixLexer.LABEL_PREFIX) return false;
     if (current.Type is HixLexer.BEGIN_PARAMETERS or HixLexer.EMPTY_PARAMETERS) return false;
     if (current.Type == HixLexer.BEGIN_ARGUMENT && (previous.Type is HixLexer.IDENTIFIER or
         HixLexer.NAMESPACE_IDENTIFIER or HixLexer.ROOT_IDENTIFIER or HixLexer.FUNCTION_IDENTIFIER or

@@ -182,7 +182,7 @@ private object ExpressionProvider : CompletionProvider<CompletionParameters>() {
         HixLookup.constructorCallAt(context.parsed, context.offset)?.let { call ->
             constructors.firstOrNull { it.name == call.name }?.fields
                 ?.filter { it.name !in call.assigned }.orEmpty().forEach { field ->
-                    result.addElement(LookupElementBuilder.create("${field.name} = ")
+                    result.addElement(LookupElementBuilder.create("${HixLookup.fieldName(field.name)} = ")
                         .withPresentableText(field.name).withTypeText(field.type).ranked(1200.0))
                 }
         }

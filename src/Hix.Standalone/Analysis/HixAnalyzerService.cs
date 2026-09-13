@@ -114,7 +114,7 @@ public sealed class HixAnalyzerService {
       name, "PrimitivePattern", 0, false, "None", "None", "pattern", [],
       "Primitive pattern matching `" + name + "` values."));
     var types = backend.Functions.Types.Select(type => new HixDefinition(type.Name, "Type", 0, false,
-      "None", "None", "pattern", [], "pattern " + type.Name + " = " + type.Pattern.Display));
+      "None", "None", "pattern", [], type.Name));
     var metadata = all.Where(definition => (definition.Metadata &
         (HixMetadataKind.Pattern | HixMetadataKind.PatternField)) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,

@@ -52,6 +52,7 @@ public static class HixMetadataCompiler {
   public static HixPattern Runtime(HixPattern pattern) {
     HixPatternField Field(HixPatternField field) => field with {Pattern = Runtime(field.Pattern), Metadata = Runtime(field.Metadata)};
     return pattern switch {
+      PatternValueHixPattern => new KindHixPattern(HixValueKind.Pattern),
       TableHixPattern table => table with {Fields = table.Fields.Select(Field).ToArray()},
       TupleHixPattern tuple => tuple with {Fields = tuple.Fields.Select(Field).ToArray()},
       DelegateHixPattern callable => callable with {Parameters = callable.Parameters.Select(Field).ToArray(), Result = Runtime(callable.Result)},
@@ -60,6 +61,8 @@ public static class HixMetadataCompiler {
       UnionHixPattern union => union with {Patterns = union.Patterns.Select(Runtime).ToArray()},
       ManyHixPattern many => many with {Element = Runtime(many.Element)},
       MapHixPattern map => map with {Key = Runtime(map.Key), Value = Runtime(map.Value)},
+      TraitHixPattern trait => trait with {Underlying = Runtime(trait.Underlying)},
+      IntersectionHixPattern intersection => intersection with {Left = Runtime(intersection.Left), Right = Runtime(intersection.Right)},
       TaggedHixPattern tagged => tagged with {Underlying = Runtime(tagged.Underlying)},
       DocumentedHixPattern documented => documented with {Underlying = Runtime(documented.Underlying)},
       ConstrainedHixPattern constrained => constrained with {Underlying = Runtime(constrained.Underlying)},
@@ -92,7 +95,7 @@ public static class HixMetadataCompiler {
         }
         break;
       case PatternHixValue pattern:
-        builder.Append(pattern.Pattern.Display); FingerprintPattern(builder, pattern.Pattern); break;
+        builder.Append(HixGenericTypes.PatternIdentity(pattern.Pattern)); FingerprintPattern(builder, pattern.Pattern); break;
       case NullHixValue or MissingHixValue: break;
       default: throw new ArgumentException("unsupported retained metadata value");
     }
@@ -100,6 +103,7 @@ public static class HixMetadataCompiler {
 
   internal static void FingerprintPattern(HixFingerprintBuilder builder, HixPattern pattern) {
     if (pattern == null) return;
+    builder.Append(HixGenericTypes.PatternIdentity(pattern));
     void Fields(IEnumerable<HixPatternField> fields) {
       foreach (var field in fields) { Fingerprint(builder, field.Metadata); FingerprintPattern(builder, field.Pattern); }
     }
@@ -112,6 +116,8 @@ public static class HixMetadataCompiler {
       case UnionHixPattern union: foreach (var child in union.Patterns) FingerprintPattern(builder, child); break;
       case ManyHixPattern many: FingerprintPattern(builder, many.Element); break;
       case MapHixPattern map: FingerprintPattern(builder, map.Key); FingerprintPattern(builder, map.Value); break;
+      case TraitHixPattern trait: FingerprintPattern(builder, trait.Underlying); break;
+      case IntersectionHixPattern intersection: FingerprintPattern(builder, intersection.Left); FingerprintPattern(builder, intersection.Right); break;
       case TaggedHixPattern tagged: FingerprintPattern(builder, tagged.Underlying); break;
       case DocumentedHixPattern documented: FingerprintPattern(builder, documented.Underlying); break;
       case ConstrainedHixPattern constrained: FingerprintPattern(builder, constrained.Underlying); break;

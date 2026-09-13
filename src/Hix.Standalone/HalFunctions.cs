@@ -25,6 +25,7 @@ internal static class HalFunctions {
 
   private static IHixValue Write(HixCoroutine thread, IHixValue[] args) {
     var pattern = args.Length == 1 ? Infer(args[0]) : ((PatternHixValue)args[1]).Pattern;
+    if (HixPatterns.TryTrait(pattern, thread.PatternDefinitions, out _)) return thread.Error("traits are not instantiable as Hal sections");
     if (!thread.Matches(pattern, args[0], out var failure)) return thread.Error("Hal value does not match pattern: " + failure);
     var text = new StringBuilder("--- ").Append(pattern is NamedHixPattern named ? named.Name : pattern.Display).AppendLine();
     if (args[0] is HixTableValue table) WriteEntries(text, table, thread, 0); else WriteValue(text, args[0], thread, 0);
@@ -34,7 +35,9 @@ internal static class HalFunctions {
   private static HixPattern Infer(IHixValue value) => new KindHixPattern(value.Kind);
   private static void WriteEntries(StringBuilder text, HixTableValue table, HixCoroutine thread, int depth) {
     foreach (var entry in table.Entries) {
-      text.Append(' ', depth * 2).Append(entry.Key.Resolve(thread.Strings)).Append(" = ");
+      var name = entry.Key.Resolve(thread.Strings);
+      var key = System.Text.RegularExpressions.Regex.IsMatch(name, @"^[A-Za-z_][A-Za-z_0-9]*$") ? name : "\"" + Escape(name) + "\"";
+      text.Append(' ', depth * 2).Append(key).Append(" = ");
       WriteValue(text, entry.Value, thread, depth); text.AppendLine();
     }
   }
@@ -92,6 +95,7 @@ internal static class HalFunctions {
       var pattern = HixPatterns.Named(type);
       if (pattern is NamedHixPattern named && !thread.PatternDefinitions.TryGetValue(named.Name, out pattern))
         throw new HalException("unknown pattern '" + type + "'");
+      if (HixPatterns.TryTrait(pattern, thread.PatternDefinitions, out _)) throw new HalException("traits are not instantiable");
       value = ApplyDefaults(thread, value, pattern, thread.PatternDefinitions);
       if (!thread.Matches(pattern, value, out var failure)) throw new HalException("value does not match '" + type + "': " + failure);
       return value;
@@ -102,6 +106,7 @@ internal static class HalFunctions {
     IReadOnlyDictionary<string, HixPattern> definitions) {
     if (pattern is NamedHixPattern named && definitions.TryGetValue(named.Name, out var resolved)) return ApplyDefaults(thread, value, resolved, definitions);
     if (pattern is DefinedHixPattern defined) return ApplyDefaults(thread, value, defined.Root, defined.Definitions);
+    if (pattern is IntersectionHixPattern intersection) return ApplyDefaults(thread, ApplyDefaults(thread, value, intersection.Left, definitions), intersection.Right, definitions);
     if (pattern is TaggedHixPattern tagged && value is HixTableValue taggedTable) {
       var key = HixString.Dynamic(TaggedHixPattern.FieldName);
       var result = taggedTable.TryGetValue(thread, key, out _) ? taggedTable : taggedTable.Put(thread, key, HixCoroutine.String(tagged.Discriminator));

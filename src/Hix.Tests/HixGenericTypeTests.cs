@@ -76,7 +76,7 @@ public sealed class HixGenericTypeTests {
     var second = new HixTypeParameter("second", "T");
     var type = new HixOpaqueTypeDefinition("test.box", "box", 1);
     var substitutions = new Dictionary<HixTypeParameter, HixPattern> { [first] = Number };
-    Assert.Equal("box<number>", HixGenericTypes.Substitute(type.Construct(first.Pattern), substitutions).Display);
+    Assert.Equal("box(number)", HixGenericTypes.Substitute(type.Construct(first.Pattern), substitutions).Display);
     Assert.Equal("T", HixGenericTypes.Substitute(second.Pattern, substitutions).Display);
     Assert.Equal("any", HixGenericTypes.Substitute(second.Pattern, substitutions, true).Display);
     Assert.False(HixGenericTypes.Equivalent(first.Pattern, second.Pattern));
@@ -212,6 +212,133 @@ public sealed class HixGenericTypeTests {
     var result = vm.Invoke(program, backend.CreateCoroutine());
     var values = Assert.IsType<TupleHixValue>(result.Value).Values;
     Assert.Equal(new[] {"first", "second"}, values.Cast<LiteralHixValue>().Select(value => value.Value.Resolve(result.Execution.Strings)));
+  }
+
+  [Theory]
+  [InlineData("local target = [string]\n return(cast(42, $target))", "cast", "string")]
+  [InlineData("local target = [string]\n return(as(42, $target))", "as", "string?")]
+  [InlineData("local target = [Person]\n return(new($target, Person()))", "new", "Person")]
+  [InlineData("return(map(@[1, 2], func => plus($0, 1)))", "map", "many(number)")]
+  [InlineData("return(where(@[1, <a>], func => true))", "where", "many(number|string)")]
+  [InlineData("return(values(@{a = 1, b = <x>}))", "values", "many(number|string)")]
+  [InlineData("return(get(@[1, 2], 5))", "get", "number|missing")]
+  [InlineData("return(get(@{a = 1}, <b>, <fallback>))", "get", "number|string")]
+  [InlineData("return(reduce(@[1, 2], func => plus($0, $1), 0))", "reduce", "number")]
+  public void StandardLibraryInfersPreciseResultPatterns(string body, string name, string expected) {
+    var analysis = new LanguageAnalysis("type Person = @{string name = <Ada>}; func main { " + body + " }");
+    var unit = analysis.Program;
+    Assert.Empty(unit.Diagnostics);
+    IEnumerable<HixIrNode> Nodes(HixIrNode node) => new[] {node}.Concat(node.Children.SelectMany(Nodes));
+    var call = Nodes(unit).OfType<CallExpressionIr>().First(item => item.Name == name);
+    Assert.Equal(expected, analysis.TypeFacts.Last(fact => fact.Range == call.SourceRange && fact.Kind == "Expression").Type);
+  }
+
+  [Fact]
+  public void ComputedGenericLinksAreScopedAndAvailableToEditorAnalysis() {
+    var source = "%computedGeneric<TValue></arguments/target/pattern> pure func convert(pattern target, any value) -> TValue { return(new($target, $value)) } func main { return(convert(string, 42)) }";
+    var analysis = new LanguageAnalysis(source);
+    Assert.Empty(analysis.Program.Diagnostics);
+    var declaration = analysis.Program.Declarations.OfType<FunctionDeclarationIr>().First();
+    Assert.Single(declaration.TypeParameters);
+    Assert.Equal("/arguments/target/pattern", declaration.TypeParameters[0].ComputedPath);
+    Assert.Contains(analysis.Declarations, symbol => symbol.Name == "TValue" && source.Substring(symbol.Range.Start, symbol.Range.Length) == "TValue");
+    IEnumerable<HixIrNode> Nodes(HixIrNode node) => new[] {node}.Concat(node.Children.SelectMany(Nodes));
+    var call = Nodes(analysis.Program).OfType<CallExpressionIr>().Single(call => call.Name == "convert");
+    Assert.Contains(analysis.TypeFacts, fact => fact.Range == call.SourceRange && fact.Type == "string");
+  }
+
+  [Fact]
+  public void ComputedGenericPathsSelectTraitDataAndIndependentArguments() {
+    var source = "trait type Named = @{string name}; %computedGeneric<P></arguments/left/pattern> %computedGeneric<Q></arguments/right/pattern/data> pure func select(pattern left, pattern right) -> Q external;";
+    var unit = AntlrSyntax.Parse(source);
+    Assert.Empty(unit.Diagnostics);
+    var parameters = unit.Declarations.OfType<FunctionDeclarationIr>().Single().TypeParameters;
+    Assert.Equal("/arguments/left/pattern", parameters[0].ComputedPath);
+    Assert.Equal("/arguments/right/pattern/data", parameters[1].ComputedPath);
+  }
+
+  [Fact]
+  public void ComputedGenericDoesNotInventSchemasForDynamicPatterns() {
+    var analysis = new LanguageAnalysis("func dynamic(pattern target) -> any { return(cast(42, $target)) }");
+    var unit = analysis.Program;
+    Assert.Empty(unit.Diagnostics);
+    var function = unit.Declarations.OfType<FunctionDeclarationIr>().Single();
+    var call = ((ControlFlowStatementIr)function.Body.Statements.Single()).Values.OfType<CallExpressionIr>().Single();
+    Assert.Contains(analysis.TypeFacts, fact => fact.Range == call.SourceRange && fact.Type == "any");
+  }
+
+  [Fact]
+  public void LiteralPatternNamesBindWithoutChangingSourceArguments() {
+    var source = "type Person = @{string name}; func main { return(cast(@{name = <Ada>}, <Person>)) }";
+    var analysis = new LanguageAnalysis(source);
+    Assert.Empty(analysis.Program.Diagnostics);
+    IEnumerable<HixIrNode> Nodes(HixIrNode node) => new[] {node}.Concat(node.Children.SelectMany(Nodes));
+    var call = Nodes(analysis.Program).OfType<CallExpressionIr>().Single(item => item.Name == "cast");
+    Assert.IsType<StringExpressionIr>(call.Arguments[1]);
+    Assert.Equal("Person", call.Resolution.Signature.Result.Display);
+    Assert.Equal(new[] {1}, call.Resolution.PatternConversions);
+    Assert.Equal("Person", Assert.IsType<RootExpressionIr>(call.Resolution.Arguments[1]).Binding.Name);
+    Assert.Contains(analysis.TypeFacts, fact => fact.Kind == "Coercion" && fact.Type == "pattern");
+    Assert.Contains(analysis.References, reference => reference.Name == "Person" && reference.Node is StringExpressionIr);
+  }
+
+  [Fact]
+  public void ExactStringOverloadsBeatPatternNameConversions() {
+    var analysis = new LanguageAnalysis("pure func choose(string target) -> string => <string>; pure func choose(pattern target) -> bool => true; func main { return(choose(<number>)) }");
+    Assert.Empty(analysis.Program.Diagnostics);
+    IEnumerable<HixIrNode> Nodes(HixIrNode node) => new[] {node}.Concat(node.Children.SelectMany(Nodes));
+    var call = Nodes(analysis.Program).OfType<CallExpressionIr>().Single(item => item.Name == "choose");
+    Assert.Equal("string", call.Resolution.Signature.Result.Display);
+    Assert.Empty(call.Resolution.PatternConversions);
+  }
+
+  [Fact]
+  public void PatternNameConversionResolvesNamespaceImports() {
+    var source = "%using<domain>\n---\ntype domain.Person = @{string name}; func main { return(cast(@{name = <Ada>}, <Person>)) }";
+    var analysis = new LanguageAnalysis(source);
+    Assert.Empty(analysis.Program.Diagnostics);
+    IEnumerable<HixIrNode> Nodes(HixIrNode node) => new[] {node}.Concat(node.Children.SelectMany(Nodes));
+    var call = Nodes(analysis.Program).OfType<CallExpressionIr>().Single(item => item.Name == "cast");
+    Assert.Equal("domain.Person", call.Resolution.Signature.Result.Display);
+    Assert.Equal("domain.Person", Assert.IsType<RootExpressionIr>(call.Resolution.Arguments[1]).Name);
+  }
+
+  [Fact]
+  public void ComputedGenericPathsProjectHeterogeneousTuplesAndChainUnions() {
+    var task = new HixOpaqueTypeDefinition("test.task", "task", 1);
+    var projected = new HixTypeParameter("paths", "Results") {ComputedPath = "/arguments/tasks/*/typeArguments/0"};
+    var result = new HixTypeParameter("paths", "Result") {ComputedPath = "/generics/Results/union"};
+    var values = new TupleHixPattern([new("0", task.Construct(Number)), new("1", task.Construct(String))]);
+    var substitutions = new Dictionary<HixTypeParameter, HixPattern>();
+    ComputedGenericPath.Infer([result, projected], [new("tasks", values)], [values], substitutions, Patterns);
+    Assert.True(HixGenericTypes.Equivalent(new TupleHixPattern([new("0", Number), new("1", String)]), substitutions[projected]));
+    Assert.True(HixGenericTypes.Equivalent(HixPatterns.Union([Number, String]), substitutions[result]));
+  }
+
+  [Fact]
+  public void ComputedGenericPathsNavigateEscapedFieldsAndCallableSchemas() {
+    var callable = new DelegateHixPattern([new("value", Number)], String);
+    var value = new TableHixPattern([new("a/b~c", callable)]);
+    HixPattern Compute(string path) {
+      var parameter = new HixTypeParameter("paths", "T") {ComputedPath = path};
+      var substitutions = new Dictionary<HixTypeParameter, HixPattern>();
+      ComputedGenericPath.Infer([parameter], [new("value", value)], [value], substitutions, Patterns);
+      return substitutions[parameter];
+    }
+    Assert.Equal(String, Compute("/arguments/value/fields/a~1b~0c/result"));
+    Assert.Equal(Number, Compute("/arguments/value/fields/a~1b~0c/parameters/0"));
+    Assert.Equal(new KindHixPattern(HixValueKind.String), Compute("/arguments/value/keys"));
+    Assert.IsType<DelegateHixPattern>(Compute("/arguments/value/values"));
+    Assert.IsType<AnyHixPattern>(Compute("/arguments/value/fields/missing"));
+  }
+
+  [Theory]
+  [InlineData("not/a/pointer")]
+  [InlineData("/arguments/value/typeArguments/-1")]
+  [InlineData("/arguments/value/unknown")]
+  [InlineData("/arguments/value/fields/bad~2escape")]
+  public void ComputedGenericPathsRejectInvalidSyntax(string path) {
+    Assert.Throws<ArgumentException>(() => ComputedGenericPath.Parse(path));
   }
 
   private sealed record HostDeclaration(string Name, HostSignature[] Signatures, InlineFunction Handler);

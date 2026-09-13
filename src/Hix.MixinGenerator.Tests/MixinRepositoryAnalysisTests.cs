@@ -101,7 +101,7 @@ public sealed class MixinRepositorySyntaxTests {
     var files = Directory.GetFiles(Path.Combine(root!.FullName, "src", "HELIX", "Assets", "Mixins"),
       "*.HelixSourceGenerator.additionalfile");
     Assert.NotEmpty(files);
-    var units = files.Select(path => AntlrSyntax.Parse(File.ReadAllText(path))).ToArray();
+    var units = files.Select(path => AntlrSyntax.Parse(File.ReadAllText(path), Hix.HixMixinBackend.Instance)).ToArray();
     Assert.All(units, unit => Assert.Empty(unit.Diagnostics));
     Assert.True(units.Sum(unit => unit.Declarations.Count) > 10);
     Assert.True(units.Sum(unit => unit.Tokens.Count) > 100);

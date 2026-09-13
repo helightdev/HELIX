@@ -4,9 +4,6 @@ public static class MetadataFunctions {
   public static void Register(FunctionSignatureRegistryBuilder definitions) {
     definitions.AddLibrary("""
       compiler meta opaque(string identity, number arity) for type;
-      compiler meta invokeArguments(string callable, string arguments) for function;
-      compiler meta tupleResults(string argument, number typeArgument) for function;
-      compiler meta firstResult(string argument, number typeArgument) for function;
       %description("Exports a function or type under an additional name; repeatable.")
       compiler meta alias(string name) for function type;
       %description("Expands compiler-bound function calls within a statement.")
@@ -21,6 +18,8 @@ public static class MetadataFunctions {
       meta description(string text) for pattern field type function mixin;
       %description("Declares a scoped type parameter followed by optional pattern bounds.")
       meta generic(string name, %variadic pattern bounds) for function;
+      %description("Declares a scoped type parameter computed from a schema pointer path.")
+      compiler meta computedGeneric(string name, string path, %variadic pattern bounds) for function;
       meta requiresPrelude() for function;
       meta reference(string kind) for field;
       %description("Names a bytecode location, optionally preserving its decompiled type.")
@@ -56,6 +55,12 @@ public static class MetadataFunctions {
       meta default(any value) for field;
       %description("Marks a field as a graph value input or an outgoing flow link.")
       meta graph(string kind) for field;
+      %description("Intersects two field validation patterns.")
+      compiler meta intersect(pattern left, pattern right) for pattern field;
+      %description("Intersects table fields or tuple positions with another pattern.")
+      compiler meta inherit(pattern parent) for type pattern;
+      %description("Adds a required isolated component from a declared trait type.")
+      compiler meta trait(pattern component) for type pattern;
       %description("Adds a required $type discriminator, defaulting to the type name.")
       meta tagged() for type;
       meta tagged(string discriminator) for type;

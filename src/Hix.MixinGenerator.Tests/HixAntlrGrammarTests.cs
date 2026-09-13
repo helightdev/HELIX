@@ -34,7 +34,7 @@ public sealed class HixAntlrGrammarTests {
     var path = Path.GetFullPath(Path.Combine(
       "../../../../HELIX/Assets/Mixins", name + ".HelixSourceGenerator.additionalfile"));
 
-    var unit = Hix.Compiler.AntlrSyntax.Parse(File.ReadAllText(path));
+    var unit = Hix.Compiler.AntlrSyntax.Parse(File.ReadAllText(path), Hix.HixMixinBackend.Instance);
 
     Assert.True(unit.Diagnostics.Count == 0, string.Join("\n", unit.Diagnostics));
     Assert.NotEmpty(unit.Declarations);

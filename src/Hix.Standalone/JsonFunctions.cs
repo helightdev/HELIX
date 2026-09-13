@@ -15,7 +15,8 @@ internal static class JsonFunctions {
       %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern.>
       pure func parseJson(string arg0) -> any external;
       %description<Parses JSON into Hix null, boolean, number, string, tuple, and table values, optionally validating a pattern.>
-      pure func parseJson(string arg0, pattern arg1) -> any external;
+      %computedGeneric<TValue></arguments/arg1/pattern>
+      pure func parseJson(string arg0, pattern arg1) -> TValue external;
       %description<Writes a Hix value as compact JSON, optionally validating a pattern.>
       pure func writeJson(any arg0) -> string external;
       %description<Writes a Hix value as compact JSON, optionally validating a pattern.>
@@ -152,6 +153,13 @@ internal static class JsonFunctions {
         if (required.Length != 0) schema["required"] = new JArray(required);
         return schema;
       }
+      case TraitHixPattern trait: {
+        var schema = SchemaFor(trait.Requirement, known, definitions, visiting);
+        schema["x-hix-trait"] = trait.Name;
+        return schema;
+      }
+      case IntersectionHixPattern intersection:
+        return new JObject { ["allOf"] = new JArray(SchemaFor(intersection.Left, known, definitions, visiting), SchemaFor(intersection.Right, known, definitions, visiting)) };
       case TaggedHixPattern tagged: {
         var schema = SchemaFor(tagged.Underlying, known, definitions, visiting);
         schema["type"] = "object";
@@ -225,6 +233,12 @@ internal static class JsonFunctions {
       allowsMissing = true;
       return null;
     }
+    if (pattern is IntersectionHixPattern intersection) {
+      var left = WithoutMissing(intersection.Left, known, new HashSet<string>(active), out var leftMissing);
+      var right = WithoutMissing(intersection.Right, known, new HashSet<string>(active), out var rightMissing);
+      allowsMissing = leftMissing && rightMissing;
+      return left == null || right == null ? null : new IntersectionHixPattern(left, right);
+    }
     if (pattern is UnionHixPattern union) {
       var found = false;
       var members = union.Patterns.Select(member => {
@@ -284,6 +298,14 @@ internal static class JsonFunctions {
   }
 
   private static HixPattern PatternFor(JObject schema) {
+    if (schema["x-hix-trait"] is JValue traitName && traitName.Type == JTokenType.String &&
+        schema["properties"]?["$" + traitName.Value<string>()] is JObject traitData)
+      return new TraitHixPattern(PatternFor(traitData), traitName.Value<string>());
+    if (schema["allOf"] is JArray conjunction && conjunction.Count > 0) {
+      var adjacent = (JObject)schema.DeepClone(); adjacent.Remove("allOf");
+      return conjunction.Cast<JObject>().Select(PatternFor).Concat(adjacent.HasValues ? new[] { PatternFor(adjacent) } : Array.Empty<HixPattern>())
+        .Aggregate((left, right) => new IntersectionHixPattern(left, right));
+    }
     HixPattern pattern;
     if (schema["not"] is JObject {HasValues: false}) {
       pattern = new KindHixPattern(K.Missing);
@@ -399,6 +421,7 @@ internal static class JsonFunctions {
           return ApplyDefaults(thread, value, member, definitions);
       }
     }
+    if (pattern is IntersectionHixPattern intersection) return ApplyDefaults(thread, ApplyDefaults(thread, value, intersection.Left, definitions), intersection.Right, definitions);
     if (pattern is TaggedHixPattern tagged && value is HixTableValue taggedValue) {
       var key = HixString.Dynamic(TaggedHixPattern.FieldName);
       var result = taggedValue.TryGetValue(thread, key, out _) ? taggedValue :

@@ -326,7 +326,7 @@ public sealed class HixProgramImage {
     builder.Append(Patterns.Count);
     foreach (var pattern in Patterns.OrderBy(item => item.Key, StringComparer.Ordinal)) {
       builder.Append(pattern.Key);
-      builder.Append(pattern.Value.Display);
+      builder.Append(HixGenericTypes.PatternIdentity(pattern.Value));
       HixMetadataCompiler.FingerprintPattern(builder, pattern.Value);
     }
     builder.Append(Markers.Count);

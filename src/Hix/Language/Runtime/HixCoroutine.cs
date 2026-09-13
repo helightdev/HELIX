@@ -590,7 +590,7 @@ public sealed class HixCoroutine : IDisposable {
         match = default;
         var candidates = prepared == null ? machine.Candidates(binding, name) : null;
         var candidateCount = prepared == null ? candidates.Count : 1;
-        var requestedDisplay = requested?.Display;
+        var requestedIdentity = requested == null ? null : HixGenericTypes.SignatureIdentity(requested);
         if (candidateCount == 0)
             return Error("unknown function '" + name + "'");
         LanguageFunctionCandidate best = null;
@@ -601,7 +601,7 @@ public sealed class HixCoroutine : IDisposable {
         var matchedSignature = false;
         for (var candidateIndex = 0; candidateIndex < candidateCount; candidateIndex++) {
             var candidate = prepared ?? candidates[candidateIndex];
-            if (requestedDisplay != null && candidate.SignatureDisplay != requestedDisplay)
+            if (requestedIdentity != null && candidate.SignatureIdentity != requestedIdentity)
                 continue;
             matchedSignature = true;
             // Conversion penalties can only reduce this score; equal scores must still

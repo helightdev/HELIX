@@ -9,6 +9,33 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `smart and inline values start statement chains`() {
+        val parsed = HixAntlrSyntax.parse(
+            "func main { local component = ${'$'}user:Named; " +
+                "${'$'}user:Named:get<name>; []:myFunction; [<Ada>]:echo; " +
+                "@{name = <Ada>}:get<name>; 42:echo; ${'$'}component = [<a>]; }"
+        )
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        val offset = parsed.source.indexOf("[]:myFunction") + "[]:my".length
+        assertTrue(HixLookup.site(parsed, offset).chained)
+    }
+
+    @Test
+    fun `trait types compose fields and expose data constructors`() {
+        val parsed = HixAntlrSyntax.parse(
+            "trait type Named = @{string name}; type Entity = @{string id}; " +
+                "type User = %inherit<Entity> %trait<Named> @{string email}; " +
+                "compiler meta trait(pattern component) for type pattern; " +
+                "func main { local user = User(id = <u>, email = <e>, \"${'$'}Named\" = @{name = <Ada>}); return(as(${'$'}user, Named)) }"
+        )
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(listOf("Named", "Entity", "User"), HixLookup.constructors(parsed).map { it.name })
+        assertEquals(listOf("id", "email", "Named"), HixLookup.constructors(parsed).last().fields.map { it.name })
+        assertSame(HixColors.KEYWORD, HixSyntaxHighlighter(null)
+            .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.KEYWORD_TRAIT]).single())
+    }
+
+    @Test
     fun `statement inline metadata and receiver first casts parse locally`() {
         val parsed = HixAntlrSyntax.parse(
             "type path.Record = @{string name}; pure func path.echo(string value) -> string => ${'$'}value; " +

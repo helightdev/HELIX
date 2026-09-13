@@ -1,0 +1,147 @@
+trait type Named = @{string name};
+trait type Counted = @{number count};
+type Entity = @{string id};
+type User = %inherit<Entity> %trait<Named> %trait<Counted> @{string email};
+%inherit<Entity>
+%trait<Named>
+type DeclarationComposed = @{number age};
+type OriginalPair = @[string first, number second];
+type RefinedPair = %inherit<OriginalPair> @[string first, %min<1> number second];
+type OptionalBase = @{%optional string note};
+type RequiredDerived = %inherit<OptionalBase> @{string note};
+
+%test
+func traitChecksValidateComponents {
+  local user = User(id = <u1>, email = <ada@example>, "$Named" = @{name = <Ada>}, "$Counted" = @{count = 2})
+  assert(is($user, Named), is($user, Counted), is($user, Entity), is($user, User))
+  assert(not(is(@{name = <Ada>}, Named)))
+  assert(not(is(@{"$Named" = @{name = 42}}, Named)))
+  assert(not(is(@{"$Named" = @{}}, Named)))
+  assert(eq(as($user, Named), @{name = <Ada>}))
+  assert(eq(as($user, Counted), @{count = 2}))
+  assert(eq(as(@{"$Named" = @{name = 42}}, Named), null))
+}
+
+%test
+%testcase(@[], <Ada>)
+func extractedTraitDataHasFields() -> string {
+  local user = DeclarationComposed(id = <u1>, age = 30, "$Named" = @{name = <Ada>})
+  local component = as($user, Named)
+  return($component#name)
+}
+
+%test
+func inheritedTuplesValidateBothRequirements {
+  assert(is(@[<a>, 2], RefinedPair))
+  assert(not(is(@[<a>, 0], RefinedPair)))
+  assert(eq(RefinedPair(<a>, 2), @[<a>, 2]))
+  assert(not(is(@{}, RequiredDerived)))
+  assert(is(@{note = <present>}, RequiredDerived))
+}
+
+%test
+func traitsCannotBeInstantiated {
+  assert(not(success(compile("trait type Named = @{string name}; func main { new(Named) }"))))
+}
+
+%test
+func invalidCompositionsAreRejected {
+  assert(not(success(compile("trait type Wrong = @[string name];"))))
+  assert(not(success(compile("type Named = @{string name}; type User = %trait<Named> @{};"))))
+  assert(not(success(compile("trait type Named = @{string name}; type User = %trait<Named> @[];"))))
+  assert(not(success(compile("type A = @{string name}; type B = %inherit<A> @{number name};"))))
+  assert(not(success(compile("type A = @[string name]; type B = %inherit<A> @{};"))))
+  assert(not(success(compile("type A = @[string name]; type B = %inherit<A> @[];"))))
+  assert(not(success(compile("type A = %inherit<B> @{}; type B = %inherit<A> @{};"))))
+  assert(not(success(compile("trait type Named = @{string name}; type User = %trait<Named> %trait<Named> @{};"))))
+}
+
+%test
+func composedSchemasAndJsonRoundTrip {
+  local user = User(id = <u1>, email = <ada@example>, "$Named" = @{name = <Ada>}, "$Counted" = @{count = 2})
+  local schema = generateJsonSchema(User)
+  assert(contains($schema, <"$Named">), contains($schema, <"$Counted">), contains($schema, <"id">))
+  local imported = loadJsonSchema($schema)
+  assert(eq(parseJson(writeJson($user, User), $imported), $user))
+  local importedTrait = loadJsonSchema(generateJsonSchema(Named))
+  assert(is($user, $importedTrait))
+  assert(eq(as($user, $importedTrait), @{name = <Ada>}))
+  local importedPair = loadJsonSchema(generateJsonSchema(RefinedPair))
+  assert(is(@[<a>, 2], $importedPair), not(is(@[<a>, 0], $importedPair)))
+}
+
+%test
+func composedHalRoundTripsAndRejectsTraitConstruction {
+  local user = User(id = <u1>, email = <ada@example>, "$Named" = @{name = <Ada>}, "$Counted" = @{count = 2})
+  assert(eq(parseHal(writeHal($user, User)), $user))
+  local traitSection = <--- Named
+name = Ada
+>
+  assert(is([parseHal($traitSection)?], error))
+}
+
+type BoundedBase = @{%min<1> number value};
+type Bounded = %inherit<BoundedBase> @{%max<10> number value};
+type EntityAlias = Entity;
+type AliasInherited = %inherit<Entity> EntityAlias;
+trait type NamedAlias = @{string name};
+%alias<AlternativeNamed>
+trait type DocumentedNamed = %description<A named component> @{string name};
+type AliasTraitUser = %trait<AlternativeNamed> @{};
+
+%test
+func fieldIntersectionsPreserveBothConstraints {
+  assert(is(@{value = 5}, Bounded))
+  assert(not(is(@{value = 0}, Bounded)), not(is(@{value = 11}, Bounded)))
+  local imported = loadJsonSchema(generateJsonSchema(Bounded))
+  assert(is(@{value = 5}, $imported))
+  assert(not(is(@{value = 0}, $imported)), not(is(@{value = 11}, $imported)))
+  assert(eq(AliasInherited(<u1>), @{id = <u1>}))
+  local user = AliasTraitUser(@{name = <Ada>})
+  assert(is($user, DocumentedNamed), is($user, AlternativeNamed))
+  assert(eq(as($user, AlternativeNamed), @{name = <Ada>}))
+}
+
+type NestedRecord = @{number value, %optional string note, number count = [2]};
+type NullableNestedRecord = NestedRecord | null;
+type NestedParent = @{NullableNestedRecord record};
+type NestedIntersection = %inherit<NestedParent> @{NestedRecord record};
+
+%test
+func nestedIntersectionsPreserveSchemaFieldMetadata {
+  local value = NestedIntersection(@{value = 1})
+  assert(is($value, NestedIntersection))
+  assert(not(is(@{record = null}, NestedIntersection)))
+  local imported = loadJsonSchema(generateJsonSchema(NestedIntersection))
+  local decoded = parseJson(writeJson($value, NestedIntersection), $imported)
+  assert(eq($decoded#record#count, 2), eq($decoded#record#note, missing))
+}
+
+%test
+%testcase(@[], <Ada>)
+func traitDataConstructorsAndPipelines() -> string {
+  local data = Named(name = <Ada>)
+  assert(eq($data, @{name = <Ada>}))
+  assert(not(is($data, Named)))
+  local user = DeclarationComposed(id = <u1>, age = 30, Named = $data)
+  assert(is($user, Named))
+  assert(eq(Named.new(<Ada>), $data))
+  return($user:Named:get<name>)
+}
+
+%test
+func traitConstructorsValidateFields {
+  assert(not(success(compile("trait type Named = @{string name}; func bad { Named(unknown = <Ada>) }"))))
+  assert(not(success(compile("trait type Named = @{string name}; func bad { Named() }"))))
+}
+
+type DataNamedAlias = Named;
+trait type DefaultNamed = @{string name = <Ada>, %optional number age};
+
+%test
+func traitDataAliasesAndDefaults {
+  assert(eq(DataNamedAlias(name = <Ada>), Named(name = <Ada>)))
+  assert(eq(DefaultNamed(), @{name = <Ada>}))
+  local user = DeclarationComposed(id = <u1>, age = 30, Named = DataNamedAlias(<Ada>))
+  assert(eq($user:DataNamedAlias:get<name>, <Ada>))
+}

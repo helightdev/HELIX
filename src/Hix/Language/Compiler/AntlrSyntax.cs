@@ -101,7 +101,11 @@ public static class AntlrSyntax {
     var patterns = (backend ?? HixCoreBackend.Instance).Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
     LanguageValidation.Validate(declarations, diagnostics, backend);
-    if (diagnostics.Count == 0) PatternBinding.Validate(declarations, patterns, diagnostics, backend);
+    if (diagnostics.Count == 0) {
+      foreach (var type in DeclarationExports.Expand(declarations).OfType<TypeDeclarationIr>()) patterns[type.Name] = type.Pattern;
+      patterns = PatternComposition.ResolveDefinitions(patterns).ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      PatternBinding.Validate(declarations, patterns, diagnostics, backend);
+    }
     return new CompilationUnitIr(source, declarations, diagnostics, tokens, metadata);
   }
 
@@ -224,7 +228,7 @@ public static class AntlrSyntax {
       }
       return (context.callArgument().Select(argument => Value(argument.value())).ToArray(),
         context.callArgument().Select(argument =>
-          argument.ROOT_IDENTIFIER()?.GetText() ?? argument.MISSING()?.GetText()).ToArray());
+          argument.ROOT_IDENTIFIER()?.GetText() ?? argument.MISSING()?.GetText() ?? (argument.STRING() is { } key ? DecodeQuotedString(key.GetText()) : null)).ToArray());
     }
     private BlockStatementIr Block(Parser.StatementBlockContext context, string label = null) =>
       At(new BlockStatementIr(context.statement().Select(Statement).ToArray(), label), context);
@@ -284,7 +288,7 @@ public static class AntlrSyntax {
           diagnostics.Add(new HixParseDiagnostic(target.Start.Line, "duplicate metadata target '" + target.GetText() + "'"));
         else targets |= kind;
       }
-      return At(new MetadataDeclarationIr(context.IDENTIFIER().GetText(),
+      return At(new MetadataDeclarationIr(context.IDENTIFIER()?.GetText() ?? context.KEYWORD_TRAIT().GetText(),
         context.patternParameterList().patternField().Select(SignatureField).ToArray(), targets, declarationMetadata, retention), context);
     }
 
@@ -318,7 +322,7 @@ public static class AntlrSyntax {
     }
 
     private HixPatternField PatternField(Parser.PatternFieldContext context, bool signature = false) {
-      var explicitName = context.ROOT_IDENTIFIER()?.GetText();
+      var explicitName = context.ROOT_IDENTIFIER()?.GetText() ?? (context.STRING() is { } key ? DecodeQuotedString(key.GetText()) : null);
       var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternUnion());
       var name = explicitName ?? context.patternUnion().GetText();
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
@@ -371,6 +375,9 @@ public static class AntlrSyntax {
           continue;
         }
         switch (metadata.Name) {
+          case "intersect": pattern = new IntersectionHixPattern(PatternArgument(0), PatternArgument(1)); break;
+          case "inherit": pattern = new InheritedHixPattern(pattern, PatternArgument(0)); break;
+          case "trait": pattern = new TraitUsageHixPattern(pattern, PatternArgument(0)); break;
           case "optional": optional = true; break;
           case "many": pattern = new ManyHixPattern(metadata.Values.Count == 0 ? pattern : PatternArgument(0)); break;
           case "map":
@@ -424,6 +431,21 @@ public static class AntlrSyntax {
             diagnostics.Add(new HixParseDiagnostic(call.Line, "pattern constructors use positional type arguments"));
             return HixPattern.Any;
           }
+          if (call.Name == "pattern" && call.Arguments.Count == 1 && call.Arguments[0] is StringExpressionIr patternSource)
+            return PatternSource(patternSource.Value);
+          if (call.Name == "intersect" && call.Arguments.Count == 2) return new IntersectionHixPattern(TypeArgument(call.Arguments[0]), TypeArgument(call.Arguments[1]));
+          if (call.Name == "constraint" && call.Arguments.Count == 4 && call.Arguments[0] is StringExpressionIr constraintName) {
+            var constraint = constraintName.Value switch {
+              "min" => HixPatternConstraintKind.Minimum, "max" => HixPatternConstraintKind.Maximum,
+              "length" => HixPatternConstraintKind.Length, "matches" => HixPatternConstraintKind.Matches,
+              _ => throw new ArgumentException("unknown pattern constraint '" + constraintName.Value + "'")
+            };
+            return new ConstrainedHixPattern(TypeArgument(call.Arguments[3]), constraint, ConstantValue(call.Arguments[1]), IsTrue(ConstantValue(call.Arguments[2])));
+          }
+          if (call.Name == "constant" && call.Arguments.Count == 2) return new ConstantHixPattern(ConstantValue(call.Arguments[0]), TypeArgument(call.Arguments[1]));
+          if (call.Name == "enumeration" && call.Arguments.Count == 2 && call.Arguments[0] is TupleExpressionIr enumeration) return new EnumHixPattern(enumeration.Values.Select(ConstantValue).ToArray(), TypeArgument(call.Arguments[1]));
+          if (call.Name == "documented" && call.Arguments.Count == 3) return new DocumentedHixPattern(TypeArgument(call.Arguments[2]), ConstantValue(call.Arguments[0]) as string, ConstantValue(call.Arguments[1]) as string);
+          if (call.Name == "tagged" && call.Arguments.Count == 2 && ConstantValue(call.Arguments[0]) is string discriminator) return new TaggedHixPattern(TypeArgument(call.Arguments[1]), discriminator);
           if (call.Name == "union") return HixPatterns.Union(call.Arguments.Select(TypeArgument));
           if (call.Name == "many" && call.Arguments.Count == 1) return new ManyHixPattern(TypeArgument(call.Arguments[0]));
           if (call.Name == "map" && call.Arguments.Count == 2)
@@ -437,6 +459,29 @@ public static class AntlrSyntax {
           diagnostics.Add(new HixParseDiagnostic(expression.Line, "expected a type name or pattern-constructor call"));
           return HixPattern.Any;
       }
+    }
+
+    // Source reconstruction of structural type arguments preserves field presence, defaults and metadata.
+    private HixPattern PatternSource(string text) {
+      var previousErrors = diagnostics.Count;
+      var lexer = new RecoveringLexer(new AntlrInputStream(text));
+      var errors = new ErrorListener(diagnostics);
+      lexer.RemoveErrorListeners(); lexer.AddErrorListener(errors);
+      var stream = new CommonTokenStream(lexer);
+      var parser = new Parser(stream);
+      parser.RemoveErrorListeners(); parser.AddErrorListener(errors);
+      var tree = parser.patternExpression();
+      if (parser.CurrentToken.Type != TokenConstants.EOF) {
+        diagnostics.Add(new HixParseDiagnostic(parser.CurrentToken.Line, "unexpected token in pattern source"));
+        return HixPattern.Any;
+      }
+      stream.Fill();
+      if (diagnostics.Count != previousErrors) return HixPattern.Any;
+      var builder = new IrBuilder(stream.GetTokens().ToArray(), diagnostics, backend, text) {
+        UsingImports = UsingImports, DeclaredTypes = DeclaredTypes
+      };
+      foreach (var parameter in typeParameters) builder.typeParameters.Add(parameter.Key, parameter.Value);
+      return builder.Pattern(tree);
     }
 
     private HixPattern Construct(HixPatternConstructor constructor, IReadOnlyList<ExpressionIr> arguments, int line) {
@@ -478,7 +523,11 @@ public static class AntlrSyntax {
             "' does not accept " + metadata.Values.Count + " arguments"));
           continue;
         }
-        if (metadata.Name == "tagged") {
+        if (metadata.Name is "inherit" or "trait") {
+          metadata.IsPatternDirective = true;
+          var parent = TypeArgument(metadata.Values[0]);
+          pattern = metadata.Name == "inherit" ? new InheritedHixPattern(pattern, parent) : new TraitUsageHixPattern(pattern, parent);
+        } else if (metadata.Name == "tagged") {
           var discriminator = metadata.Values.Count == 0 ? name : metadata.Values[0] is StringExpressionIr text ? text.Value : null;
           if (discriminator == null)
             diagnostics.Add(new HixParseDiagnostic(metadata.Line, "tagged discriminator must be a constant string"));
@@ -488,6 +537,7 @@ public static class AntlrSyntax {
         else if (metadata.Name == "description" && metadata.Values[0] is StringExpressionIr description)
           pattern = new DocumentedHixPattern(pattern, Description: description.Value);
       }
+      if (context.KEYWORD_TRAIT() != null) pattern = new TraitHixPattern(pattern, name);
       return At(new TypeDeclarationIr(name, pattern, declarationMetadata), context);
     }
 
@@ -524,29 +574,37 @@ public static class AntlrSyntax {
       ValidateMetadata(declarationMetadata, HixMetadataKind.FunctionDefinition, "function", backend, diagnostics, MetadataDefinitions);
       var previousParameters = typeParameters.ToArray();
       var declaredParameters = new List<HixTypeParameter>();
-      foreach (var metadata in declarationMetadata.Where(item => item.Name == "generic")) {
+      foreach (var metadata in declarationMetadata.Where(item => item.Name is "generic" or "computedGeneric")) {
         if (metadata.Values.Count == 0 || metadata.Values[0] is not StringExpressionIr name ||
             string.IsNullOrWhiteSpace(name.Value) || !name.Value.All(character => char.IsLetterOrDigit(character) || character == '_') ||
             char.IsDigit(name.Value[0])) {
-          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "%generic requires a literal type-parameter name"));
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "%" + metadata.Name + " requires a literal type-parameter name"));
           continue;
         }
         if (declaredParameters.Any(parameter => parameter.Name == name.Value)) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "duplicate generic parameter '" + name.Value + "'"));
           continue;
         }
-        if (HixPatterns.Named(name.Value) is not NamedHixPattern ||
+        if (HixPatterns.Named(name.Value) is not NamedHixPattern || DeclaredTypes.Contains(name.Value) ||
             backend.Functions.PatternConstructors.Any(item => item.Name == name.Value)) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "generic parameter conflicts with type name '" + name.Value + "'"));
           continue;
         }
-        var bounds = metadata.Values.Skip(1).Select(TypeArgument).ToArray();
+        string computedPath = null;
+        if (metadata.Name == "computedGeneric") {
+          if (metadata.Values.Count < 2 || metadata.Values[1] is not StringExpressionIr path) {
+            diagnostics.Add(new HixParseDiagnostic(metadata.Line, "%computedGeneric requires a literal pointer path")); continue;
+          }
+          try { ComputedGenericPath.Parse(path.Value); computedPath = path.Value; }
+          catch (ArgumentException error) { diagnostics.Add(new HixParseDiagnostic(metadata.Line, error.Message)); continue; }
+        }
+        var bounds = metadata.Values.Skip(metadata.Name == "computedGeneric" ? 2 : 1).Select(TypeArgument).ToArray();
         if (genericScopeIdentity == null) {
           using var hash = SHA256.Create();
           genericScopeIdentity = Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(source)));
         }
         var parameter = new HixTypeParameter("source:" + genericScopeIdentity + ":" + context.Start.StartIndex, name.Value, bounds.FirstOrDefault()) {
-          AdditionalBounds = bounds.Skip(1).ToArray()
+          AdditionalBounds = bounds.Skip(1).ToArray(), ComputedPath = computedPath
         };
         typeParameters[name.Value] = parameter;
         declaredParameters.Add(parameter);
@@ -687,7 +745,8 @@ public static class AntlrSyntax {
     }
     public override HixIrNode VisitTailValue(Parser.TailValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
-    public override HixIrNode VisitInlineValue(Parser.InlineValueContext context) => Visit(context.value());
+    public override HixIrNode VisitInlineValue(Parser.InlineValueContext context) => context.value() is { } value
+      ? Visit(value) : At(new TupleExpressionIr([]), context);
     public override HixIrNode VisitValueExpression(Parser.ValueExpressionContext context) => Visit(context.value());
 
     public override HixIrNode VisitNonArgumentValue(Parser.NonArgumentValueContext context) {
@@ -725,10 +784,10 @@ public static class AntlrSyntax {
     public override HixIrNode VisitTableValue(Parser.TableValueContext context) {
       var entries = context.tableKeyedEntry();
       return At(new TableExpressionIr(entries.Select(entry =>
-          new KeyValuePair<string, ExpressionIr>(entry.ROOT_IDENTIFIER()?.GetText() ?? entry.MISSING().GetText(),
+          new KeyValuePair<string, ExpressionIr>(entry.ROOT_IDENTIFIER()?.GetText() ?? entry.MISSING()?.GetText() ?? DecodeQuotedString(entry.STRING().GetText()),
             Value(entry.value()))).ToArray(),
         entries.Select(entry => new KeyValuePair<string, IReadOnlyList<MetadataIr>>(
-          entry.ROOT_IDENTIFIER()?.GetText() ?? entry.MISSING().GetText(), entry.metadata().Select(metadata =>
+          entry.ROOT_IDENTIFIER()?.GetText() ?? entry.MISSING()?.GetText() ?? DecodeQuotedString(entry.STRING().GetText()), entry.metadata().Select(metadata =>
             (MetadataIr)Visit(metadata)).ToArray())).ToArray()), context);
     }
 
@@ -739,7 +798,7 @@ public static class AntlrSyntax {
       return At(new NullExpressionIr(), context);
     }
     public override HixIrNode VisitDerivationRoot(Parser.DerivationRootContext context) => context.explicitRoot() != null
-      ? Visit(context.explicitRoot()) : At(new RootExpressionIr(context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER()?.GetText() ?? context.MISSING().GetText(),
+      ? Visit(context.explicitRoot()) : At(new RootExpressionIr(context.ROOT_IDENTIFIER()?.GetText() ?? context.IDENTIFIER()?.GetText() ?? context.NUMBER()?.GetText() ?? context.MISSING().GetText(),
         context.VALUE_SMART_ROOT() != null), context);
     public override HixIrNode VisitDerivation(Parser.DerivationContext context) =>
       Transform(Value(context.derivationRoot()), context.transformationPart());

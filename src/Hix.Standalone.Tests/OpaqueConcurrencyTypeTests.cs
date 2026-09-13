@@ -48,11 +48,11 @@ public sealed class OpaqueConcurrencyTypeTests {
       """;
     var analysis = new LanguageAnalysis(source, backend);
     Assert.Empty(analysis.Program.Diagnostics);
-    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Documentation == "local task: task<number>");
+    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Documentation == "local task: task(number)");
     Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Documentation == "local result: number");
-    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Type == "@[number 0, string 1]");
-    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Type.Contains("value") && fact.Type.Contains("number") && fact.Type.Contains("string"));
-    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Documentation == "local channel: channel<any>");
+    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Type == "[]");
+    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Type == "{}");
+    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Documentation == "local channel: channel(any)");
     Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Documentation == "local semaphore: semaphore");
     HixCompiler.CompileFunctions([source], backend);
   }
@@ -65,7 +65,7 @@ public sealed class OpaqueConcurrencyTypeTests {
     var number = new KindHixPattern(HixValueKind.Number);
     var created = new CallExpressionIr("channel", []) { TypeArguments = [number] };
     var channel = HixCallResolver.Resolve(created, functions, backend, patterns, _ => HixPattern.Any, out _);
-    Assert.Equal("channel<number>", channel.Signature.Result.Display);
+    Assert.Equal("channel(number)", channel.Signature.Result.Display);
     var handle = new RootExpressionIr("handle") { InferredPattern = channel.Signature.Result };
     var received = HixCallResolver.Resolve(new("receive", [handle]), functions, backend, patterns,
       expression => expression.InferredPattern, out _);
@@ -84,7 +84,7 @@ public sealed class OpaqueConcurrencyTypeTests {
       definition.ArgumentTypes.SequenceEqual(["pattern"]));
     Assert.Contains(definitions, definition => definition.Name == "generic" && definition.Kind == "DeclarationMetadata");
     Assert.Contains(definitions, definition => definition.Name == "awaitTask" && definition.ResultType == "T" &&
-      definition.ArgumentTypes.SequenceEqual(["task<T>"]));
+      definition.ArgumentTypes.SequenceEqual(["task(T)"]));
     Assert.DoesNotContain(definitions, definition => definition.Name == "symbol" && definition.Kind == "Kind");
   }
 }

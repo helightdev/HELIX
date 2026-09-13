@@ -14,7 +14,8 @@ public static class PatternBinding {
     IReadOnlyDictionary<string, HixPattern> patterns, HixBackend backend) {
     if (name == "null") return Primitive(HixValueKind.Null);
     if (name == "missing") return Primitive(HixValueKind.Missing);
-    if (HixPatterns.TryPrimitive(name, out _) || patterns.ContainsKey(name)) return Primitive(HixValueKind.Pattern);
+    if (HixPatterns.TryPrimitive(name, out var primitive)) return new PatternValueHixPattern(primitive.Pattern);
+    if (patterns.ContainsKey(name)) return new PatternValueHixPattern(new NamedHixPattern(name));
     if (functions.TryGetValue(name, out var methods)) return CallablePattern(methods);
     if (backend.Functions.Resolve(name).Count != 0) return Primitive(HixValueKind.Function);
     return backend.Roots.TryGetValue(name, out var root) ? root.Pattern : HixPattern.Any;
@@ -196,12 +197,12 @@ public static class PatternBinding {
         if (functions.TryGetValue(call.Name, out var available))
           foreach (var function in available)
             foreach (var signature in function.Signatures)
-              if (signature.Constant(call.Name).Display == constraint.Signature && AcceptsCount(signature, call.Arguments.Count))
+              if ((HixGenericTypes.SignatureIdentity(signature.Constant(call.Name)) == constraint.Signature || signature.Constant(call.Name).Display == constraint.Signature) && AcceptsCount(signature, call.Arguments.Count))
                 if (bindings.Count == 0) bindings.Add(HixCallBinding.Language(signature.Constant(call.Name), function));
         if (bindings.Count == 0)
           foreach (var definition in backend.Functions.Resolve(call.Name, call.Arguments.Count))
             foreach (var signature in definition.Signatures)
-              if (BuiltinSignature(call.Name, signature).Display == constraint.Signature)
+              if ((HixGenericTypes.SignatureIdentity(BuiltinSignature(call.Name, signature)) == constraint.Signature || BuiltinSignature(call.Name, signature).Display == constraint.Signature))
                 bindings.Add(HixCallBinding.Host(BuiltinSignature(call.Name, signature), definition));
         if (bindings.Count != 1) diagnostics.Add(new(call.Line, "cannot bind explicit signature '" + constraint.Signature + "'"));
         else call.Binding = bindings[0];
@@ -320,6 +321,7 @@ public static class PatternBinding {
       return null;
     }
     var candidates = new List<HixCallResolution>();
+    var patternFallbacks = new List<Action>();
     var languageSignatures = new HashSet<string>(StringComparer.Ordinal);
     if (functions.TryGetValue(call.Name, out var declarations)) {
       foreach (var declaration in declarations)
@@ -335,9 +337,12 @@ public static class PatternBinding {
     } else foreach (var definition in backend.Functions.Resolve(call.Name))
       foreach (var signature in definition.Signatures)
         Add(new SignatureHixPattern(call.Name, signature.ArgumentPatterns.Select((pattern, index) =>
-          new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(), pattern)).ToArray(), signature.ResultPattern),
+          new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(), pattern,
+            HasDefault: signature.GetArgumentDefault(index) != null)).ToArray(), signature.ResultPattern),
           signature.TypeParameters, signature.ArgumentDefaults, signature.IsVariadic, null, definition, signature.InferResult,
           signature.CallableArguments);
+    if (!candidates.Any(candidate => candidate.ExactMatch))
+      foreach (var fallback in patternFallbacks) fallback();
     ambiguous = false;
     if (candidates.Count == 0) return null;
     var ordered = candidates.OrderByDescending(candidate => candidate.Score).ThenBy(candidate => candidate.Generic).ToArray();
@@ -349,22 +354,65 @@ public static class PatternBinding {
       IReadOnlyList<ExpressionIr> defaults, bool variadic, FunctionDeclarationIr language,
       HixFunctionEntry host, Func<IReadOnlyList<HixPattern>, HixPattern> inferResult,
       IReadOnlyDictionary<int, int> callableArguments) {
-      if (!Arrange(call, signature.Parameters, defaults, variadic, out var arguments)) return;
+      TryAdd(signature, parameters, defaults, variadic, language, host, inferResult, callableArguments, false);
+      patternFallbacks.Add(() => TryAdd(signature, parameters, defaults, variadic, language, host, inferResult, callableArguments, true));
+    }
+
+    void TryAdd(SignatureHixPattern signature, IReadOnlyList<HixTypeParameter> parameters,
+      IReadOnlyList<ExpressionIr> defaults, bool variadic, FunctionDeclarationIr language,
+      HixFunctionEntry host, Func<IReadOnlyList<HixPattern>, HixPattern> inferResult,
+      IReadOnlyDictionary<int, int> callableArguments, bool convertPatternNames) {
+      var arrangedCall = call;
+      if (language != null && patterns.ContainsKey(call.Name.EndsWith(".new", StringComparison.Ordinal)
+            ? call.Name.Substring(0, call.Name.Length - 4) : call.Name) &&
+          call.ArgumentNames.Any(name => name != null && !signature.Parameters.Any(field => field.Name == name) &&
+            signature.Parameters.Any(field => field.Name == "$" + name))) {
+        arrangedCall = new CallExpressionIr(call.Name, call.Arguments, argumentNames: call.ArgumentNames.Select(name =>
+          name != null && !signature.Parameters.Any(field => field.Name == name) &&
+            signature.Parameters.Any(field => field.Name == "$" + name) ? "$" + name : name).ToArray());
+      }
+      if (!Arrange(arrangedCall, signature.Parameters, defaults, variadic, out var arguments)) return;
+      if (call.Name == "new" && arguments.FirstOrDefault() is RootExpressionIr traitTarget &&
+          HixPatterns.TryTrait(new NamedHixPattern(traitTarget.Name), patterns, out _)) return;
       if (call.TypeArguments.Count != 0 && call.TypeArguments.Count != parameters.Count) return;
       var substitutions = new Dictionary<HixTypeParameter, HixPattern>();
       for (var index = 0; index < call.TypeArguments.Count; index++) substitutions[parameters[index]] = call.TypeArguments[index];
       var supplied = arguments.Select(infer).ToArray();
+      var converted = new List<int>();
+      if (convertPatternNames) {
+        for (var index = 0; index < arguments.Length; index++) {
+          var expected = signature.Parameters[Math.Min(index, signature.Parameters.Count - 1)].Pattern;
+          if (!AcceptsPatternValue(expected) || arguments[index] is not StringExpressionIr literal ||
+              HixPatternRelations.Relate(supplied[index], HixGenericTypes.ErasePattern(ResolvePattern(expected, patterns)), patterns) == HixPatternRelation.Always) continue;
+          var name = HixUsingImports.Candidates(literal.Value, literal.UsingImports)
+            .FirstOrDefault(candidate => patterns.ContainsKey(candidate) || HixPatterns.TryPrimitive(candidate, out _));
+          if (name == null) continue;
+          var represented = HixPatterns.TryPrimitive(name, out var primitive) ? primitive.Pattern : new NamedHixPattern(name);
+          var witness = new PatternValueHixPattern(represented);
+          arguments[index] = new RootExpressionIr(name) {
+            Binding = new HixReferenceBinding(HixReferenceKind.Root, name), InferredPattern = witness,
+            SourceRange = literal.SourceRange, Tokens = literal.Tokens, UsingImports = literal.UsingImports
+          };
+          supplied[index] = witness;
+          converted.Add(index);
+        }
+        if (converted.Count == 0) return;
+      }
+      if (call.Name == "new" && supplied.FirstOrDefault() is PatternValueHixPattern constructionTarget &&
+          HixPatterns.TryTrait(constructionTarget.ValuePattern, patterns, out _)) return;
       // Infer data arguments first so callable parameters receive their concrete context.
       for (var index = 0; index < supplied.Length; index++) {
         var expected = ResolvePattern(signature.Parameters[Math.Min(index, signature.Parameters.Count - 1)].Pattern, patterns);
         if (expected is not DelegateHixPattern && !Unify(expected, supplied[index], substitutions, patterns)) return;
       }
+      ComputedGenericPath.Infer(parameters, signature.Parameters, supplied, substitutions, patterns);
+      var invocationArguments = ComputedGenericPath.Invocations(parameters, signature.Parameters);
       for (var index = 0; index < arguments.Length; index++) {
         var expected = ResolvePattern(signature.Parameters[Math.Min(index, signature.Parameters.Count - 1)].Pattern, patterns);
         if (expected is not DelegateHixPattern callable) continue;
         var context = HixGenericTypes.Substitute(callable, substitutions, true) as DelegateHixPattern;
         TupleHixPattern invocation = null;
-        if (callableArguments != null && callableArguments.TryGetValue(index, out var tupleIndex)) {
+        if (invocationArguments.TryGetValue(index, out var tupleIndex) || callableArguments != null && callableArguments.TryGetValue(index, out tupleIndex)) {
           invocation = supplied[tupleIndex] as TupleHixPattern;
           if (invocation != null) context = new DelegateHixPattern(invocation.Fields, context.Result);
         }
@@ -375,22 +423,18 @@ public static class PatternBinding {
             (actualCallable.Parameters.Count != invocation.Fields.Count || actualCallable.Parameters.Select((field, position) =>
               HixPatternRelations.Relate(invocation.Fields[position].Pattern, field.Pattern, patterns)).Any(relation => relation == HixPatternRelation.Never))) return;
       }
+      ComputedGenericPath.Infer(parameters, signature.Parameters, supplied, substitutions, patterns);
       for (var index = 0; index < supplied.Length; index++) {
         var expected = signature.Parameters[Math.Min(index, signature.Parameters.Count - 1)].Pattern;
         if (!Unify(expected, supplied[index], substitutions, patterns)) return;
       }
+      ComputedGenericPath.Infer(parameters, signature.Parameters, supplied, substitutions, patterns);
       foreach (var parameter in parameters)
         if (substitutions.TryGetValue(parameter, out var value) &&
             !HixGenericTypes.SatisfiesBounds(value, parameter, substitutions, patterns)) return;
       var instantiated = new SignatureHixPattern(signature.Name, signature.Parameters.Select(field => field with {
         Pattern = HixGenericTypes.Substitute(field.Pattern, substitutions, true) }).ToArray(),
         HixGenericTypes.Substitute(signature.Result, substitutions, true));
-      if ((host?.Name is "as" or "cast" && arguments.Length == 2 || host?.Name == "new" && arguments.Length >= 1) &&
-          arguments[host.Name is "as" or "cast" ? 1 : 0] is RootExpressionIr {IsSmart: false} target) {
-        if (HixPatterns.TryPrimitive(target.Name, out var primitive)) instantiated = instantiated with { Result = primitive.Pattern };
-        else if (patterns.ContainsKey(target.Name)) instantiated = instantiated with { Result = new NamedHixPattern(target.Name) };
-      }
-      if (host?.Name == "as") instantiated = instantiated with { Result = HixPatterns.Nullable(instantiated.Result) };
       if (inferResult != null) instantiated = instantiated with { Result = inferResult(supplied) };
       var relations = supplied.Select((value, index) => HixPatternRelations.Relate(value,
         instantiated.Parameters[Math.Min(index, instantiated.Parameters.Count - 1)].Pattern, patterns)).ToArray();
@@ -408,13 +452,27 @@ public static class PatternBinding {
         supplied.Where((value, index) => HixGenericTypes.Equivalent(value,
           instantiated.Parameters[Math.Min(index, instantiated.Parameters.Count - 1)].Pattern)).Count(), parameters.Count != 0) {
         DeclarationSignature = parameters.Count != 0 || signature.Parameters.Any(field => HixGenericTypes.RequiresErasure(field.Pattern)) ||
-          HixGenericTypes.RequiresErasure(signature.Result) ? HixGenericTypes.SignatureIdentity(signature) : null
+          HixGenericTypes.RequiresErasure(signature.Result) ? HixGenericTypes.SignatureIdentity(signature) : null,
+        ExactMatch = converted.Count == 0 && relations.All(relation => relation == HixPatternRelation.Always),
+        PatternConversions = converted.ToArray()
       });
+    }
+
+    bool AcceptsPatternValue(HixPattern expected) {
+      expected = ResolvePattern(expected, patterns);
+      return expected switch {
+        KindHixPattern {ValueKind: HixValueKind.Pattern} or PatternValueHixPattern => true,
+        TypeParameterHixPattern parameter => parameter.Parameter.Bound != null && AcceptsPatternValue(parameter.Parameter.Bound) ||
+          parameter.Parameter.AdditionalBounds.Any(AcceptsPatternValue),
+        UnionHixPattern union => union.Patterns.Any(AcceptsPatternValue),
+        _ => false
+      };
     }
   }
 
 
   private static HixPattern ResolvePattern(HixPattern pattern, IReadOnlyDictionary<string, HixPattern> definitions) {
+    pattern = PatternComposition.Resolve(pattern, definitions);
     var active = new HashSet<string>(StringComparer.Ordinal);
     while (true) {
       if (pattern is DocumentedHixPattern documented) { pattern = documented.Underlying; continue; }
@@ -427,26 +485,37 @@ public static class PatternBinding {
 
   public static bool Unify(HixPattern expected, HixPattern actual,
     IDictionary<HixTypeParameter, HixPattern> substitutions, IReadOnlyDictionary<string, HixPattern> patterns) {
+    var referencedPattern = actual;
     expected = ResolvePattern(expected, patterns);
     actual = ResolvePattern(actual, patterns);
     if (actual is AnyHixPattern) return true;
+    if (expected is KindHixPattern {ValueKind: HixValueKind.Pattern} &&
+        HixGenericTypes.Erase(actual) is not (HixValueKind.Pattern or HixValueKind.Any)) return false;
     if (expected is TypeParameterHixPattern parameter) {
+      if (parameter.Parameter.ComputedPath != null)
+        return !substitutions.TryGetValue(parameter.Parameter, out var computed) ||
+          HixPatternRelations.Relate(actual, ResolvePattern(computed, patterns), patterns) != HixPatternRelation.Never;
       if (!substitutions.TryGetValue(parameter.Parameter, out var existing)) {
-        substitutions[parameter.Parameter] = actual; return true;
+        substitutions[parameter.Parameter] = referencedPattern is NamedHixPattern ? referencedPattern : actual; return true;
       }
-      return HixGenericTypes.Equivalent(existing, actual);
+      return HixGenericTypes.Equivalent(ResolvePattern(existing, patterns), actual);
     }
     if (expected is OpaqueHixPattern opaque && actual is OpaqueHixPattern supplied)
       return opaque.Definition.Identity == supplied.Definition.Identity && opaque.Arguments.Count == supplied.Arguments.Count &&
         opaque.Arguments.Zip(supplied.Arguments, (a, b) => Unify(a, b, substitutions, patterns)).All(value => value);
     if (expected is ManyHixPattern many && actual is TupleHixPattern tuple)
-      return tuple.Fields.All(field => Unify(many.Element, field.Pattern, substitutions, patterns));
+      return Unify(many.Element, tuple.Fields.Count == 0 ? HixPattern.Any : HixPatterns.Union(tuple.Fields.Select(field => field.Pattern)), substitutions, patterns);
+    if (expected is ManyHixPattern expectedMany && actual is ManyHixPattern actualMany)
+      return Unify(expectedMany.Element, actualMany.Element, substitutions, patterns);
     if (expected is TupleHixPattern expectedTuple && actual is TupleHixPattern actualTuple)
       return expectedTuple.Fields.Count == actualTuple.Fields.Count && expectedTuple.Fields.Zip(actualTuple.Fields,
         (a, b) => Unify(a.Pattern, b.Pattern, substitutions, patterns)).All(value => value);
     if (expected is TableHixPattern expectedTable && actual is TableHixPattern actualTable)
       return expectedTable.Fields.All(field => actualTable.Fields.FirstOrDefault(value => value.Name == field.Name) is { } found ?
         Unify(field.Pattern, found.Pattern, substitutions, patterns) : field.AllowsMissing);
+    if (expected is MapHixPattern tableMap && actual is TableHixPattern mappedTable)
+      return Unify(tableMap.Key, Primitive(HixValueKind.String), substitutions, patterns) &&
+        Unify(tableMap.Value, mappedTable.Fields.Count == 0 ? HixPattern.Any : HixPatterns.Union(mappedTable.Fields.Select(field => field.Pattern)), substitutions, patterns);
     if (expected is MapHixPattern map && actual is MapHixPattern actualMap)
       return Unify(map.Key, actualMap.Key, substitutions, patterns) && Unify(map.Value, actualMap.Value, substitutions, patterns);
     if (expected is DelegateHixPattern callable && actual is DelegateHixPattern actualCallable)
@@ -566,6 +635,8 @@ public static class PatternBinding {
       .Concat(patterns).Concat(declarations.OfType<TypeDeclarationIr>()
         .Select(type => new KeyValuePair<string, HixPattern>(type.Name, type.Pattern)))
       .GroupBy(item => item.Key, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.Ordinal);
+    try { patterns = PatternComposition.ResolveDefinitions(patterns); }
+    catch (ArgumentException error) { diagnostics.Add(new(0, error.Message)); return; }
     var functions = declarations.OfType<FunctionDeclarationIr>().GroupBy(value => value.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
     foreach (var function in declarations.OfType<FunctionDeclarationIr>().Where(function => !function.IsExternal)) {
@@ -718,15 +789,22 @@ public static class PatternBinding {
       case CallExpressionIr call:
         var supplied = call.Arguments.Select(value => Infer(value, locals, parameters, functions, patterns, diagnostics, backend)).ToArray();
         if (backend.Functions.Resolve(call.Name).Count == 0 && patterns.TryGetValue(call.Name, out var checkedPattern)) {
-          if (!HixPatterns.TryStructural(checkedPattern, patterns, out var structural) ||
-              !AcceptsConstructor(call, supplied, structural is TableHixPattern table ? table.Fields :
-                ((TupleHixPattern)structural).Fields, patterns)) {
-            if (structural != null) diagnostics.Add(new(call.Line, PatternConstructorDiagnostics.Describe(call.Name,
-              call.ArgumentNames, supplied, structural is TableHixPattern mismatchTable ? mismatchTable.Fields :
-                ((TupleHixPattern)structural).Fields, patterns)));
-            else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' has no constructor; use cast(value, " + call.Name + ")"));
-          }
-          return new NamedHixPattern(call.Name);
+          var constructors = functions.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
+          constructors[call.Name] = PatternConstructorCompiler.Compile(call.Name, checkedPattern, patterns)
+            .Where(method => method.Name == call.Name).ToArray();
+          var constructorResolution = Resolve(call, constructors, backend, patterns,
+            value => { var position = call.Arguments.ToList().IndexOf(value);
+              return position >= 0 ? supplied[position] : Infer(value, locals, parameters, functions, patterns, diagnostics, backend); },
+            out var constructorAmbiguous);
+          if (constructorResolution != null) return constructorResolution.Signature.Result;
+          if (constructorAmbiguous) diagnostics.Add(new(call.Line, "ambiguous constructor '" + call.Name + "'"));
+          else if (HixPatterns.TryTrait(checkedPattern, patterns, out _))
+            diagnostics.Add(new(call.Line, "no matching trait constructor '" + call.Name + "'"));
+          else if (HixPatterns.TryStructural(checkedPattern, patterns, out var structural))
+            diagnostics.Add(new(call.Line, PatternConstructorDiagnostics.Describe(call.Name,
+              call.ArgumentNames, supplied, structural is TableHixPattern table ? table.Fields : ((TupleHixPattern)structural).Fields, patterns)));
+          else diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' has no constructor; use cast(value, " + call.Name + ")"));
+          return HixPattern.Any;
         }
         var resolution = PatternBinding.Resolve(call, functions, backend, patterns,
           value => { var position = call.Arguments.ToList().IndexOf(value);
@@ -758,30 +836,6 @@ public static class PatternBinding {
         return HixPattern.Any;
       default: return HixPattern.Any;
     }
-  }
-
-  private static bool AcceptsConstructor(CallExpressionIr call, IReadOnlyList<HixPattern> supplied,
-    IReadOnlyList<HixPatternField> fields, IReadOnlyDictionary<string, HixPattern> patterns) {
-    if (supplied.Count > fields.Count) return false;
-    var assigned = new bool[fields.Count];
-    var positional = 0;
-    var sawNamed = false;
-    for (var index = 0; index < supplied.Count; index++) {
-      var name = call.ArgumentNames[index];
-      int target;
-      if (name == null) {
-        if (sawNamed || positional >= fields.Count) return false;
-        target = positional++;
-      } else {
-        sawNamed = true;
-        target = fields.ToList().FindIndex(field => field.Name == name);
-        if (target < 0) return false;
-      }
-      if (assigned[target] || HixPatternRelations.Relate(supplied[index], fields[target].Pattern, patterns) ==
-          HixPatternRelation.Never) return false;
-      assigned[target] = true;
-    }
-    return fields.Select((field, index) => assigned[index] || field.AllowsMissing).All(value => value);
   }
 
   private static HixPattern InferResult(HixIrNode node, IDictionary<string, HixPattern> locals,
@@ -840,6 +894,8 @@ public static class PatternBinding {
     while (receiver is NamedHixPattern named && active.Add(named.Name) && patterns.TryGetValue(named.Name, out var resolved)) receiver = resolved;
     if (receiver is TaggedHixPattern tagged && name == TaggedHixPattern.FieldName)
       return new ConstantHixPattern(tagged.Discriminator, new KindHixPattern(HixValueKind.String));
+    if (receiver is TraitHixPattern trait) receiver = trait.Requirement;
+    if (receiver is IntersectionHixPattern intersection) return new IntersectionHixPattern(Member(intersection.Left, name, patterns), Member(intersection.Right, name, patterns));
     if (receiver is UnionHixPattern union) return HixPatterns.Union(union.Patterns.Select(pattern => Member(pattern, name, patterns)));
     if (HixPatterns.TryStructural(receiver, patterns, out var structural)) receiver = structural;
     return receiver switch {

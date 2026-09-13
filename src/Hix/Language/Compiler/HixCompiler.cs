@@ -26,6 +26,10 @@ public static class HixCompiler {
     if (errors.Length != 0) throw new ArgumentException(errors[0].Message);
     var declarations = DeclarationExports.Expand(syntax.SelectMany(unit => unit.Declarations)).Select(declaration =>
       declaration is FunctionDeclarationIr function ? SignatureParameterBindingStep.Rewrite(function) : declaration).ToArray();
+    var resolvedPatterns = PatternComposition.ResolveDefinitions(backend.Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>())
+      .GroupBy(type => type.Name, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal));
+    declarations = PatternComposition.ResolveDeclarations(declarations, resolvedPatterns).Select(declaration =>
+      declaration is FunctionDeclarationIr function ? SignatureParameterBindingStep.Rewrite(function) : declaration).ToArray();
     var diagnostics = new List<HixParseDiagnostic>();
     LanguageValidation.Validate(declarations, diagnostics, backend);
     if (declarations.OfType<FunctionDeclarationIr>().Any(function => function.TypeParameters.Count != 0 || function.Signatures.Any(signature => signature.TypeParameters.Count != 0)))
@@ -39,7 +43,7 @@ public static class HixCompiler {
       .Select(SignatureParameterBindingStep.Rewrite).ToArray();
     var derivations = declarations.OfType<MixinDeclarationIr>().Where(mixin => mixin.IsDerivation).ToArray();
     var patterns = backend.Functions.Types.Concat(declarations.OfType<TypeDeclarationIr>()).GroupBy(type => type.Name, StringComparer.Ordinal)
-      .ToDictionary(group => group.Key, group => group.Last().Pattern, StringComparer.Ordinal);
+      .ToDictionary(group => group.Key, group => resolvedPatterns[group.Key], StringComparer.Ordinal);
     functions = functions.Concat(patterns.SelectMany(item =>
       PatternConstructorCompiler.Compile(item.Key, item.Value, patterns))).ToArray();
     // The functions are the module being prepared here. Supplying them as catalog imports as well
@@ -114,6 +118,7 @@ public static class HixCompiler {
   }
 
   public static HixModuleIr PrepareIr(MixinDeclarationIr declaration, HixCompilerCatalog globals) {
+    declaration = (MixinDeclarationIr)PatternComposition.ResolveDeclarations([declaration], globals.Patterns)[0];
     var exported = DeclarationExports.Expand(declaration.Declarations);
     var expressions = exported.OfType<ExpressionDeclarationIr>().ToArray();
     var syntax = new HixModuleIr(expressions.Where(expression => expression.IsPrelude).ToArray(),

@@ -413,7 +413,7 @@ public sealed class HixExecutionTests {
         expression { var<changed> @= <discarded>; emit<discarded>; return(null) }
       }
       derivation mixin Second {
-        expression { assert(is(param#value, null)); fail<provider failed> }
+        expression { assert(eq(param#value, null)); fail<provider failed> }
       }
       mixin Example {
         prelude expression {
@@ -690,7 +690,7 @@ public sealed class HixExecutionTests {
     var invalid = AntlrSyntax.Parse(function +
       "mixin Example { expression { emit(combine(@{left=<a>, right=<b>})) } }");
     Assert.Contains(invalid.Diagnostics, diagnostic =>
-      diagnostic.Message == "no overload of 'combine' accepts (@{string left, string right})");
+      diagnostic.Message == "no overload of 'combine' accepts ({})");
 
     var valid = AntlrSyntax.Parse(function +
       "mixin Example { expression { emit(combine(<a>, <b>)) } }");
@@ -712,7 +712,7 @@ public sealed class HixExecutionTests {
     Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Type == "string" &&
       fact.Documentation == "local value: string");
     Assert.Contains(analysis.TypeFacts, fact => !fact.Inlay && fact.Type == "string" &&
-      fact.Documentation.Contains("lowercase(string) -> string"));
+      fact.Documentation.Contains("lowercase(string arg0) -> string"));
 
     var coercion = new LanguageAnalysis(
       "mixin Example { expression { local value = replaceAll(true, <r>, <x>) } }");
@@ -738,7 +738,7 @@ public sealed class HixExecutionTests {
     Assert.Contains(nestedWhen.Program.Diagnostics, diagnostic =>
       diagnostic.Message == "no overload of 'replaceAll' accepts 1 argument(s)");
     Assert.Contains(nestedWhen.TypeFacts, fact => fact.Kind == "Call" &&
-      fact.Documentation.Contains("lowercase(string) -> string"));
+      fact.Documentation.Contains("lowercase(string arg0) -> string"));
 
     var uncertainSelection = new LanguageAnalysis("""
       mixin Example { expression {

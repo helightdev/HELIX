@@ -7,6 +7,15 @@ import kotlin.test.assertTrue
 
 class HalLanguageTest {
     @Test
+    fun `trait component fields and inherited fields are available to hal`() {
+        val source = "trait type Named = @{string name}; type Entity = @{string id}; " +
+            "type User = %inherit<Entity> %trait<Named> @{string email};"
+        assertEquals(listOf("Entity", "User"), HalManifest.types(source))
+        assertEquals(listOf("id", "email", "${'$'}Named"), HalManifest.fields(source, "User"))
+        assertEquals(listOf("name"), HalManifest.fields(source, "Named"))
+    }
+
+    @Test
     fun `rider exposes the manifest project schema`() {
         assertEquals(
             listOf("name", "version", "description", "repository", "license", "author",

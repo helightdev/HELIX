@@ -38,7 +38,7 @@ public class HixStandaloneBackend : HixBackend {
       pure func joinPath(%variadic string arg0) -> string external standalone_joinPath;
 
       %description<>
-      pure func splitPath(string arg0) -> tuple external standalone_splitPath;
+      pure func splitPath(string arg0) -> %many<string> external standalone_splitPath;
 
       %description<>
       pure func trimExtension(string arg0) -> string external standalone_trimExtension;
@@ -100,7 +100,7 @@ public class HixStandaloneBackend : HixBackend {
       func existsFile(string arg0) -> bool external standalone_existsFile;
 
       %description<>
-      func listFiles(string arg0) -> tuple external standalone_listFiles;
+      func listFiles(string arg0) -> %many<string> external standalone_listFiles;
 
       %description<>
       func writeFile(string path, string content, string encoding = <utf8>, bool append = false) -> bool external standalone_writeFile;
@@ -150,8 +150,7 @@ public class HixStandaloneBackend : HixBackend {
       pure func inferredType(table arg0) -> string external standalone_inferredType;
 
       %description<Queues a Hix function or lambda on the current worker, or explicitly on the VM pool. Arguments are positional.>
-      %generic<T>
-      %invokeArguments<function><arguments>
+      %computedGeneric<T></invoke/function/arguments/result>
       func spawn(delegate() -> T function, tuple arguments = @[], bool useThreadPool = false) -> %task<T> external standalone_spawn;
 
       %description<Suspends until a task finishes and returns its value, propagating errors.>
@@ -159,12 +158,13 @@ public class HixStandaloneBackend : HixBackend {
       func awaitTask(%task<T> arg0) -> T external standalone_awaitTask;
 
       %description<Waits for every task and returns results in input order. An empty tuple returns an empty tuple.>
-      %tupleResults<arg0>(0)
-      func awaitAll(%many(task<any>) arg0) -> tuple external standalone_awaitAll;
+      %computedGeneric<T></arguments/arg0/*/typeArguments/0>
+      func awaitAll(%many(task<any>) arg0) -> T external standalone_awaitAll;
 
       %description<Returns the index and value of the first completed task. Empty input is an error; other tasks keep running.>
-      %firstResult<arg0>(0)
-      func awaitAny(%many(task<any>) arg0) -> table external standalone_awaitAny;
+      %computedGeneric<Results></arguments/arg0/*/typeArguments/0>
+      %computedGeneric<T></generics/Results/union>
+      func awaitAny(%many(task<any>) arg0) -> @{number index, T value} external standalone_awaitAny;
 
       %description<Tests completion without waiting.>
       func taskDone(%task<any> arg0) -> bool external standalone_taskDone;
