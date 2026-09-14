@@ -48,6 +48,9 @@
     <typedHandler implementation="dev.helight.helix.hal.HalQuoteTypedHandler" />
     <preFormatProcessor implementation="dev.helight.helix.hal.HalPreFormatProcessor" />
     <lang.formatter language="Hal" implementationClass="dev.helight.helix.hal.HalFormattingModelBuilder" />
+    <enterBetweenBracesDelegate language="Hix" implementationClass="dev.helight.helix.hix.HixBracketEnterDelegate" />
+    <enterBetweenBracesDelegate language="Hal" implementationClass="dev.helight.helix.hix.HixBracketEnterDelegate" />
+    <backspaceHandlerDelegate implementation="dev.helight.helix.hix.HixBracketBackspaceDelegate" />
     <lineIndentProvider implementation="dev.helight.helix.hal.HalLineIndentProvider" />
     <langCodeStyleSettingsProvider implementation="dev.helight.helix.hal.HalCodeStyleSettingsProvider" />
     <lang.parserDefinition language="Hix"
