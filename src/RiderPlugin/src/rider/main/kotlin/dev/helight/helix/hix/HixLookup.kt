@@ -11,7 +11,7 @@ internal object HixLookup {
     enum class SemanticRole { Pattern, PatternMetadata, TypeMetadata, DeclarationMetadata, FileMetadata, Metadata }
     data class MetadataArgument(val name: String, val index: Int)
     data class Site(val chained: Boolean, val member: Boolean, val receiverEnd: Int)
-    data class ConstructorField(val name: String, val type: String, val optional: Boolean, val defaulted: Boolean)
+    data class ConstructorField(val name: String, val type: String, val optional: Boolean, val defaulted: Boolean, val default: String = "")
     data class Constructor(val name: String, val fields: List<ConstructorField>, val tuple: Boolean, val trait: Boolean = false, val traitName: String = name)
     data class ConstructorCall(val name: String, val assigned: Set<String>)
 
@@ -38,7 +38,8 @@ internal object HixLookup {
                     field.metadataList()?.metadata()?.firstOrNull { it.IDENTIFIER()?.text == "many" }?.text
                         ?: field.patternUnion()?.text ?: "any",
                     field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "optional" } == true,
-                    field.value() != null || field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "default" } == true)
+                    field.value() != null || field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "default" } == true,
+                    field.value()?.text.orEmpty())
             }, tuple) else resolve(primary.patternIdentifier()?.text ?: return null, active + name)?.copy(name = name)
                 ?: return null
             val directives = (expression.inlineMetadataList()?.metadata() ?: emptyList()) +
@@ -64,7 +65,8 @@ internal object HixLookup {
                             merged[field.name] = if (parent == null) field else field.copy(
                                 optional = (field.optional || field.defaulted) && (parent.optional || parent.defaulted),
                                 defaulted = (field.defaulted || parent.defaulted) &&
-                                    (field.optional || field.defaulted) && (parent.optional || parent.defaulted))
+                                    (field.optional || field.defaulted) && (parent.optional || parent.defaulted),
+                                default = if (field.defaulted) field.default else parent.default)
                         }
                         merged.values.toList()
                     }

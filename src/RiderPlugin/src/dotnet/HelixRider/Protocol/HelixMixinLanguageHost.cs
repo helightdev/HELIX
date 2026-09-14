@@ -97,11 +97,14 @@ public sealed class HelixMixinLanguageHost {
             item.Target == null ? Range(0, 0) : Range(item.Target.Range))).ToArray(),
         value.Diagnostics.Select(item => new MixinDiagnostic(item.Message, item.Severity, Range(item.Range))).ToArray(),
         value.TypeFacts.Select(item => new MixinTypeFact(Range(item.Range), item.Type, item.Documentation,
-            item.Inlay, item.Kind)).ToArray());
+            item.Inlay, item.Kind, item.CallSignature == null ? null : Definition(item.CallSignature),
+            item.MemberNames.ToArray(), item.MemberTypes.ToArray())).ToArray());
 
     private static MixinLanguageDefinition Definition(HixDefinition value) => new(value.Name, value.Kind,
         value.ArgumentCount, value.Variadic, value.OperandType, value.ReceiverType, value.ResultType,
-        value.ArgumentTypes.ToArray(), value.Documentation);
+        value.ArgumentTypes.ToArray(), value.Documentation, value.ArgumentNames.ToArray(),
+        value.OptionalArguments.ToArray(), value.ArgumentDefaults.ToArray(), value.TypeParameters.ToArray(),
+        value.TypeParameterBounds.ToArray(), value.DeclaredArgumentTypes.ToArray());
     private static MixinCompletionItem Completion(HixCompletion value) => new(value.Name, value.InsertText,
         value.Kind, value.Documentation, value.Target?.Path ?? string.Empty,
         value.Target == null ? Range(0, 0) : Range(value.Target.Range));

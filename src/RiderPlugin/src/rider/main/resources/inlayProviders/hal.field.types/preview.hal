@@ -1,0 +1,3 @@
+--- Person
+name/*<# : string #>*/ = Ada
+age/*<# : number #>*/ = 30

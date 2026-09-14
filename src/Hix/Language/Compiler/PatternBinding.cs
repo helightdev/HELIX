@@ -453,6 +453,7 @@ public static class PatternBinding {
           instantiated.Parameters[Math.Min(index, instantiated.Parameters.Count - 1)].Pattern)).Count(), parameters.Count != 0) {
         DeclarationSignature = parameters.Count != 0 || signature.Parameters.Any(field => HixGenericTypes.RequiresErasure(field.Pattern)) ||
           HixGenericTypes.RequiresErasure(signature.Result) ? HixGenericTypes.SignatureIdentity(signature) : null,
+        TemplateSignature = signature, IsVariadic = variadic, ParameterDefaults = defaults ?? Array.Empty<ExpressionIr>(),
         ExactMatch = converted.Count == 0 && relations.All(relation => relation == HixPatternRelation.Always),
         PatternConversions = converted.ToArray()
       });

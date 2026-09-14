@@ -11,7 +11,10 @@ public sealed class LanguageAnalysis {
     HixIrNode Node);
   public sealed record Reference(string Name, string Kind, HixSourceRange Range, HixIrNode Node);
   public sealed record TypeFact(HixSourceRange Range, string Type, string Documentation, bool Inlay,
-    string Kind = "Type");
+    string Kind = "Type") {
+    public HixCallResolution CallResolution { get; init; }
+    public IReadOnlyList<HixPatternField> Members { get; init; } = Array.Empty<HixPatternField>();
+  }
 
   private readonly HixBackend backend;
   public LanguageAnalysis(string source, HixBackend backend = null,
@@ -90,7 +93,7 @@ public sealed class LanguageAnalysis {
             if (assignment.IsDeclaration) locals[assignment.Name] = assignment.DeclaredPattern ?? inferred;
             var local = locals.TryGetValue(assignment.Name, out var known) ? known : HixPattern.Any;
             facts.Add(new(IdentifierRange(assignment, assignment.Name), local.Display,
-              "local " + assignment.Name + ": " + local.Display, assignment.IsDeclaration));
+              "local " + assignment.Name + ": " + local.Display, assignment.IsDeclaration && assignment.DeclaredPattern == null && assignment.Value != null));
           }
         } else if (statement is BlockStatementIr nested) {
           Analyze(nested, new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters);
@@ -157,11 +160,14 @@ public sealed class LanguageAnalysis {
           var argumentPatterns = call.Arguments.Select(argument => Infer(argument, locals, parameters)).ToArray();
           string documentation;
           var dynamic = false;
-          if (backend.Functions.Resolve(call.Name).Count == 0 && patterns.ContainsKey(call.Name)) {
-            result = new NamedHixPattern(call.Name);
-            documentation = "Construct a value of pattern `" + call.Name + "`. Use as(value, " + call.Name + ") to cast a value.";
-          } else {
-            var resolution = PatternBinding.Resolve(call, functions, backend, patterns,
+          {
+            var callableFunctions = functions;
+            if (backend.Functions.Resolve(call.Name).Count == 0 && patterns.TryGetValue(call.Name, out var constructorPattern)) {
+              callableFunctions = functions.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
+              callableFunctions[call.Name] = PatternConstructorCompiler.Compile(call.Name, constructorPattern, patterns)
+                .Where(method => method.Name == call.Name).ToArray();
+            }
+            var resolution = PatternBinding.Resolve(call, callableFunctions, backend, patterns,
               value => { var position = call.Arguments.ToList().IndexOf(value);
                 return position >= 0 ? argumentPatterns[position] : Infer(value, locals, parameters); }, out var ambiguous);
             call.Resolution = resolution;
@@ -189,7 +195,9 @@ public sealed class LanguageAnalysis {
                     "Implicitly coerced from " + actual.Display + " to " + target.Display + ".", true, "Coercion"));
               }
           }
-          facts.Add(new(TrailingIdentifierRange(call, call.Name), result.Display, documentation, false, "Call"));
+          facts.Add(new(TrailingIdentifierRange(call, call.Name), result.Display, documentation, false, "Call") {
+            CallResolution = dynamic ? null : call.Resolution
+          });
           if (dynamic) facts.Add(new(TrailingIdentifierRange(call, call.Name), result.Display,
             "Overload is selected dynamically at runtime.\n" + documentation, false, "DynamicCall"));
           break;
@@ -197,7 +205,9 @@ public sealed class LanguageAnalysis {
           foreach (var child in expression.SemanticChildren.OfType<ExpressionIr>()) Infer(child, locals, parameters);
           result = HixPattern.Any; break;
       }
-      facts.Add(new(expression.SourceRange, result.Display, "", false, "Expression"));
+      facts.Add(new(expression.SourceRange, result.Display, "", false, "Expression") {
+        Members = ExpressionMembers(result, patterns)
+      });
       return result;
     }
 
@@ -460,6 +470,21 @@ public sealed class LanguageAnalysis {
     if (node is RootExpressionIr root && name == root.Name) name = root.OriginalName;
     var token = node.Tokens.FirstOrDefault(item => item.Channel == Antlr4.Runtime.TokenConstants.DefaultChannel && item.Text == name);
     return token != null ? HixSourceRange.FromToken(token) : TextRange(node.SourceRange, name, false);
+  }
+
+  private static IReadOnlyList<HixPatternField> ExpressionMembers(HixPattern pattern,
+    IReadOnlyDictionary<string, HixPattern> definitions) {
+    if (HixPatterns.TryStructural(pattern, definitions, out var structural))
+      return structural is TableHixPattern table ? table.Fields.Where(field => field.Name != null).ToArray() : ((TupleHixPattern)structural).Fields
+        .Select((field, index) => field with {Name = index.ToString()}).ToArray();
+    if (pattern is UnionHixPattern union) {
+      var variants = union.Patterns.Where(item => item is not KindHixPattern {ValueKind: HixValueKind.Null or HixValueKind.Missing})
+        .Select(item => ExpressionMembers(item, definitions)).ToArray();
+      if (variants.Length == 0) return Array.Empty<HixPatternField>();
+      return variants[0].Where(field => variants.All(fields => fields.Any(item => item.Name == field.Name)))
+        .Select(field => field with {Pattern = HixPatterns.Union(variants.Select(fields => fields.First(item => item.Name == field.Name).Pattern))}).ToArray();
+    }
+    return Array.Empty<HixPatternField>();
   }
 
   private HixSourceRange TrailingIdentifierRange(HixIrNode node, string name) {

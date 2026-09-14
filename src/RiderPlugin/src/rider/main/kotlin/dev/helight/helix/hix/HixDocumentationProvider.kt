@@ -20,6 +20,7 @@ class HixDocumentationProvider : DocumentationProvider {
 
     override fun getDocumentationElementForLookupItem(psiManager: PsiManager, item: Any,
                                                       element: PsiElement): PsiElement? = when (item) {
+        is HixEditorSignature -> LookupDocumentation(element, item.display, item.documentation)
         is MixinLanguageDefinition -> LookupDocumentation(element, HixLookup.signature(item), item.documentation)
         is MixinCompletionItem -> LookupDocumentation(element, item.name, item.documentation)
         else -> null

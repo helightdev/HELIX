@@ -97,7 +97,11 @@ public sealed class HixAnalyzerService {
     return new HixDocumentSnapshot(file.Document.Path, file.Document.Revision, file.Hash,
       file.Analysis.Declarations.Select(item => new HixSymbol(item.Name, item.Kind, item.Range, item.Scope)).ToArray(),
       references, diagnostics, file.Analysis.TypeFacts.Select(item => new HixTypeFact(item.Range,
-        item.Type, item.Documentation ?? string.Empty, item.Inlay, item.Kind)).ToArray());
+        item.Type, item.Documentation ?? string.Empty, item.Inlay, item.Kind) {
+          CallSignature = item.CallResolution == null ? null : HixDefinitionSignatures.FromResolution(item.CallResolution),
+          MemberNames = item.Members.Select(field => field.Name).ToArray(),
+          MemberTypes = item.Members.Select(field => field.Pattern.Display).ToArray()
+        }).ToArray());
   }
 
   private static HixDefinition[] BuildDefinitions(HixBackend backend) {
@@ -107,7 +111,7 @@ public sealed class HixAnalyzerService {
       new HixDefinition(definition.Name, "Function", signature.ArgumentCount, signature.IsVariadic, "None",
         (signature.ArgumentPatterns.Count == 0 ? HixPattern.Any : signature.ArgumentPatterns[0]).Display,
         signature.ResultPattern.Display, signature.ArgumentPatterns.Select(type => type.Display).ToArray(),
-        definition.Documentation)));
+        definition.Documentation).WithSignature(signature)));
     var roots = backend.Roots.Values.Select(root => new HixDefinition(root.Name, "Root", 0, false, "None",
       "None", root.Pattern.Display, [], "Backend root"));
     var primitives = HixPatterns.PrimitivePatterns.Keys.Select(name => new HixDefinition(
@@ -120,20 +124,20 @@ public sealed class HixAnalyzerService {
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "PatternMetadata", signature.ArgumentCount, signature.IsVariadic,
         definition.Metadata == HixMetadataKind.PatternField ? "Field" : "Pattern", "None", "Pattern",
-        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation).WithSignature(signature)));
     var fileMetadata = all.Where(definition => (definition.Metadata & HixMetadataKind.File) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "FileMetadata", signature.ArgumentCount, signature.IsVariadic, "File", "None", "None",
-        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation).WithSignature(signature)));
     var typeMetadata = all.Where(definition => (definition.Metadata & HixMetadataKind.TypeDefinition) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "TypeMetadata", signature.ArgumentCount, signature.IsVariadic, "Type", "None", "Pattern",
-        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation).WithSignature(signature)));
     var declarationMetadata = all.Where(definition => (definition.Metadata &
         (HixMetadataKind.FunctionDefinition | HixMetadataKind.MixinDefinition)) != 0)
       .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
         "DeclarationMetadata", signature.ArgumentCount, signature.IsVariadic, "Declaration", "None", "None",
-        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation)));
+        signature.ArgumentPatterns.Select(type => type.Display).ToArray(), definition.Documentation).WithSignature(signature)));
     var opaqueTypes = backend.Functions.OpaqueTypes.Select(type => new HixDefinition(type.Name, "Type", 0, false,
       "None", "None", "opaque", [], type.Documentation));
     return functions.Concat(roots).Concat(primitives).Concat(types).Concat(opaqueTypes).Concat(metadata).Concat(typeMetadata)
@@ -172,4 +176,43 @@ public sealed class HixAnalyzerService {
   public static long SourceHash(string source) { unchecked { var hash = 1469598103934665603L;
     foreach (var character in source ?? string.Empty) { hash ^= character; hash *= 1099511628211L; } return hash; } }
   private sealed record CachedDocument(HixDocument Document, long Hash, LanguageAnalysis Analysis);
+}
+
+internal static class HixDefinitionSignatures {
+  internal static HixDefinition WithSignature(this HixDefinition definition, FunctionSignature signature) => definition with {
+    DeclaredArgumentTypes = signature.ArgumentPatterns.Select(pattern => pattern.Display).ToArray(),
+    ArgumentNames = Enumerable.Range(0, signature.ArgumentPatterns.Count).Select(index => signature.GetArgumentName(index) ?? "").ToArray(),
+    OptionalArguments = Enumerable.Range(0, signature.ArgumentPatterns.Count).Select(index => signature.GetArgumentDefault(index) != null).ToArray(),
+    ArgumentDefaults = Enumerable.Range(0, signature.ArgumentPatterns.Count).Select(index => DefaultText(signature.GetArgumentDefault(index))).ToArray(),
+    TypeParameters = signature.TypeParameters.Select(parameter => parameter.Name).ToArray(),
+    TypeParameterBounds = signature.TypeParameters.Select(parameter => parameter.AdditionalBounds.Aggregate(parameter.Bound ?? HixPattern.Any, (root, next) => new IntersectionHixPattern(root, next)).Display).ToArray()
+  };
+
+  internal static HixDefinition FromResolution(HixCallResolution resolution) {
+    var signature = resolution.Signature;
+    return new HixDefinition(signature.Name, "Function", signature.Parameters.Count - (resolution.IsVariadic ? 1 : 0), resolution.IsVariadic,
+      "None", signature.Parameters.FirstOrDefault()?.Pattern.Display ?? "any", signature.Result.Display,
+      signature.Parameters.Select(field => field.Pattern.Display).ToArray(), signature.Display) {
+      DeclaredArgumentTypes = (resolution.TemplateSignature ?? signature).Parameters.Select(field => field.Pattern.Display).ToArray(),
+      TypeParameters = resolution.Substitutions.Keys.Select(parameter => parameter.Name).ToArray(),
+      TypeParameterBounds = resolution.Substitutions.Keys.Select(parameter => parameter.AdditionalBounds
+        .Aggregate(parameter.Bound ?? HixPattern.Any, (root, next) => new IntersectionHixPattern(root, next)).Display).ToArray(),
+      ArgumentNames = signature.Parameters.Select(field => field.Name ?? "").ToArray(),
+      OptionalArguments = signature.Parameters.Select(field => field.AllowsMissing).ToArray(),
+      ArgumentDefaults = Enumerable.Range(0, signature.Parameters.Count).Select(index =>
+        DefaultText(index < resolution.ParameterDefaults.Count ? resolution.ParameterDefaults[index] : null)).ToArray()
+    };
+  }
+
+  private static string DefaultText(ExpressionIr value) => value switch {
+    null => "",
+    StringExpressionIr text => "<" + text.Value + ">",
+    NumberExpressionIr number => number.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+    BooleanExpressionIr boolean => boolean.Value ? "true" : "false",
+    NullExpressionIr => "null",
+    MissingExpressionIr => "missing",
+    TupleExpressionIr tuple => "@[" + string.Join(", ", tuple.Values.Select(DefaultText)) + "]",
+    TableExpressionIr table => "@{" + string.Join(", ", table.Entries.Select(entry => entry.Key + " = " + DefaultText(entry.Value))) + "}",
+    _ => "…"
+  };
 }

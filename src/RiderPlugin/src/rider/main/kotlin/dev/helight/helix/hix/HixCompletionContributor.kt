@@ -43,7 +43,9 @@ private data class HixCompletionContext(
     val path get() = file?.path
     fun definitions(kind: String, receiverType: String = "", operandType: String = "",
                     prefix: String = "") =
-        service.queryDefinitions(kind, receiverType, operandType, prefix, source, file).asList()
+        service.definitionsFor(source, file).filter { definition -> definition.kind == kind &&
+            (operandType.isEmpty() || definition.operandType == "Pattern" || definition.operandType.equals(operandType, true)) &&
+            (prefix.isEmpty() || definition.name.startsWith(prefix, true)) }
 
     fun metadataDefinition(argument: HixLookup.MetadataArgument) =
         (definitions("FileMetadata", prefix = argument.name) +
@@ -77,7 +79,7 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
                 }.orEmpty()
                 val matched = result.withPrefixMatcher(prefix)
                 listOf("value", "flow").filter { it.startsWith(prefix, true) }.forEach {
-                    matched.addElement(LookupElementBuilder.create(it).withTypeText("graph").ranked(1000.0))
+                    matched.addElement(LookupElementBuilder.create(it).withIcon(HixCompletionIcons.forKind("Keyword")).withTypeText("graph").ranked(1000.0))
                 }
                 return
             }
@@ -90,7 +92,7 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
                 }.orEmpty()
                 val matched = result.withPrefixMatcher(prefix)
                 listOf("Standalone", "Unity").filter { it.startsWith(prefix, true) }.forEach {
-                    matched.addElement(LookupElementBuilder.create(it).withTypeText("backend").ranked(1000.0))
+                    matched.addElement(LookupElementBuilder.create(it).withIcon(HixCompletionIcons.forKind("Dependency")).withTypeText("backend").ranked(1000.0))
                 }
             }
             return
@@ -115,7 +117,7 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
                 if (definition.variadic && index == definition.argumentTypes.lastIndex) "$rendered..." else rendered
             }.joinToString("")
             matched.addElement(LookupElementBuilder.create(definition, definition.name)
-                .withTailText(arguments, true).withTypeText(typeText).ranked(900.0))
+                .withIcon(HixCompletionIcons.forKind(kind)).withTailText(arguments, true).withTypeText(typeText).ranked(900.0))
         }
     }
 }
@@ -135,123 +137,119 @@ private object PatternProvider : CompletionProvider<CompletionParameters>() {
             return
 
         context.definitions("PrimitivePattern").forEach { definition ->
-            result.addElement(LookupElementBuilder.create(definition, definition.name).withTypeText("pattern").ranked(800.0))
+            result.addElement(LookupElementBuilder.create(definition, definition.name).withIcon(HixCompletionIcons.forKind("PrimitivePattern")).withTypeText("pattern").ranked(800.0))
         }
         val names = HixAntlrSyntax.rules(context.parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
             .map { it.IDENTIFIER().text }.toMutableSet()
         if (context.file != null) names += context.service.snapshotsInContext(context.file)
             .flatMap { it.declarations.asList() }.filter { it.kind == "Pattern" }.map { it.name }
-        names.forEach { result.addElement(LookupElementBuilder.create(it).withTypeText("pattern").ranked(700.0)) }
+        names.forEach { result.addElement(LookupElementBuilder.create(it).withIcon(HixCompletionIcons.forKind("Pattern")).withTypeText("pattern").ranked(900.0)) }
 
         if (!patternArgument) {
             val start = context.token?.start?.coerceIn(0, context.offset) ?: context.offset
             context.service.lazyCompletions("CSharpType",
                 context.source.substring(start, context.offset), context.source, context.file).forEach { item ->
                 result.addElement(LookupElementBuilder.create(item, item.insertText)
-                    .withPresentableText(item.name).withTypeText(item.kind).ranked(500.0))
+                    .withIcon(HixCompletionIcons.forKind(item.kind)).withPresentableText(item.name).withTypeText(item.kind).ranked(500.0))
             }
         }
     }
 }
 
 private object ExpressionProvider : CompletionProvider<CompletionParameters>() {
-    override fun addCompletions(parameters: CompletionParameters, processing: ProcessingContext,
-                                result: CompletionResultSet) {
+    override fun addCompletions(parameters: CompletionParameters, processing: ProcessingContext, result: CompletionResultSet) {
         val context = HixCompletionContext.from(parameters)
         val position = (context.offset - 1).coerceAtLeast(0)
         if (HixLookup.metadataArgumentAt(context.parsed, position) != null ||
             HixLookup.semanticRoleAt(context.parsed, position) != null) return
-        val enumValues = HixLookup.enumValuesAt(context.parsed, context.offset)
-        enumValues.forEach { literal ->
-            result.addElement(LookupElementBuilder.create(literal)
-                .withPresentableText(literal.removeSurrounding("<", ">"))
-                .withTypeText("enum").ranked(1100.0))
+        HixLookup.enumValuesAt(context.parsed, context.offset).takeIf { it.isNotEmpty() }?.let { values ->
+            values.forEach { result.addElement(LookupElementBuilder.create(it).withIcon(HixCompletionIcons.forKind("Enum")).ranked(1300.0)) }
+            return
         }
-        if (enumValues.isNotEmpty()) return
         if (context.token?.type in setOf(HixLexer.ARGUMENT_TEXT, HixLexer.CONTENT_TEXT, HixLexer.COMMENT,
-                HixLexer.SLASH_COMMENT, HixLexer.ESCAPE_LITERAL, HixLexer.ESCAPE_HEX)) return
-
-        val constructors = buildList {
-            addAll(HixLookup.constructors(context.parsed))
-            context.file?.let { file ->
-                context.service.sourcesInContext(file).forEach { source ->
-                    if (source != context.source) addAll(HixLookup.constructors(HixAntlrSyntax.parse(source)))
-                }
-            }
-        }.distinctBy { it.name }
-        HixLookup.constructorCallAt(context.parsed, context.offset)?.let { call ->
-            constructors.firstOrNull { it.name == call.name }?.fields
-                ?.filter { it.name !in call.assigned }.orEmpty().forEach { field ->
-                    result.addElement(LookupElementBuilder.create("${HixLookup.fieldName(field.name)} = ")
-                        .withPresentableText(field.name).withTypeText(field.type).ranked(1200.0))
-                }
-        }
-
-        parameters.originalFile.virtualFile?.let { context.service.observe(it, context.source) }
+                HixLexer.SLASH_COMMENT, HixLexer.STRING, HixLexer.ESCAPE_LITERAL, HixLexer.ESCAPE_HEX)) return
+        val parsed = HixAntlrSyntax.parseIncomplete(context.source)
         val snapshot = context.service.snapshotForText(context.source, context.path)
-        val site = HixLookup.site(context.parsed, context.offset)
-        val receiver = HixLookup.receiverType(context.parsed, site.receiverEnd, snapshot)
-        val valueContext = HixLookup.isValueContextAt(context.parsed, context.offset)
-        val statementContext = HixLookup.isStatementBlockAt(context.parsed, context.offset) && !valueContext
-        val names = linkedSetOf<String>()
-
-        if (!site.chained && !site.member) {
-            if (!valueContext) for (index in 1..HixLexer.VOCABULARY.maxTokenType) {
-                if (HixLexer.VOCABULARY.getSymbolicName(index).orEmpty().startsWith("KEYWORD_"))
-                    HixLexer.VOCABULARY.getLiteralName(index)?.trim('\'')?.let { keyword ->
-                        if (!statementContext || keyword in statementKeywords) names += keyword
-                    }
-            }
-            if (valueContext || statementContext) names += context.definitions("Root").map { it.name }
-            if (valueContext) {
-                names += context.definitions("PrimitivePattern").map { it.name }
-                names += context.definitions("Type").map { it.name }
-                HixAntlrSyntax.rules(context.parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
-                    .forEach { names += it.IDENTIFIER().text }
-            }
-            if (valueContext) HixAntlrSyntax.rules(context.parsed.tree)
-                .filterIsInstance<HixParser.VariableIdentifierContext>()
-                .forEach { names += it.IDENTIFIER().text }
-            else if (!statementContext) HixAntlrSyntax.declarationNames(context.parsed.tree)
-                .forEach { names += it.text }
+        val site = HixLookup.site(parsed, context.offset)
+        val value = HixLookup.isValueContextAt(parsed, context.offset)
+        val statement = HixLookup.isStatementBlockAt(parsed, context.offset) && !value
+        val siblings = context.file?.let(context.service::sourcesInContext).orEmpty().filter { it != context.source }
+        val definitions = context.service.definitionsFor(context.source, context.file).toList()
+        val call = HixEditorCalls.at(HixEditorCalls.hix(context.source, snapshot), context.offset)
+        val signatures = call?.let { HixEditorCalls.signatures(context.source, definitions, siblings, it) }.orEmpty()
+        val expected = HixCompletionScope.expectedType(call, signatures, context.offset)
+        val shapes = (listOf(context.source) + siblings).flatMap { HixLookup.patterns(HixAntlrSyntax.parse(it)) }
+        val bounds = shapes.associate { it.name to if (it.tuple) "tuple" else "table" }
+        fun add(name: String, kind: String, type: String, priority: Double, item: Any = name, tail: String = "", asCall: Boolean = false) {
+            val compatibility = if (expected.startsWith("delegate") || expected == "function") {
+                if (kind == "Function") HixCompletionCompatibility.Match.Compatible else HixCompletionCompatibility.match(type, expected, bounds)
+            } else HixCompletionCompatibility.match(type, expected, bounds)
+            if (value && !name.endsWith(" = ") && compatibility == HixCompletionCompatibility.Match.Impossible) return
+            val rank = if (value && expected != "any" && !name.endsWith(" = ")) minOf(priority, compatibility.priority) else priority
+            val builder = LookupElementBuilder.create(item, name).withIcon(HixCompletionIcons.forKind(kind, shapes.any { it.trait && (name == it.name || name == it.name + ".new") }))
+                .withTypeText(type.takeUnless { it == "any" }, true).withTailText(tail, true)
+            result.addElement((if (asCall && !expected.startsWith("delegate") && expected != "function") builder.callInsertion() else builder).ranked(rank))
         }
-
-        if (!site.member) context.definitions("Function", if (site.chained) receiver else "").asSequence()
-            .filter { !site.chained || HixLookup.acceptsReceiver(it, receiver) }
-            .distinctBy(HixLookup::signature).forEach { definition ->
-                result.addElement(LookupElementBuilder.create(definition, definition.name)
-                    .withTailText("(" + definition.argumentTypes.joinToString(", ") { it.lowercase() } + ")", true)
-                    .withTypeText(definition.resultType.lowercase()).ranked(if (site.chained) 1000.0 else 700.0))
+        if (site.member) {
+            val fact = snapshot?.typeFacts?.filter { it.kind == "Expression" && it.range.endOffset == site.receiverEnd }
+                ?.minByOrNull { it.range.startOffset }
+            fact?.memberNames?.forEachIndexed { index, name ->
+                if (!Regex("[A-Za-z_0-9]+").matches(name)) return@forEachIndexed
+                add(name, "Field", fact.memberTypes.getOrNull(index) ?: "any", 1200.0)
             }
-
-        val constructorNames = constructors.mapTo(hashSetOf()) { it.name }
-        if (!site.chained && !site.member && valueContext) constructors.forEach { constructor ->
-            val tail = constructor.fields.joinToString(", ", "(", ")") { field ->
-                field.name + ": " + field.type + if (field.optional || field.defaulted) "?" else ""
-            }
-            result.addElement(LookupElementBuilder.create(constructor, constructor.name)
-                .withTailText(tail, true).withTypeText(if (constructor.tuple) "tuple pattern" else "table pattern")
-                .ranked(900.0))
+            return
         }
-        if (context.file != null && !site.member) context.service.snapshotsInContext(context.file)
-            .flatMap { it.declarations.asList() }.filter { declaration -> when {
-                site.chained || statementContext -> declaration.kind == "Function"
-                valueContext -> declaration.kind in setOf("Function", "Pattern")
-                else -> true
-            } }.filter { it.kind != "Pattern" || it.name !in constructorNames }.forEach { names += it.name }
-        names.forEach { name ->
-            val priority = when {
-                valueContext && HixAntlrSyntax.rules(context.parsed.tree)
-                    .filterIsInstance<HixParser.VariableIdentifierContext>().any { it.IDENTIFIER().text == name } -> 1050.0
-                name in statementKeywords -> 600.0
-                else -> 500.0
+        if (!site.chained && !value && !statement) {
+            val inMixin = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.MixinDeclarationContext>().any {
+                context.offset >= it.start.startIndex && context.offset <= it.stop.stopIndex + 1
             }
-            result.addElement(LookupElementBuilder.create(name).ranked(priority))
+            (if (inMixin) mixinKeywords else declarationKeywords).forEach { add(it, "Keyword", "any", 800.0) }
+            return
+        }
+        if (!site.chained) {
+            call?.let { HixCompletionScope.remainingParameters(it, signatures, context.offset).forEach { parameter ->
+                add(HixLookup.fieldName(parameter.name) + " = ", "Parameter", "any", 1300.0, tail = parameter.type)
+            } }
+            if (statement) statementKeywords.forEach { add(it, "Keyword", "any", 850.0) }
+            if (value || statement) {
+                val tokenStart = context.token?.start ?: context.offset
+                val smart = context.source.getOrNull(tokenStart - 1) == '$'
+                HixCompletionScope.variables(parsed, context.offset, snapshot).forEach {
+                    add((if (smart) "" else "$" ) + it.name, if (it.parameter) "Parameter" else "Variable", it.type, 1150.0)
+                }
+                if (smart) return
+                definitions.filter { it.kind == "Root" }.distinctBy { it.name }.forEach { add(it.name, "Root", it.resultType, 600.0, it) }
+                if (value) {
+                    definitions.filter { it.kind in setOf("PrimitivePattern", "Type") }.distinctBy { it.name }
+                        .forEach { add(it.name, it.kind, "pattern", if (expected == "pattern") 1100.0 else 150.0, it) }
+                    shapes.forEach { add(it.name, "Pattern", "pattern", if (expected == "pattern") 1100.0 else 150.0) }
+                }
+            }
+        }
+        val receiver = HixLookup.receiverType(parsed, site.receiverEnd, snapshot)
+        val local = HixEditorCalls.local(context.source, context.offset) + siblings.flatMap { HixEditorCalls.local(it) }
+        val functions = (local + definitions.filter { it.kind == "Function" }.map(HixEditorCalls::from)).distinctBy { it.display }
+        functions.forEach { signature ->
+            val compatibility = if (site.chained) HixCompletionCompatibility.match(receiver,
+                signature.parameters.firstOrNull()?.type ?: return@forEach, bounds + signature.bounds) else HixCompletionCompatibility.Match.Compatible
+            if (compatibility == HixCompletionCompatibility.Match.Impossible) return@forEach
+            val constructor = shapes.any { signature.name == it.name || signature.name == it.name + ".new" }
+            add(signature.name, if (constructor) "Constructor" else "Function", signature.result,
+                if (site.chained) compatibility.priority else if (constructor) 950.0 else 750.0,
+                signature, signature.parameters.joinToString(", ", "(", ")") { it.display }, asCall = !site.chained || signature.parameters.size > 1)
         }
     }
+    private val statementKeywords = setOf("return", "goto", "break", "continue", "when", "local", "carry")
+    private val declarationKeywords = setOf("func", "type", "trait", "mixin", "pure", "noinline", "derivation", "meta", "compiler", "bytecode", "runtime")
+    private val mixinKeywords = setOf("expression", "func", "pure", "noinline", "prelude", "strict")
+}
 
-    private val statementKeywords = setOf("return", "goto", "break", "continue", "when", "local", "var",
-        "target", "carry")
+private fun LookupElementBuilder.callInsertion(): LookupElementBuilder = withInsertHandler { context, _ ->
+    val offset = context.tailOffset
+    if (context.document.charsSequence.getOrNull(offset) != '(') context.document.insertString(offset, "()")
+    if (context.completionChar == '(') context.setAddCompletionChar(false)
+    context.editor.caretModel.moveToOffset(offset + 1)
+    com.intellij.codeInsight.AutoPopupController.getInstance(context.project).autoPopupParameterInfo(context.editor, null)
 }
 
 private object CompletionText {

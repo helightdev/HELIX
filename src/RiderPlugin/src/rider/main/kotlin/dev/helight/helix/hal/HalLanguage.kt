@@ -391,34 +391,23 @@ class HalCompletionContributor : CompletionContributor() {
     private object Provider : CompletionProvider<CompletionParameters>() {
         override fun addCompletions(parameters: CompletionParameters, context: ProcessingContext, result: CompletionResultSet) {
             HalDependencyService.ensure(parameters.originalFile.project)
-            val source = parameters.originalFile.text; val offset = parameters.offset.coerceIn(0, source.length)
-            val before = source.substring(0, offset); val manifest = HalManifest.text(parameters.originalFile.virtualFile)
-            val line = before.substringAfterLast('\n'); val isManifest = parameters.originalFile.virtualFile?.name
-                ?.equals("manifest.hal", true) == true
-            val types = HalManifest.types(manifest) + if (isManifest) listOf("Manifest") else emptyList()
-            if (line.trimStart().startsWith("---") || line.substringBeforeLast('{', "").isNotEmpty() && line.trim().isEmpty())
-                types.forEach { result.addElement(LookupElementBuilder.create(it).withTypeText("Hix pattern")) }
-            val scope = HalStructure.completionScope(source, offset)
-            if (scope?.first == "ManifestDependencies" && line.contains('=')) {
-                listOf("module", "ModuleDependency {}", "PathDependency { uri =  }",
-                    "GitDependency { repository =  }").forEach {
-                    result.addElement(LookupElementBuilder.create(it).withTypeText("Hix dependency"))
-                }
+            val source = parameters.originalFile.text
+            val offset = parameters.offset.coerceIn(0, source.length)
+            val schema = HalManifest.text(parameters.originalFile.virtualFile)
+            val isManifest = parameters.originalFile.virtualFile?.name?.equals("manifest.hal", true) == true
+            HalCompletion.items(source, offset, schema, isManifest).forEach { item ->
+                val builder = LookupElementBuilder.create(item, item.insert).withPresentableText(item.name)
+                    .withIcon(dev.helight.helix.hix.HixCompletionIcons.forKind(item.kind)).withTypeText(item.type, true)
+                    .withInsertHandler { insertion, _ ->
+                        if (item.kind == "Function") {
+                            insertion.editor.caretModel.moveToOffset(insertion.tailOffset - 1)
+                            if (insertion.completionChar == '(') insertion.setAddCompletionChar(false)
+                            com.intellij.codeInsight.AutoPopupController.getInstance(insertion.project)
+                                .autoPopupParameterInfo(insertion.editor, null)
+                        }
+                    }
+                result.addElement(PrioritizedLookupElement.withPriority(builder, item.priority))
             }
-            if (line.isBlank() || !line.contains('=')) scope?.let { (type, assigned) ->
-                val fields = when {
-                    type == "Manifest" && isManifest -> HalManifest.manifestFields
-                    type == "ManifestSources" && isManifest -> HalManifest.sourceFields
-                    else -> HalManifest.fieldDefinitions(manifest, type)
-                }
-                fields.filter { it.name !in assigned }.forEach {
-                    result.addElement(LookupElementBuilder.create("${HixLookup.fieldName(it.name)} = ").withPresentableText(it.name).withTypeText(it.type))
-                }
-            }
-            if (line.contains("ref(") || line.trimStart().startsWith("ref"))
-                Regex("(?m)^---\\s+\\S+\\s+&([A-Za-z0-9_.-]+)").findAll(source).map { it.groupValues[1] }.forEach {
-                    result.addElement(LookupElementBuilder.create(it).withTypeText("local section"))
-                }
         }
     }
 }

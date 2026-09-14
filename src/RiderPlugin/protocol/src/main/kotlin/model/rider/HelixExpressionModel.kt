@@ -76,24 +76,6 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("items", array(completionItem))
         }
 
-        val typeFact = structdef("mixinTypeFact") {
-            field("range", sourceRange)
-            field("type", string)
-            field("documentation", string)
-            field("inlay", bool)
-            field("kind", string)
-        }
-
-        val fileSnapshot = structdef("mixinFileSnapshot") {
-            field("filePath", string)
-            field("revision", long)
-            field("sourceHash", long)
-            field("declarations", array(declaration))
-            field("references", array(reference))
-            field("diagnostics", array(diagnostic))
-            field("typeFacts", array(typeFact))
-        }
-
         val languageDefinition = structdef("mixinLanguageDefinition") {
             field("name", string)
             field("kind", string)
@@ -104,6 +86,33 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("resultType", string)
             field("argumentTypes", array(string))
             field("documentation", string)
+            field("argumentNames", array(string))
+            field("optionalArguments", array(bool))
+            field("argumentDefaults", array(string))
+            field("typeParameters", array(string))
+            field("typeParameterBounds", array(string))
+            field("declaredArgumentTypes", array(string))
+        }
+
+        val typeFact = structdef("mixinTypeFact") {
+            field("range", sourceRange)
+            field("type", string)
+            field("documentation", string)
+            field("inlay", bool)
+            field("kind", string)
+            field("callSignature", languageDefinition.nullable)
+            field("memberNames", array(string))
+            field("memberTypes", array(string))
+        }
+
+        val fileSnapshot = structdef("mixinFileSnapshot") {
+            field("filePath", string)
+            field("revision", long)
+            field("sourceHash", long)
+            field("declarations", array(declaration))
+            field("references", array(reference))
+            field("diagnostics", array(diagnostic))
+            field("typeFacts", array(typeFact))
         }
 
         val definitionQuery = structdef("mixinDefinitionQuery") {

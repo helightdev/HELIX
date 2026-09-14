@@ -7,7 +7,10 @@ public sealed record HixCallResolution(SignatureHixPattern Signature,
   IReadOnlyDictionary<HixTypeParameter, HixPattern> Substitutions, ExpressionIr[] Arguments,
   HixCallBinding Binding, int Score, bool Generic) {
   public string DeclarationSignature { get; init; }
+  public SignatureHixPattern TemplateSignature { get; init; }
   public bool ExactMatch { get; init; }
+  public bool IsVariadic { get; init; }
+  public IReadOnlyList<ExpressionIr> ParameterDefaults { get; init; } = Array.Empty<ExpressionIr>();
   public IReadOnlyList<int> PatternConversions { get; init; } = Array.Empty<int>();
 }
 

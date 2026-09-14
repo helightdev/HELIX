@@ -12,10 +12,21 @@ public sealed record HixDiagnostic(string Message, string Severity, HixSourceRan
 public sealed record HixCompletion(string Name, string InsertText, string Kind, string Documentation,
   HixLocation Target = null);
 public sealed record HixTypeFact(HixSourceRange Range, string Type, string Documentation, bool Inlay,
-  string Kind);
+  string Kind) {
+  public HixDefinition CallSignature { get; init; }
+  public IReadOnlyList<string> MemberNames { get; init; } = System.Array.Empty<string>();
+  public IReadOnlyList<string> MemberTypes { get; init; } = System.Array.Empty<string>();
+}
 public sealed record HixDefinition(string Name, string Kind, int ArgumentCount, bool Variadic,
   string OperandType, string ReceiverType, string ResultType, IReadOnlyList<string> ArgumentTypes,
-  string Documentation);
+  string Documentation) {
+  public IReadOnlyList<string> DeclaredArgumentTypes { get; init; } = System.Array.Empty<string>();
+  public IReadOnlyList<string> ArgumentNames { get; init; } = System.Array.Empty<string>();
+  public IReadOnlyList<bool> OptionalArguments { get; init; } = System.Array.Empty<bool>();
+  public IReadOnlyList<string> ArgumentDefaults { get; init; } = System.Array.Empty<string>();
+  public IReadOnlyList<string> TypeParameters { get; init; } = System.Array.Empty<string>();
+  public IReadOnlyList<string> TypeParameterBounds { get; init; } = System.Array.Empty<string>();
+}
 public sealed record HixDocumentSnapshot(string Path, long Revision, long SourceHash,
   IReadOnlyList<HixSymbol> Declarations, IReadOnlyList<HixReference> References,
   IReadOnlyList<HixDiagnostic> Diagnostics, IReadOnlyList<HixTypeFact> TypeFacts);

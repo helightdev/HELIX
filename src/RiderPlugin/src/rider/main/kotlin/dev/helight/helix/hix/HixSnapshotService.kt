@@ -49,6 +49,7 @@ class HixSnapshotService(private val project: Project) {
     private val requestedDirectoryHashes = ConcurrentHashMap<String, Long>()
     private val semanticRetries = ConcurrentHashMap<String, SemanticRetry>()
     private val listeners = CopyOnWriteArrayList<(String, MixinFileSnapshot?) -> Unit>()
+    val modificationTracker = com.intellij.openapi.util.SimpleModificationTracker()
     private val catalogs = ConcurrentHashMap<String, Array<MixinLanguageDefinition>>()
     private val catalogRequestsInFlight = ConcurrentHashMap.newKeySet<String>()
     private val definitionQueries = ConcurrentHashMap<DefinitionQueryKey, Array<MixinLanguageDefinition>>()
@@ -63,14 +64,19 @@ class HixSnapshotService(private val project: Project) {
     }
 
     fun ensureLanguageCatalog(backend: String = DEFAULT_BACKEND) {
-        if (catalogs[backend]?.isNotEmpty() == true || project.isDisposed || !catalogRequestsInFlight.add(backend))
-            return
+        if (catalogs[backend]?.isNotEmpty() == true || project.isDisposed || project.isDefault) return
+        // Settings previews and early indexing may have PSI before Rider attaches a solution.
+        val model = try { project.solution.helixExpressionModel }
+            catch (cancelled: com.intellij.openapi.progress.ProcessCanceledException) { throw cancelled }
+            catch (_: RuntimeException) { return }
+        if (!catalogRequestsInFlight.add(backend)) return
         val lifetime = UnityProjectLifetimeService.getLifetime(project)
-        project.solution.helixExpressionModel.getMixinLanguageCatalog
+        model.getMixinLanguageCatalog
             .start(lifetime, backend).result.adviseOnce(lifetime) { result ->
                 catalogRequestsInFlight.remove(backend)
                 if (result is RdTaskResult.Success && result.value.definitions.isNotEmpty()) {
                     catalogs[backend] = result.value.definitions
+                    modificationTracker.incModificationCount()
                     val files = knownFiles.values.toList()
                     ApplicationManager.getApplication().invokeLater {
                         if (project.isDisposed) return@invokeLater
@@ -91,6 +97,7 @@ class HixSnapshotService(private val project: Project) {
     fun refreshLanguageCatalog(source: CharSequence, file: VirtualFile? = null) {
         val backend = effectiveBackend(source, file)
         catalogs.remove(backend)
+        modificationTracker.incModificationCount()
         definitionQueries.keys.removeIf { it.backend == backend }
         ensureLanguageCatalog(backend)
     }
@@ -383,6 +390,7 @@ class HixSnapshotService(private val project: Project) {
             }
         }
         byHash.computeIfAbsent(snapshot.sourceHash) { CopyOnWriteArrayList() }.add(snapshot)
+        modificationTracker.incModificationCount()
     }
 
     private fun sameAnalysis(left: MixinFileSnapshot, right: MixinFileSnapshot): Boolean =

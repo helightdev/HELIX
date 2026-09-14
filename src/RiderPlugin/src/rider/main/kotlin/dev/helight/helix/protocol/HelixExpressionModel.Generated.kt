@@ -43,9 +43,9 @@ class HelixExpressionModel private constructor(
             serializers.register(LazyCompanionMarshaller(RdId(-1838348744103421731), classLoader, "dev.helight.helix.protocol.MixinCompletionItem"))
             serializers.register(LazyCompanionMarshaller(RdId(2135719266191476869), classLoader, "dev.helight.helix.protocol.MixinCompletionRequest"))
             serializers.register(LazyCompanionMarshaller(RdId(-7579679042849489653), classLoader, "dev.helight.helix.protocol.MixinCompletionResponse"))
+            serializers.register(LazyCompanionMarshaller(RdId(-559598091605421159), classLoader, "dev.helight.helix.protocol.MixinLanguageDefinition"))
             serializers.register(LazyCompanionMarshaller(RdId(-7603046265752210668), classLoader, "dev.helight.helix.protocol.MixinTypeFact"))
             serializers.register(LazyCompanionMarshaller(RdId(-4595115062107102546), classLoader, "dev.helight.helix.protocol.MixinFileSnapshot"))
-            serializers.register(LazyCompanionMarshaller(RdId(-559598091605421159), classLoader, "dev.helight.helix.protocol.MixinLanguageDefinition"))
             serializers.register(LazyCompanionMarshaller(RdId(7368049600385922343), classLoader, "dev.helight.helix.protocol.MixinDefinitionQuery"))
             serializers.register(LazyCompanionMarshaller(RdId(3757912040769169282), classLoader, "dev.helight.helix.protocol.MixinDefinitionResponse"))
             serializers.register(LazyCompanionMarshaller(RdId(-5642695876888106362), classLoader, "dev.helight.helix.protocol.MixinParseResponse"))
@@ -59,7 +59,7 @@ class HelixExpressionModel private constructor(
 
 
 
-        const val serializationHash = 4436886768728962561L
+        const val serializationHash = 7518874239104377869L
 
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -153,7 +153,7 @@ val com.jetbrains.rd.ide.model.Solution.helixExpressionModel get() = getOrCreate
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:129]
+ * #### Generated from [HelixExpressionModel.kt:138]
  */
 data class HixExecutionRequest (
     val manifestPath: String,
@@ -234,7 +234,7 @@ data class HixExecutionRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:141]
+ * #### Generated from [HelixExpressionModel.kt:150]
  */
 data class HixExecutionResponse (
     val exitCode: Int,
@@ -315,7 +315,7 @@ data class HixExecutionResponse (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:135]
+ * #### Generated from [HelixExpressionModel.kt:144]
  */
 data class HixTestResult (
     val `file`: String,
@@ -708,7 +708,7 @@ data class MixinDeclaration (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:109]
+ * #### Generated from [HelixExpressionModel.kt:118]
  */
 data class MixinDefinitionQuery (
     val kind: String,
@@ -795,7 +795,7 @@ data class MixinDefinitionQuery (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:117]
+ * #### Generated from [HelixExpressionModel.kt:126]
  */
 data class MixinDefinitionResponse (
     val definitions: Array<MixinLanguageDefinition>
@@ -1008,7 +1008,7 @@ data class MixinFileInput (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:87]
+ * #### Generated from [HelixExpressionModel.kt:108]
  */
 data class MixinFileSnapshot (
     val filePath: String,
@@ -1107,7 +1107,7 @@ data class MixinFileSnapshot (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:125]
+ * #### Generated from [HelixExpressionModel.kt:134]
  */
 data class MixinLanguageCatalog (
     val definitions: Array<MixinLanguageDefinition>
@@ -1170,7 +1170,7 @@ data class MixinLanguageCatalog (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:97]
+ * #### Generated from [HelixExpressionModel.kt:79]
  */
 data class MixinLanguageDefinition (
     val name: String,
@@ -1181,7 +1181,13 @@ data class MixinLanguageDefinition (
     val receiverType: String,
     val resultType: String,
     val argumentTypes: Array<String>,
-    val documentation: String
+    val documentation: String,
+    val argumentNames: Array<String>,
+    val optionalArguments: BooleanArray,
+    val argumentDefaults: Array<String>,
+    val typeParameters: Array<String>,
+    val typeParameterBounds: Array<String>,
+    val declaredArgumentTypes: Array<String>
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
@@ -1194,6 +1200,12 @@ data class MixinLanguageDefinition (
         buffer.writeString(resultType)
         buffer.writeArray(argumentTypes) { buffer.writeString(it) }
         buffer.writeString(documentation)
+        buffer.writeArray(argumentNames) { buffer.writeString(it) }
+        buffer.writeBooleanArray(optionalArguments)
+        buffer.writeArray(argumentDefaults) { buffer.writeString(it) }
+        buffer.writeArray(typeParameters) { buffer.writeString(it) }
+        buffer.writeArray(typeParameterBounds) { buffer.writeString(it) }
+        buffer.writeArray(declaredArgumentTypes) { buffer.writeString(it) }
     }
     //companion
 
@@ -1212,7 +1224,13 @@ data class MixinLanguageDefinition (
             val resultType = buffer.readString()
             val argumentTypes = buffer.readArray {buffer.readString()}
             val documentation = buffer.readString()
-            return MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation)
+            val argumentNames = buffer.readArray {buffer.readString()}
+            val optionalArguments = buffer.readBooleanArray()
+            val argumentDefaults = buffer.readArray {buffer.readString()}
+            val typeParameters = buffer.readArray {buffer.readString()}
+            val typeParameterBounds = buffer.readArray {buffer.readString()}
+            val declaredArgumentTypes = buffer.readArray {buffer.readString()}
+            return MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation, argumentNames, optionalArguments, argumentDefaults, typeParameters, typeParameterBounds, declaredArgumentTypes)
         }
 
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinLanguageDefinition)  {
@@ -1241,6 +1259,12 @@ data class MixinLanguageDefinition (
         if (resultType != other.resultType) return false
         if (!(argumentTypes contentDeepEquals other.argumentTypes)) return false
         if (documentation != other.documentation) return false
+        if (!(argumentNames contentDeepEquals other.argumentNames)) return false
+        if (!(optionalArguments contentEquals other.optionalArguments)) return false
+        if (!(argumentDefaults contentDeepEquals other.argumentDefaults)) return false
+        if (!(typeParameters contentDeepEquals other.typeParameters)) return false
+        if (!(typeParameterBounds contentDeepEquals other.typeParameterBounds)) return false
+        if (!(declaredArgumentTypes contentDeepEquals other.declaredArgumentTypes)) return false
 
         return true
     }
@@ -1256,6 +1280,12 @@ data class MixinLanguageDefinition (
         __r = __r*31 + resultType.hashCode()
         __r = __r*31 + argumentTypes.contentDeepHashCode()
         __r = __r*31 + documentation.hashCode()
+        __r = __r*31 + argumentNames.contentDeepHashCode()
+        __r = __r*31 + optionalArguments.contentHashCode()
+        __r = __r*31 + argumentDefaults.contentDeepHashCode()
+        __r = __r*31 + typeParameters.contentDeepHashCode()
+        __r = __r*31 + typeParameterBounds.contentDeepHashCode()
+        __r = __r*31 + declaredArgumentTypes.contentDeepHashCode()
         return __r
     }
     //pretty print
@@ -1271,6 +1301,12 @@ data class MixinLanguageDefinition (
             print("resultType = "); resultType.print(printer); println()
             print("argumentTypes = "); argumentTypes.print(printer); println()
             print("documentation = "); documentation.print(printer); println()
+            print("argumentNames = "); argumentNames.print(printer); println()
+            print("optionalArguments = "); optionalArguments.print(printer); println()
+            print("argumentDefaults = "); argumentDefaults.print(printer); println()
+            print("typeParameters = "); typeParameters.print(printer); println()
+            print("typeParameterBounds = "); typeParameterBounds.print(printer); println()
+            print("declaredArgumentTypes = "); declaredArgumentTypes.print(printer); println()
         }
         printer.print(")")
     }
@@ -1350,7 +1386,7 @@ data class MixinParseRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:121]
+ * #### Generated from [HelixExpressionModel.kt:130]
  */
 data class MixinParseResponse (
     val files: Array<MixinFileSnapshot>
@@ -1575,14 +1611,17 @@ data class MixinSourceRange (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:79]
+ * #### Generated from [HelixExpressionModel.kt:97]
  */
 data class MixinTypeFact (
     val range: MixinSourceRange,
     val type: String,
     val documentation: String,
     val inlay: Boolean,
-    val kind: String
+    val kind: String,
+    val callSignature: MixinLanguageDefinition?,
+    val memberNames: Array<String>,
+    val memberTypes: Array<String>
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
@@ -1591,6 +1630,9 @@ data class MixinTypeFact (
         buffer.writeString(documentation)
         buffer.writeBool(inlay)
         buffer.writeString(kind)
+        buffer.writeNullable(callSignature) { MixinLanguageDefinition.write(ctx, buffer, it) }
+        buffer.writeArray(memberNames) { buffer.writeString(it) }
+        buffer.writeArray(memberTypes) { buffer.writeString(it) }
     }
     //companion
 
@@ -1605,7 +1647,10 @@ data class MixinTypeFact (
             val documentation = buffer.readString()
             val inlay = buffer.readBool()
             val kind = buffer.readString()
-            return MixinTypeFact(range, type, documentation, inlay, kind)
+            val callSignature = buffer.readNullable { MixinLanguageDefinition.read(ctx, buffer) }
+            val memberNames = buffer.readArray {buffer.readString()}
+            val memberTypes = buffer.readArray {buffer.readString()}
+            return MixinTypeFact(range, type, documentation, inlay, kind, callSignature, memberNames, memberTypes)
         }
 
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinTypeFact)  {
@@ -1630,6 +1675,9 @@ data class MixinTypeFact (
         if (documentation != other.documentation) return false
         if (inlay != other.inlay) return false
         if (kind != other.kind) return false
+        if (callSignature != other.callSignature) return false
+        if (!(memberNames contentDeepEquals other.memberNames)) return false
+        if (!(memberTypes contentDeepEquals other.memberTypes)) return false
 
         return true
     }
@@ -1641,6 +1689,9 @@ data class MixinTypeFact (
         __r = __r*31 + documentation.hashCode()
         __r = __r*31 + inlay.hashCode()
         __r = __r*31 + kind.hashCode()
+        __r = __r*31 + if (callSignature != null) callSignature.hashCode() else 0
+        __r = __r*31 + memberNames.contentDeepHashCode()
+        __r = __r*31 + memberTypes.contentDeepHashCode()
         return __r
     }
     //pretty print
@@ -1652,6 +1703,9 @@ data class MixinTypeFact (
             print("documentation = "); documentation.print(printer); println()
             print("inlay = "); inlay.print(printer); println()
             print("kind = "); kind.print(printer); println()
+            print("callSignature = "); callSignature.print(printer); println()
+            print("memberNames = "); memberNames.print(printer); println()
+            print("memberTypes = "); memberTypes.print(printer); println()
         }
         printer.print(")")
     }

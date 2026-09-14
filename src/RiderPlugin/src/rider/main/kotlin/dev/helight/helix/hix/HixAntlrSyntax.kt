@@ -23,6 +23,7 @@ internal data class HelixAntlrParse(
 /** Both recognition and lexer modes come exclusively from the generated Java grammar. */
 internal object HixAntlrSyntax {
     private val latest = ThreadLocal<HelixAntlrParse>()
+    private val latestIncomplete = ThreadLocal<HelixAntlrParse>()
 
     private data class Pass(val tree: HixParser.CompilationUnitContext,
                             val tokens: List<HelixAntlrToken>,
@@ -47,6 +48,13 @@ internal object HixAntlrSyntax {
         val diagnostics = (original.diagnostics + original.tokens.filter { it.type == HixLexer.ERROR_TOKEN }
             .map { HelixAntlrDiagnostic(it.start, it.end, "Invalid token") }).distinct()
         return HelixAntlrParse(text, pass.tokens, pass.tree, diagnostics).also(latest::set)
+    }
+
+    fun parseIncomplete(source: CharSequence): HelixAntlrParse {
+        val text = source.toString()
+        latestIncomplete.get()?.takeIf { it.source == text }?.let { return it }
+        val pass = parsePass(text)
+        return HelixAntlrParse(text, pass.tokens, pass.tree, pass.diagnostics).also(latestIncomplete::set)
     }
 
     /** Raw document tokens for editor services; parser recovery must never rewrite this view. */

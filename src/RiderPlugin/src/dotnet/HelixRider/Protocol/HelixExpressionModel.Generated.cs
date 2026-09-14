@@ -124,7 +124,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => 4436886768728962561L;
+    protected override long SerializationHash => 7518874239104377869L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -174,7 +174,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:129</p>
+  /// <p>Generated from: HelixExpressionModel.kt:138</p>
   /// </summary>
   public sealed class HixExecutionRequest : IPrintable, IEquatable<HixExecutionRequest>
   {
@@ -287,7 +287,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:141</p>
+  /// <p>Generated from: HelixExpressionModel.kt:150</p>
   /// </summary>
   public sealed class HixExecutionResponse : IPrintable, IEquatable<HixExecutionResponse>
   {
@@ -400,7 +400,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:135</p>
+  /// <p>Generated from: HelixExpressionModel.kt:144</p>
   /// </summary>
   public sealed class HixTestResult : IPrintable, IEquatable<HixTestResult>
   {
@@ -943,7 +943,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:109</p>
+  /// <p>Generated from: HelixExpressionModel.kt:118</p>
   /// </summary>
   public sealed class MixinDefinitionQuery : IPrintable, IEquatable<MixinDefinitionQuery>
   {
@@ -1064,7 +1064,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:117</p>
+  /// <p>Generated from: HelixExpressionModel.kt:126</p>
   /// </summary>
   public sealed class MixinDefinitionResponse : IPrintable, IEquatable<MixinDefinitionResponse>
   {
@@ -1356,7 +1356,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:87</p>
+  /// <p>Generated from: HelixExpressionModel.kt:108</p>
   /// </summary>
   public sealed class MixinFileSnapshot : IPrintable, IEquatable<MixinFileSnapshot>
   {
@@ -1501,7 +1501,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:125</p>
+  /// <p>Generated from: HelixExpressionModel.kt:134</p>
   /// </summary>
   public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
   {
@@ -1588,7 +1588,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:97</p>
+  /// <p>Generated from: HelixExpressionModel.kt:79</p>
   /// </summary>
   public sealed class MixinLanguageDefinition : IPrintable, IEquatable<MixinLanguageDefinition>
   {
@@ -1603,6 +1603,12 @@ namespace HelixRider.Protocol
     [NotNull] public string ResultType {get; private set;}
     [NotNull] public string[] ArgumentTypes {get; private set;}
     [NotNull] public string Documentation {get; private set;}
+    [NotNull] public string[] ArgumentNames {get; private set;}
+    [NotNull] public bool[] OptionalArguments {get; private set;}
+    [NotNull] public string[] ArgumentDefaults {get; private set;}
+    [NotNull] public string[] TypeParameters {get; private set;}
+    [NotNull] public string[] TypeParameterBounds {get; private set;}
+    [NotNull] public string[] DeclaredArgumentTypes {get; private set;}
 
     //private fields
     //primary constructor
@@ -1615,7 +1621,13 @@ namespace HelixRider.Protocol
       [NotNull] string receiverType,
       [NotNull] string resultType,
       [NotNull] string[] argumentTypes,
-      [NotNull] string documentation
+      [NotNull] string documentation,
+      [NotNull] string[] argumentNames,
+      [NotNull] bool[] optionalArguments,
+      [NotNull] string[] argumentDefaults,
+      [NotNull] string[] typeParameters,
+      [NotNull] string[] typeParameterBounds,
+      [NotNull] string[] declaredArgumentTypes
     )
     {
       if (name == null) throw new ArgumentNullException("name");
@@ -1625,6 +1637,12 @@ namespace HelixRider.Protocol
       if (resultType == null) throw new ArgumentNullException("resultType");
       if (argumentTypes == null) throw new ArgumentNullException("argumentTypes");
       if (documentation == null) throw new ArgumentNullException("documentation");
+      if (argumentNames == null) throw new ArgumentNullException("argumentNames");
+      if (optionalArguments == null) throw new ArgumentNullException("optionalArguments");
+      if (argumentDefaults == null) throw new ArgumentNullException("argumentDefaults");
+      if (typeParameters == null) throw new ArgumentNullException("typeParameters");
+      if (typeParameterBounds == null) throw new ArgumentNullException("typeParameterBounds");
+      if (declaredArgumentTypes == null) throw new ArgumentNullException("declaredArgumentTypes");
 
       Name = name;
       Kind = kind;
@@ -1635,10 +1653,16 @@ namespace HelixRider.Protocol
       ResultType = resultType;
       ArgumentTypes = argumentTypes;
       Documentation = documentation;
+      ArgumentNames = argumentNames;
+      OptionalArguments = optionalArguments;
+      ArgumentDefaults = argumentDefaults;
+      TypeParameters = typeParameters;
+      TypeParameterBounds = typeParameterBounds;
+      DeclaredArgumentTypes = declaredArgumentTypes;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, out int argumentCount, out bool variadic, [NotNull] out string operandType, [NotNull] out string receiverType, [NotNull] out string resultType, [NotNull] out string[] argumentTypes, [NotNull] out string documentation)
+    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, out int argumentCount, out bool variadic, [NotNull] out string operandType, [NotNull] out string receiverType, [NotNull] out string resultType, [NotNull] out string[] argumentTypes, [NotNull] out string documentation, [NotNull] out string[] argumentNames, [NotNull] out bool[] optionalArguments, [NotNull] out string[] argumentDefaults, [NotNull] out string[] typeParameters, [NotNull] out string[] typeParameterBounds, [NotNull] out string[] declaredArgumentTypes)
     {
       name = Name;
       kind = Kind;
@@ -1649,6 +1673,12 @@ namespace HelixRider.Protocol
       resultType = ResultType;
       argumentTypes = ArgumentTypes;
       documentation = Documentation;
+      argumentNames = ArgumentNames;
+      optionalArguments = OptionalArguments;
+      argumentDefaults = ArgumentDefaults;
+      typeParameters = TypeParameters;
+      typeParameterBounds = TypeParameterBounds;
+      declaredArgumentTypes = DeclaredArgumentTypes;
     }
     //statics
 
@@ -1663,7 +1693,13 @@ namespace HelixRider.Protocol
       var resultType = reader.ReadString();
       var argumentTypes = ReadStringArray(ctx, reader);
       var documentation = reader.ReadString();
-      var _result = new MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation);
+      var argumentNames = ReadStringArray(ctx, reader);
+      var optionalArguments = JetBrains.Rd.Impl.Serializers.ReadBoolArray(ctx, reader);
+      var argumentDefaults = ReadStringArray(ctx, reader);
+      var typeParameters = ReadStringArray(ctx, reader);
+      var typeParameterBounds = ReadStringArray(ctx, reader);
+      var declaredArgumentTypes = ReadStringArray(ctx, reader);
+      var _result = new MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation, argumentNames, optionalArguments, argumentDefaults, typeParameters, typeParameterBounds, declaredArgumentTypes);
       return _result;
     };
     public static CtxReadDelegate<string[]> ReadStringArray = JetBrains.Rd.Impl.Serializers.ReadString.Array();
@@ -1679,6 +1715,12 @@ namespace HelixRider.Protocol
       writer.Write(value.ResultType);
       WriteStringArray(ctx, writer, value.ArgumentTypes);
       writer.Write(value.Documentation);
+      WriteStringArray(ctx, writer, value.ArgumentNames);
+      JetBrains.Rd.Impl.Serializers.WriteBoolArray(ctx, writer, value.OptionalArguments);
+      WriteStringArray(ctx, writer, value.ArgumentDefaults);
+      WriteStringArray(ctx, writer, value.TypeParameters);
+      WriteStringArray(ctx, writer, value.TypeParameterBounds);
+      WriteStringArray(ctx, writer, value.DeclaredArgumentTypes);
     };
     public static  CtxWriteDelegate<string[]> WriteStringArray = JetBrains.Rd.Impl.Serializers.WriteString.Array();
 
@@ -1698,7 +1740,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Name == other.Name && Kind == other.Kind && ArgumentCount == other.ArgumentCount && Variadic == other.Variadic && OperandType == other.OperandType && ReceiverType == other.ReceiverType && ResultType == other.ResultType && ArgumentTypes.SequenceEqual(other.ArgumentTypes) && Documentation == other.Documentation;
+      return Name == other.Name && Kind == other.Kind && ArgumentCount == other.ArgumentCount && Variadic == other.Variadic && OperandType == other.OperandType && ReceiverType == other.ReceiverType && ResultType == other.ResultType && ArgumentTypes.SequenceEqual(other.ArgumentTypes) && Documentation == other.Documentation && ArgumentNames.SequenceEqual(other.ArgumentNames) && OptionalArguments.SequenceEqual(other.OptionalArguments) && ArgumentDefaults.SequenceEqual(other.ArgumentDefaults) && TypeParameters.SequenceEqual(other.TypeParameters) && TypeParameterBounds.SequenceEqual(other.TypeParameterBounds) && DeclaredArgumentTypes.SequenceEqual(other.DeclaredArgumentTypes);
     }
     //hash code trait
     public override int GetHashCode()
@@ -1714,6 +1756,12 @@ namespace HelixRider.Protocol
         hash = hash * 31 + ResultType.GetHashCode();
         hash = hash * 31 + ArgumentTypes.ContentHashCode();
         hash = hash * 31 + Documentation.GetHashCode();
+        hash = hash * 31 + ArgumentNames.ContentHashCode();
+        hash = hash * 31 + OptionalArguments.ContentHashCode();
+        hash = hash * 31 + ArgumentDefaults.ContentHashCode();
+        hash = hash * 31 + TypeParameters.ContentHashCode();
+        hash = hash * 31 + TypeParameterBounds.ContentHashCode();
+        hash = hash * 31 + DeclaredArgumentTypes.ContentHashCode();
         return hash;
       }
     }
@@ -1731,6 +1779,12 @@ namespace HelixRider.Protocol
         printer.Print("resultType = "); ResultType.PrintEx(printer); printer.Println();
         printer.Print("argumentTypes = "); ArgumentTypes.PrintEx(printer); printer.Println();
         printer.Print("documentation = "); Documentation.PrintEx(printer); printer.Println();
+        printer.Print("argumentNames = "); ArgumentNames.PrintEx(printer); printer.Println();
+        printer.Print("optionalArguments = "); OptionalArguments.PrintEx(printer); printer.Println();
+        printer.Print("argumentDefaults = "); ArgumentDefaults.PrintEx(printer); printer.Println();
+        printer.Print("typeParameters = "); TypeParameters.PrintEx(printer); printer.Println();
+        printer.Print("typeParameterBounds = "); TypeParameterBounds.PrintEx(printer); printer.Println();
+        printer.Print("declaredArgumentTypes = "); DeclaredArgumentTypes.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -1841,7 +1895,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:121</p>
+  /// <p>Generated from: HelixExpressionModel.kt:130</p>
   /// </summary>
   public sealed class MixinParseResponse : IPrintable, IEquatable<MixinParseResponse>
   {
@@ -2149,7 +2203,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:79</p>
+  /// <p>Generated from: HelixExpressionModel.kt:97</p>
   /// </summary>
   public sealed class MixinTypeFact : IPrintable, IEquatable<MixinTypeFact>
   {
@@ -2160,6 +2214,9 @@ namespace HelixRider.Protocol
     [NotNull] public string Documentation {get; private set;}
     public bool Inlay {get; private set;}
     [NotNull] public string Kind {get; private set;}
+    [CanBeNull] public MixinLanguageDefinition CallSignature {get; private set;}
+    [NotNull] public string[] MemberNames {get; private set;}
+    [NotNull] public string[] MemberTypes {get; private set;}
 
     //private fields
     //primary constructor
@@ -2168,29 +2225,40 @@ namespace HelixRider.Protocol
       [NotNull] string type,
       [NotNull] string documentation,
       bool inlay,
-      [NotNull] string kind
+      [NotNull] string kind,
+      [CanBeNull] MixinLanguageDefinition callSignature,
+      [NotNull] string[] memberNames,
+      [NotNull] string[] memberTypes
     )
     {
       if (range == null) throw new ArgumentNullException("range");
       if (type == null) throw new ArgumentNullException("type");
       if (documentation == null) throw new ArgumentNullException("documentation");
       if (kind == null) throw new ArgumentNullException("kind");
+      if (memberNames == null) throw new ArgumentNullException("memberNames");
+      if (memberTypes == null) throw new ArgumentNullException("memberTypes");
 
       Range = range;
       Type = type;
       Documentation = documentation;
       Inlay = inlay;
       Kind = kind;
+      CallSignature = callSignature;
+      MemberNames = memberNames;
+      MemberTypes = memberTypes;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out MixinSourceRange range, [NotNull] out string type, [NotNull] out string documentation, out bool inlay, [NotNull] out string kind)
+    public void Deconstruct([NotNull] out MixinSourceRange range, [NotNull] out string type, [NotNull] out string documentation, out bool inlay, [NotNull] out string kind, [CanBeNull] out MixinLanguageDefinition callSignature, [NotNull] out string[] memberNames, [NotNull] out string[] memberTypes)
     {
       range = Range;
       type = Type;
       documentation = Documentation;
       inlay = Inlay;
       kind = Kind;
+      callSignature = CallSignature;
+      memberNames = MemberNames;
+      memberTypes = MemberTypes;
     }
     //statics
 
@@ -2201,9 +2269,14 @@ namespace HelixRider.Protocol
       var documentation = reader.ReadString();
       var inlay = reader.ReadBool();
       var kind = reader.ReadString();
-      var _result = new MixinTypeFact(range, type, documentation, inlay, kind);
+      var callSignature = ReadMixinLanguageDefinitionNullable(ctx, reader);
+      var memberNames = ReadStringArray(ctx, reader);
+      var memberTypes = ReadStringArray(ctx, reader);
+      var _result = new MixinTypeFact(range, type, documentation, inlay, kind, callSignature, memberNames, memberTypes);
       return _result;
     };
+    public static CtxReadDelegate<MixinLanguageDefinition> ReadMixinLanguageDefinitionNullable = MixinLanguageDefinition.Read.NullableClass();
+    public static CtxReadDelegate<string[]> ReadStringArray = JetBrains.Rd.Impl.Serializers.ReadString.Array();
 
     public static CtxWriteDelegate<MixinTypeFact> Write = (ctx, writer, value) =>
     {
@@ -2212,7 +2285,12 @@ namespace HelixRider.Protocol
       writer.Write(value.Documentation);
       writer.Write(value.Inlay);
       writer.Write(value.Kind);
+      WriteMixinLanguageDefinitionNullable(ctx, writer, value.CallSignature);
+      WriteStringArray(ctx, writer, value.MemberNames);
+      WriteStringArray(ctx, writer, value.MemberTypes);
     };
+    public static  CtxWriteDelegate<MixinLanguageDefinition> WriteMixinLanguageDefinitionNullable = MixinLanguageDefinition.Write.NullableClass();
+    public static  CtxWriteDelegate<string[]> WriteStringArray = JetBrains.Rd.Impl.Serializers.WriteString.Array();
 
     //constants
 
@@ -2230,7 +2308,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Equals(Range, other.Range) && Type == other.Type && Documentation == other.Documentation && Inlay == other.Inlay && Kind == other.Kind;
+      return Equals(Range, other.Range) && Type == other.Type && Documentation == other.Documentation && Inlay == other.Inlay && Kind == other.Kind && Equals(CallSignature, other.CallSignature) && MemberNames.SequenceEqual(other.MemberNames) && MemberTypes.SequenceEqual(other.MemberTypes);
     }
     //hash code trait
     public override int GetHashCode()
@@ -2242,6 +2320,9 @@ namespace HelixRider.Protocol
         hash = hash * 31 + Documentation.GetHashCode();
         hash = hash * 31 + Inlay.GetHashCode();
         hash = hash * 31 + Kind.GetHashCode();
+        hash = hash * 31 + (CallSignature != null ? CallSignature.GetHashCode() : 0);
+        hash = hash * 31 + MemberNames.ContentHashCode();
+        hash = hash * 31 + MemberTypes.ContentHashCode();
         return hash;
       }
     }
@@ -2255,6 +2336,9 @@ namespace HelixRider.Protocol
         printer.Print("documentation = "); Documentation.PrintEx(printer); printer.Println();
         printer.Print("inlay = "); Inlay.PrintEx(printer); printer.Println();
         printer.Print("kind = "); Kind.PrintEx(printer); printer.Println();
+        printer.Print("callSignature = "); CallSignature.PrintEx(printer); printer.Println();
+        printer.Print("memberNames = "); MemberNames.PrintEx(printer); printer.Println();
+        printer.Print("memberTypes = "); MemberTypes.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }

@@ -97,7 +97,8 @@ class HixLookupTest {
     }
 
     private fun method(receiver: String) = MixinLanguageDefinition("method", "Function", 1, false,
-        "", receiver, "String", arrayOf(receiver), "Returns the selected value's name.")
+        "", receiver, "String", arrayOf(receiver), "Returns the selected value's name.",
+        arrayOf("value"), booleanArrayOf(false), arrayOf(""), emptyArray(), emptyArray(), arrayOf(receiver))
 
     @Test
     fun `chained lookup uses canonical operators and literal receiver types`() {
@@ -124,7 +125,7 @@ class HixLookupTest {
     @Test
     fun `lookup retains individual signatures and documentation`() {
         val definition = method("Opaque")
-        assertEquals("method(opaque) -> string", HixLookup.signature(definition))
+        assertEquals("method(Opaque) -> String", HixLookup.signature(definition))
         assertEquals("Returns the selected value's name.", definition.documentation)
         assertFalse(HixLookup.acceptsReceiver(definition.copy(argumentTypes = emptyArray()), "opaque"))
     }

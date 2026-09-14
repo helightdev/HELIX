@@ -64,8 +64,19 @@
                             implementationClass="dev.helight.helix.hix.HixExpressionCompletionContributor" />
     <annotator language="Hix"
                implementationClass="dev.helight.helix.hix.HixAnnotator" />
-    <codeInsight.inlayProvider language="Hix"
-                               implementationClass="dev.helight.helix.hix.HixInlayHintsProvider" />
+    <codeInsight.parameterInfo language="Hix" implementationClass="dev.helight.helix.hix.HixParameterInfoHandler" />
+    <codeInsight.parameterInfo language="Hal" implementationClass="dev.helight.helix.hal.HalParameterInfoHandler" />
+    <codeInsight.parameterNameHints language="Hix" implementationClass="dev.helight.helix.hix.HixParameterHintsProvider" />
+    <codeInsight.parameterNameHints language="Hal" implementationClass="dev.helight.helix.hal.HalParameterHintsProvider" />
+    <codeInsight.declarativeInlayProvider language="Hix" providerId="hix.inferred.types"
+        group="TYPES_GROUP" bundle="messages.HelixMessagesBundle" nameKey="hix.inlay.types.name" descriptionKey="hix.inlay.types.description"
+        implementationClass="dev.helight.helix.hix.HixInlayHintsProvider">
+      <option optionId="inferredTypes" nameKey="hix.inlay.locals.name" descriptionBundleKey="hix.inlay.locals.description" enabledByDefault="true" />
+      <option optionId="conversions" nameKey="hix.inlay.conversions.name" descriptionBundleKey="hix.inlay.conversions.description" enabledByDefault="true" />
+    </codeInsight.declarativeInlayProvider>
+    <codeInsight.declarativeInlayProvider language="Hal" providerId="hal.field.types"
+        group="TYPES_GROUP" bundle="messages.HelixMessagesBundle" nameKey="hal.inlay.types.name" descriptionKey="hal.inlay.types.description"
+        isEnabledByDefault="false" implementationClass="dev.helight.helix.hal.HalInlayHintsProvider" />
     <lang.documentationProvider language="Hix"
                                 implementationClass="dev.helight.helix.hix.HixDocumentationProvider" />
     <lang.findUsagesProvider language="Hix"

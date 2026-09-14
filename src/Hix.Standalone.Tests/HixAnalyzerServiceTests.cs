@@ -6,6 +6,40 @@ namespace Hix.Standalone.Tests;
 
 public sealed class HixAnalyzerServiceTests {
   [Fact]
+  public void CatalogCarriesParameterNamesDefaultsAndGenericBounds() {
+    var definitions = new HixAnalyzerService(new HixStandaloneBackend()).Definitions;
+    var cast = Assert.Single(definitions.Where(item => item.Kind == "Function" && item.Name == "cast"));
+    Assert.Equal(new[] {"value", "target"}, cast.ArgumentNames);
+    Assert.Contains("TValue", cast.TypeParameters);
+    var spawn = Assert.Single(definitions.Where(item => item.Kind == "Function" && item.Name == "spawn"));
+    Assert.Equal(new[] {"function", "arguments", "useThreadPool"}, spawn.ArgumentNames);
+    Assert.Equal(new[] {false, true, true}, spawn.OptionalArguments);
+    Assert.Equal(new[] {"", "@[]", "false"}, spawn.ArgumentDefaults);
+  }
+
+  [Fact]
+  public void CallFactsExposeResolvedGenericsAndExtractedTraitFields() {
+    const string source = "trait type Named = @{string name}; type User = %trait<Named> @{number id}; " +
+      "func inspect() -> string { local user = User(id = 1, Named = Named(name = <Ada>)) " +
+      "local component = as($user, Named) local string explicit = <Ada> return($component#name) }";
+    var snapshot = Assert.Single(new HixAnalyzerService().Synchronize([new HixDocument("/tests/inspect.hix", source, 1)]));
+    Assert.Empty(snapshot.Diagnostics);
+    var extract = Assert.Single(snapshot.TypeFacts.Where(fact => fact.Kind == "Call" &&
+      source.Substring(fact.Range.Start, fact.Range.Length) == "as"));
+    Assert.Equal("{}?", extract.CallSignature.ResultType);
+    Assert.Equal(new[] {"value", "target"}, extract.CallSignature.ArgumentNames);
+    var constructor = Assert.Single(snapshot.TypeFacts.Where(fact => fact.Kind == "Call" &&
+      source.Substring(fact.Range.Start, fact.Range.Length) == "Named"));
+    Assert.Equal("{}", constructor.Type);
+    Assert.Equal(new[] {"name"}, constructor.CallSignature.ArgumentNames);
+    Assert.Contains(snapshot.TypeFacts, fact => fact.Kind == "Expression" &&
+      source.Substring(fact.Range.Start, fact.Range.Length) == "$component" &&
+      fact.MemberNames.SequenceEqual(new[] {"name"}) && fact.MemberTypes.SequenceEqual(new[] {"string"}));
+    Assert.DoesNotContain(snapshot.TypeFacts, fact => fact.Inlay && fact.Kind == "Type" &&
+      source.Substring(fact.Range.Start, fact.Range.Length) == "explicit");
+  }
+
+  [Fact]
   public void PrimitivePatternsReplaceKindDefinitionsInTheCatalog() {
     var definitions = new HixAnalyzerService().Definitions;
     Assert.DoesNotContain(definitions, item => item.Name == "kind" || item.Kind == "Kind");
