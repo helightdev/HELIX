@@ -85,7 +85,7 @@ private class HixRunState(environment: ExecutionEnvironment, private val configu
     }
     override fun startProcess(): ProcessHandler {
         val options = configuration.data
-        val toolchain = options.toolchainPath.orEmpty()
+        val toolchain = options.toolchainPath.orEmpty().ifBlank { dev.helight.helix.workspace.WorkspaceSettings.getInstance(configuration.project).toolchainPath }
         val manifest = options.manifestPath.orEmpty()
         val entry = options.entry.orEmpty()
         val arguments = options.arguments.orEmpty()
@@ -99,48 +99,8 @@ private class HixRunState(environment: ExecutionEnvironment, private val configu
             if (options.test) command.addParameter("--ide-events")
             return OSProcessHandler(command)
         }
-        return HixRpcProcessHandler(configuration.project, HixExecutionRequest(manifest, options.test,
-            entry, ParametersListUtil.parse(arguments).toTypedArray()))
+        throw com.intellij.execution.ExecutionException("Configure the Hix toolchain executable in HELIX settings.")
     }
-}
-
-private class HixRpcProcessHandler(project: Project, request: HixExecutionRequest) : ProcessHandler() {
-    @Volatile private var terminated = false
-    init {
-        val lifetime = UnityProjectLifetimeService.getLifetime(project)
-        project.solution.helixExpressionModel.executeHix.start(lifetime, request).result.adviseOnce(lifetime) { result ->
-            if (terminated) return@adviseOnce
-            if (result is RdTaskResult.Success) {
-                notifyTextAvailable(result.value.standardOutput, ProcessOutputTypes.STDOUT)
-                notifyTextAvailable(result.value.standardError, ProcessOutputTypes.STDERR)
-                result.value.tests.forEach { test ->
-                    val name = teamCity(test.name); val location = teamCity("file://" + test.file.replace('\\', '/'))
-                    notifyTextAvailable("##teamcity[testStarted name='$name' locationHint='$location']\n", ProcessOutputTypes.STDOUT)
-                    if (!test.success) notifyTextAvailable("##teamcity[testFailed name='$name' message='${teamCity(test.message)}']\n", ProcessOutputTypes.STDOUT)
-                    notifyTextAvailable("##teamcity[testFinished name='$name']\n", ProcessOutputTypes.STDOUT)
-                }
-                notifyProcessTerminated(result.value.exitCode)
-            } else {
-                val message = when (result) {
-                    is RdTaskResult.Fault -> buildString {
-                        append("Hix backend execution failed: ")
-                        append(result.error.reasonMessage.ifBlank { result.error.reasonTypeFqn })
-                        if (result.error.reasonAsText.isNotBlank()) append('\n').append(result.error.reasonAsText)
-                    }
-                    is RdTaskResult.Cancelled -> "Hix backend execution was cancelled"
-                    else -> "Hix backend execution failed: ${result}"
-                }
-                notifyTextAvailable(message.trimEnd() + "\n", ProcessOutputTypes.STDERR)
-                notifyProcessTerminated(if (result is RdTaskResult.Cancelled) 130 else 1)
-            }
-            terminated = true
-        }
-    }
-    override fun destroyProcessImpl() { if (!terminated) { terminated = true; notifyProcessTerminated(130) } }
-    override fun detachProcessImpl() = destroyProcessImpl()
-    override fun detachIsDefault() = false
-    override fun getProcessInput() = null
-    private fun teamCity(value: String) = value.replace("|", "||").replace("'", "|'").replace("\n", "|n").replace("\r", "|r").replace("[", "|[").replace("]", "|]")
 }
 
 class HixRunSettingsEditor : SettingsEditor<HixRunConfiguration>() {
@@ -154,7 +114,7 @@ class HixRunSettingsEditor : SettingsEditor<HixRunConfiguration>() {
         .addLabeledComponent("Working directory:", workingDirectory)
         .addLabeledComponent("Entry override:", entry)
         .addLabeledComponent("Arguments:", arguments)
-        .addLabeledComponent("External toolchain (optional):", toolchain).panel
+        .addLabeledComponent("Toolchain override (optional):", toolchain).panel
     override fun createEditor(): JComponent = panel
     override fun resetEditorFrom(configuration: HixRunConfiguration) {
         manifest.text = configuration.data.manifestPath.orEmpty(); workingDirectory.text = configuration.data.workingDirectory.orEmpty()

@@ -29,6 +29,7 @@
   </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
+    <notificationGroup id="Hix Toolchain" displayType="BALLOON" />
     <serviceViewContributor implementation="dev.helight.helix.cli.UnityCliServiceViewContributor" />
     <statusBarWidgetFactory id="dev.helight.helix.UnityCliStatus" implementation="dev.helight.helix.cli.UnityCliStatusBarWidgetFactory" />
     <fileType name="Hix"

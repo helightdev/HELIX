@@ -11,6 +11,7 @@
   <ItemGroup Condition="'$(HixToolchainAot)' == 'true'">
     <TrimmerRootAssembly Include="Hix" />
     <TrimmerRootAssembly Include="Hix.Standalone" />
+    <TrimmerRootAssembly Include="Hix.Toolchain" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Hix.Standalone/Hix.Standalone.csproj" />

@@ -1,0 +1,7 @@
+--- Manifest
+name = graph-example
+sources = {
+  main = ["*.hix"]
+  test = []
+  modules = []
+}

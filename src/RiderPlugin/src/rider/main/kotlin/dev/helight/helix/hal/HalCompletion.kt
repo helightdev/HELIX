@@ -7,7 +7,7 @@ import dev.helight.helix.hix.HixEditorCalls
 import dev.helight.helix.hix.HixLookup
 import org.antlr.v4.runtime.ParserRuleContext
 
-/** Syntax-scoped HAL completions; HAL only evaluates ref calls, not arbitrary Hix functions. */
+/** Syntax-scoped HAL completions for data constructors and explicit references. */
 internal object HalCompletion {
     data class Item(val name: String, val insert: String, val kind: String, val type: String, val priority: Double)
     private fun rules(rule: ParserRuleContext): Sequence<ParserRuleContext> = sequence {
@@ -23,15 +23,17 @@ internal object HalCompletion {
         if (token?.type in setOf(HalLexer.LINE_COMMENT, HalLexer.STRING)) return emptyList()
         val before = source.substring(0, offset)
         val line = before.substringAfterLast('\n').trimStart()
-        val types = (HalManifest.types(schema) + if (isManifest) listOf("Manifest") else emptyList()).distinct()
+        val types = (listOf("table", "tuple") + HalManifest.types(schema) + if (isManifest) listOf("Manifest") else emptyList()).distinct()
         val shapes = HixLookup.patterns(dev.helight.helix.hix.HixAntlrSyntax.parse(schema)).associateBy { it.name }
         if (line.startsWith("---")) {
             if ('&' in line) return emptyList()
-            return types.filter { shapes[it]?.tuple != true && HalManifest.manyElement(schema, it) == null }
-                .map { Item(it, it, "Pattern", "Hix pattern", if (shapes[it] != null) 1000.0 else 350.0) }
+            return types.map { Item(it, it, "Pattern", "Hix pattern", if (shapes[it] != null) 1000.0 else 350.0) }
         }
         val call = HixEditorCalls.at(HixEditorCalls.hal(source), offset)
         if (call != null) {
+            if (call.name == "asset" && call.currentArgument(offset) == 0)
+                return listOf(Item("path", "path(\"\")", "Function", "asset file path", 1000.0),
+                    Item("uid", "uid(\"\")", "Function", "persistent asset UID", 1000.0))
             if (call.name != "ref" || call.currentArgument(offset) > 0) return emptyList()
             return HalStructure.sections(source).mapNotNull { section -> section.id?.let {
                 val name = it.removeSurrounding("\"")
@@ -79,6 +81,7 @@ internal object HalCompletion {
         val listScope = listKey?.let { HalStructure.completionScope(source, it.start.startIndex) }
         val listField = listScope?.let { fields(it.first).firstOrNull { field -> field.name == listKey?.text?.removeSurrounding("\"") } }
         val elementType = listField?.let { if (it.many) it.type else HalManifest.manyElement(schema, it.type) }
+            ?: (list?.parent as? HalParser.SectionContext)?.let { HalManifest.manyElement(schema, it.IDENTIFIER().text) }
         val key = nodes.filterIsInstance<HalParser.FieldKeyContext>().firstOrNull {
             offset >= it.start.startIndex && offset <= it.stop.stopIndex + 1
         }
@@ -117,6 +120,7 @@ internal object HalCompletion {
             results += Item("null", "null", "Keyword", "null", 300.0)
         // A reference may be followed by #field; offer it below direct schema constructors.
         results += Item("ref", "ref()", "Function", "local section", 250.0)
+        results += Item("asset", "asset()", "Function", "foreign asset", 250.0)
         return results.distinctBy { it.insert }
     }
 }

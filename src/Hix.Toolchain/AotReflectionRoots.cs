@@ -17,5 +17,7 @@ internal static class AotReflectionRoots {
   [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(List<HixPattern>))]
   [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(List<HixPatternField>))]
   [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof(List<object>))]
+  [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(System.Collections.ObjectModel.ReadOnlyCollection<bool>))]
+  [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(List<bool>))]
   public static int Run(string[] args) => Hix.Standalone.Program.Main(args);
 }

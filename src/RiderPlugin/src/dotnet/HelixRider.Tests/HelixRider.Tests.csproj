@@ -1,15 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework Condition="'$(RiderTestFramework)' == ''">net472</TargetFramework>
+    <TargetFramework Condition="'$(RiderTestFramework)' != ''">$(RiderTestFramework)</TargetFramework>
     <IsPackable>false</IsPackable>
+    <OutputPath Condition="'$(RiderTestFramework)' != ''">bin/$(MSBuildProjectName)/$(RiderTestFramework)/$(Configuration)/</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="GitHubActionsTestLogger" Version="2.0.1" />
     <PackageReference Include="JetBrains.ReSharper.SDK.Tests" Version="$(SdkVersion)" />
+    <!-- SDK test infrastructure carries an obsolete VSTest runtime. Use the test SDK's
+         runtime when exercising the net472 backend inside the modern .NET host. -->
+    <PackageReference Include="JetBrains.Microsoft.TestPlatform.TranslationLayer" Version="16.0.0.20191015"
+                      ExcludeAssets="runtime" Condition="'$(RiderTestFramework)' != ''" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.1" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.3.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
   </ItemGroup>
 
   <Target Name="BuildRiderBackendForTests" BeforeTargets="ResolveAssemblyReferences">
@@ -27,6 +33,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The modern-host suite exercises C# interop and external toolchain integration.
+         The Windows PSI/WPF environment remains part of the default net472 suite. -->
+    <Compile Remove="TestEnvironment.cs" Condition="'$(RiderTestFramework)' != ''" />
     <Compile Remove="test/**/*" />
     <None Include="test/**/*" />
   </ItemGroup>

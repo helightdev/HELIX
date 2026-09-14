@@ -16,16 +16,12 @@ import kotlin.jvm.JvmStatic
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:16]
+ * #### Generated from [HelixExpressionModel.kt:11]
  */
 class HelixExpressionModel private constructor(
-    private val _parseMixinFiles: RdCall<MixinParseRequest, MixinParseResponse>,
-    private val _completeMixin: RdCall<MixinCompletionRequest, MixinCompletionResponse>,
-    private val _queryMixinDefinitions: RdCall<MixinDefinitionQuery, MixinDefinitionResponse>,
-    private val _getMixinLanguageCatalog: RdCall<String, MixinLanguageCatalog>,
-    private val _formatHal: RdCall<String, String>,
-    private val _formatHix: RdCall<String, String>,
-    private val _executeHix: RdCall<HixExecutionRequest, HixExecutionResponse>,
+    private val _completeCSharpTypes: RdCall<String, MixinCompletionResponse>,
+    private val _resolveCSharpTypes: RdCall<Array<String>, MixinCompletionResponse>,
+    private val _getCSharpHostSchema: RdCall<String, String>,
     private val _isHelixEnabled: RdOptionalProperty<Boolean>
 ) : RdExtBase() {
     //companion
@@ -58,21 +54,18 @@ class HelixExpressionModel private constructor(
 
 
 
+        private val __StringArraySerializer = FrameworkMarshallers.String.array()
 
-        const val serializationHash = 2407513834663374199L
+        const val serializationHash = -3308294366828357265L
 
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
     override val serializationHash: Long get() = HelixExpressionModel.serializationHash
 
     //fields
-    val parseMixinFiles: IRdCall<MixinParseRequest, MixinParseResponse> get() = _parseMixinFiles
-    val completeMixin: IRdCall<MixinCompletionRequest, MixinCompletionResponse> get() = _completeMixin
-    val queryMixinDefinitions: IRdCall<MixinDefinitionQuery, MixinDefinitionResponse> get() = _queryMixinDefinitions
-    val getMixinLanguageCatalog: IRdCall<String, MixinLanguageCatalog> get() = _getMixinLanguageCatalog
-    val formatHal: IRdCall<String, String> get() = _formatHal
-    val formatHix: IRdCall<String, String> get() = _formatHix
-    val executeHix: IRdCall<HixExecutionRequest, HixExecutionResponse> get() = _executeHix
+    val completeCSharpTypes: IRdCall<String, MixinCompletionResponse> get() = _completeCSharpTypes
+    val resolveCSharpTypes: IRdCall<Array<String>, MixinCompletionResponse> get() = _resolveCSharpTypes
+    val getCSharpHostSchema: IRdCall<String, String> get() = _getCSharpHostSchema
     val isHelixEnabled: IOptProperty<Boolean> get() = _isHelixEnabled
     //methods
     //initializer
@@ -81,36 +74,24 @@ class HelixExpressionModel private constructor(
     }
 
     init {
-        _parseMixinFiles.async = true
-        _completeMixin.async = true
-        _queryMixinDefinitions.async = true
-        _getMixinLanguageCatalog.async = true
-        _formatHal.async = true
-        _formatHix.async = true
-        _executeHix.async = true
+        _completeCSharpTypes.async = true
+        _resolveCSharpTypes.async = true
+        _getCSharpHostSchema.async = true
     }
 
     init {
-        bindableChildren.add("parseMixinFiles" to _parseMixinFiles)
-        bindableChildren.add("completeMixin" to _completeMixin)
-        bindableChildren.add("queryMixinDefinitions" to _queryMixinDefinitions)
-        bindableChildren.add("getMixinLanguageCatalog" to _getMixinLanguageCatalog)
-        bindableChildren.add("formatHal" to _formatHal)
-        bindableChildren.add("formatHix" to _formatHix)
-        bindableChildren.add("executeHix" to _executeHix)
+        bindableChildren.add("completeCSharpTypes" to _completeCSharpTypes)
+        bindableChildren.add("resolveCSharpTypes" to _resolveCSharpTypes)
+        bindableChildren.add("getCSharpHostSchema" to _getCSharpHostSchema)
         bindableChildren.add("isHelixEnabled" to _isHelixEnabled)
     }
 
     //secondary constructor
     internal constructor(
     ) : this(
-        RdCall<MixinParseRequest, MixinParseResponse>(MixinParseRequest, MixinParseResponse),
-        RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest, MixinCompletionResponse),
-        RdCall<MixinDefinitionQuery, MixinDefinitionResponse>(MixinDefinitionQuery, MixinDefinitionResponse),
-        RdCall<String, MixinLanguageCatalog>(FrameworkMarshallers.String, MixinLanguageCatalog),
+        RdCall<String, MixinCompletionResponse>(FrameworkMarshallers.String, MixinCompletionResponse),
+        RdCall<Array<String>, MixinCompletionResponse>(__StringArraySerializer, MixinCompletionResponse),
         RdCall<String, String>(FrameworkMarshallers.String, FrameworkMarshallers.String),
-        RdCall<String, String>(FrameworkMarshallers.String, FrameworkMarshallers.String),
-        RdCall<HixExecutionRequest, HixExecutionResponse>(HixExecutionRequest, HixExecutionResponse),
         RdOptionalProperty<Boolean>(FrameworkMarshallers.Bool)
     )
 
@@ -120,13 +101,9 @@ class HelixExpressionModel private constructor(
     override fun print(printer: PrettyPrinter)  {
         printer.println("HelixExpressionModel (")
         printer.indent {
-            print("parseMixinFiles = "); _parseMixinFiles.print(printer); println()
-            print("completeMixin = "); _completeMixin.print(printer); println()
-            print("queryMixinDefinitions = "); _queryMixinDefinitions.print(printer); println()
-            print("getMixinLanguageCatalog = "); _getMixinLanguageCatalog.print(printer); println()
-            print("formatHal = "); _formatHal.print(printer); println()
-            print("formatHix = "); _formatHix.print(printer); println()
-            print("executeHix = "); _executeHix.print(printer); println()
+            print("completeCSharpTypes = "); _completeCSharpTypes.print(printer); println()
+            print("resolveCSharpTypes = "); _resolveCSharpTypes.print(printer); println()
+            print("getCSharpHostSchema = "); _getCSharpHostSchema.print(printer); println()
             print("isHelixEnabled = "); _isHelixEnabled.print(printer); println()
         }
         printer.print(")")
@@ -134,13 +111,9 @@ class HelixExpressionModel private constructor(
     //deepClone
     override fun deepClone(): HelixExpressionModel   {
         return HelixExpressionModel(
-            _parseMixinFiles.deepClonePolymorphic(),
-            _completeMixin.deepClonePolymorphic(),
-            _queryMixinDefinitions.deepClonePolymorphic(),
-            _getMixinLanguageCatalog.deepClonePolymorphic(),
-            _formatHal.deepClonePolymorphic(),
-            _formatHix.deepClonePolymorphic(),
-            _executeHix.deepClonePolymorphic(),
+            _completeCSharpTypes.deepClonePolymorphic(),
+            _resolveCSharpTypes.deepClonePolymorphic(),
+            _getCSharpHostSchema.deepClonePolymorphic(),
             _isHelixEnabled.deepClonePolymorphic()
         )
     }
@@ -153,7 +126,7 @@ val com.jetbrains.rd.ide.model.Solution.helixExpressionModel get() = getOrCreate
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:139]
+ * #### Generated from [HelixExpressionModel.kt:134]
  */
 data class HixExecutionRequest (
     val manifestPath: String,
@@ -234,7 +207,7 @@ data class HixExecutionRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:151]
+ * #### Generated from [HelixExpressionModel.kt:146]
  */
 data class HixExecutionResponse (
     val exitCode: Int,
@@ -315,7 +288,7 @@ data class HixExecutionResponse (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:145]
+ * #### Generated from [HelixExpressionModel.kt:140]
  */
 data class HixTestResult (
     val `file`: String,
@@ -396,7 +369,7 @@ data class HixTestResult (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:60]
+ * #### Generated from [HelixExpressionModel.kt:55]
  */
 data class MixinCompletionItem (
     val name: String,
@@ -489,7 +462,7 @@ data class MixinCompletionItem (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:69]
+ * #### Generated from [HelixExpressionModel.kt:64]
  */
 data class MixinCompletionRequest (
     val kind: String,
@@ -564,7 +537,7 @@ data class MixinCompletionRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:75]
+ * #### Generated from [HelixExpressionModel.kt:70]
  */
 data class MixinCompletionResponse (
     val items: Array<MixinCompletionItem>
@@ -627,7 +600,7 @@ data class MixinCompletionResponse (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:38]
+ * #### Generated from [HelixExpressionModel.kt:33]
  */
 data class MixinDeclaration (
     val name: String,
@@ -708,7 +681,7 @@ data class MixinDeclaration (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:119]
+ * #### Generated from [HelixExpressionModel.kt:114]
  */
 data class MixinDefinitionQuery (
     val kind: String,
@@ -795,7 +768,7 @@ data class MixinDefinitionQuery (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:127]
+ * #### Generated from [HelixExpressionModel.kt:122]
  */
 data class MixinDefinitionResponse (
     val definitions: Array<MixinLanguageDefinition>
@@ -858,7 +831,7 @@ data class MixinDefinitionResponse (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:54]
+ * #### Generated from [HelixExpressionModel.kt:49]
  */
 data class MixinDiagnostic (
     val message: String,
@@ -933,7 +906,7 @@ data class MixinDiagnostic (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:27]
+ * #### Generated from [HelixExpressionModel.kt:22]
  */
 data class MixinFileInput (
     val filePath: String,
@@ -1008,7 +981,7 @@ data class MixinFileInput (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:109]
+ * #### Generated from [HelixExpressionModel.kt:104]
  */
 data class MixinFileSnapshot (
     val filePath: String,
@@ -1107,7 +1080,7 @@ data class MixinFileSnapshot (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:135]
+ * #### Generated from [HelixExpressionModel.kt:130]
  */
 data class MixinLanguageCatalog (
     val definitions: Array<MixinLanguageDefinition>
@@ -1170,7 +1143,7 @@ data class MixinLanguageCatalog (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:79]
+ * #### Generated from [HelixExpressionModel.kt:74]
  */
 data class MixinLanguageDefinition (
     val name: String,
@@ -1323,7 +1296,7 @@ data class MixinLanguageDefinition (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:33]
+ * #### Generated from [HelixExpressionModel.kt:28]
  */
 data class MixinParseRequest (
     val files: Array<MixinFileInput>,
@@ -1392,7 +1365,7 @@ data class MixinParseRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:131]
+ * #### Generated from [HelixExpressionModel.kt:126]
  */
 data class MixinParseResponse (
     val files: Array<MixinFileSnapshot>
@@ -1455,7 +1428,7 @@ data class MixinParseResponse (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:45]
+ * #### Generated from [HelixExpressionModel.kt:40]
  */
 data class MixinReference (
     val name: String,
@@ -1548,7 +1521,7 @@ data class MixinReference (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:22]
+ * #### Generated from [HelixExpressionModel.kt:17]
  */
 data class MixinSourceRange (
     val startOffset: Int,
@@ -1617,7 +1590,7 @@ data class MixinSourceRange (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:98]
+ * #### Generated from [HelixExpressionModel.kt:93]
  */
 data class MixinTypeFact (
     val range: MixinSourceRange,

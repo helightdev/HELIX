@@ -7,6 +7,18 @@ import kotlin.test.assertTrue
 
 class HalLanguageTest {
     @Test
+    fun `list sections parse and are offered in section completion`() {
+        val source = "--- tuple &items\n[ref(item), 2]\n--- table &item\nname = test\n"
+        val parsed = HalAntlrSyntax.parse(source)
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(2, parsed.tree.sectionBlock().first().section().list().value().size)
+        val candidates = HalCompletion.items("--- ", 4, "type Items = %many<string> tuple;", false)
+        assertTrue(candidates.any { it.name == "Items" })
+        assertTrue(candidates.any { it.name == "tuple" })
+        assertTrue(candidates.any { it.name == "table" })
+    }
+
+    @Test
     fun `trait component fields and inherited fields are available to hal`() {
         val source = "trait type Named = @{string name}; type Entity = @{string id}; " +
             "type User = %inherit<Entity> %trait<Named> @{string email};"

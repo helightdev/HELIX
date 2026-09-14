@@ -454,7 +454,13 @@ class HalAnnotator : Annotator {
                 val section = block.section()
                 val type = section.IDENTIFIER().text
                 val fields = section.sectionEntry().mapNotNull { entry -> entry.field()?.let(::fieldSite) }
-                if (type == "Manifest") validateManifest(holder, fields,
+                if (section.list() != null) {
+                    val elementType = HalManifest.manyElement(manifestText, type)
+                    if (elementType != null) section.list().value().forEach {
+                        validateExpected(holder, manifestText, elementType, HalValueSite(it, null), known)
+                    } else if (type !in setOf("tuple", "any") && HalManifest.fieldDefinitions(manifestText, type).isNotEmpty())
+                        error(holder, section, "$type expects a table section")
+                } else if (type == "Manifest") validateManifest(holder, fields,
                     TextRange(section.start.startIndex, section.lineEnd().stop.stopIndex + 1))
                 else if (type in known) validateFields(holder, manifestText, type, fields,
                     TextRange(section.start.startIndex, section.lineEnd().stop.stopIndex + 1), known)
@@ -572,6 +578,7 @@ class HalAnnotator : Annotator {
 
     private fun validateValue(holder: AnnotationHolder, manifest: String, field: HalManifest.Field,
                               value: HalValueSite, known: Set<String>) {
+        if (validateReference(holder, manifest, field.type, value, field.many)) return
         val aliasElement = HalManifest.manyElement(manifest, field.type)
         val elementType = if (field.many) field.type else aliasElement
         if (elementType != null) {
@@ -589,8 +596,31 @@ class HalAnnotator : Annotator {
         validateExpected(holder, manifest, field.type, value, known, field.name)
     }
 
+    private fun validateReference(holder: AnnotationHolder, manifest: String, expected: String,
+                                  value: HalValueSite, many: Boolean = false): Boolean {
+        val call = value.value?.call()?.takeIf { it.IDENTIFIER()?.text == "ref" } ?: return false
+        // Selection result analysis is separate from the referenced section's root type.
+        if (value.value.selection().isNotEmpty()) return true
+        val id = call.argumentList()?.argument()?.singleOrNull()?.value()?.text?.removeSurrounding("\"")
+        val document = generateSequence(value.context) { it.parent as? ParserRuleContext }
+            .filterIsInstance<HalParser.DocumentContext>().firstOrNull() ?: return true
+        val target = document.sectionBlock().map { it.section() }.withIndex().firstOrNull { (index, section) ->
+            (section.scalarAtom()?.text?.removeSurrounding("\"") ?: if (index == 0) "0" else null) == id
+        }?.value
+        if (target == null) { error(holder, call, "Unknown local section '$id'"); return true }
+        val actual = target.IDENTIFIER().text
+        val expectsList = many || expected == "tuple" || HalManifest.manyElement(manifest, expected) != null
+        if (expectsList && target.list() == null) error(holder, call, "Expected a list section for $expected")
+        else if (!expectsList && expected != "any" && target.list() != null && HalManifest.unionMembers(manifest, expected).isEmpty())
+            error(holder, call, "Expected $expected, found list section")
+        else if (!expectsList && actual !in setOf(expected, "table", "any") && expected !in setOf("any", "table") &&
+            actual !in HalManifest.unionMembers(manifest, expected)) error(holder, call, "Expected $expected, found section $actual")
+        return true
+    }
+
     private fun validateExpected(holder: AnnotationHolder, manifest: String, expected: String,
                                  value: HalValueSite, known: Set<String>, fieldName: String? = null) {
+        if (validateReference(holder, manifest, expected, value)) return
         val explicitType = value.explicitType
         val union = HalManifest.unionMembers(manifest, expected)
         if (union.isNotEmpty()) {

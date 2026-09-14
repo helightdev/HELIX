@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <ProjectReference Include="../Hix/Hix.csproj" />
     <Compile Include="../Hix/IsExternalInit.cs" Link="Compatibility/IsExternalInit.cs" />

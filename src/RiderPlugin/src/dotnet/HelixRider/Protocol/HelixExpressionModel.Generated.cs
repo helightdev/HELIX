@@ -36,95 +36,65 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:16</p>
+  /// <p>Generated from: HelixExpressionModel.kt:11</p>
   /// </summary>
   public class HelixExpressionModel : RdExtBase
   {
     //fields
     //public fields
-    [NotNull] public IRdEndpoint<MixinParseRequest, MixinParseResponse> ParseMixinFiles => _ParseMixinFiles;
-    [NotNull] public IRdEndpoint<MixinCompletionRequest, MixinCompletionResponse> CompleteMixin => _CompleteMixin;
-    [NotNull] public IRdEndpoint<MixinDefinitionQuery, MixinDefinitionResponse> QueryMixinDefinitions => _QueryMixinDefinitions;
-    [NotNull] public IRdEndpoint<string, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
-    [NotNull] public IRdEndpoint<string, string> FormatHal => _FormatHal;
-    [NotNull] public IRdEndpoint<string, string> FormatHix => _FormatHix;
-    [NotNull] public IRdEndpoint<HixExecutionRequest, HixExecutionResponse> ExecuteHix => _ExecuteHix;
+    [NotNull] public IRdEndpoint<string, MixinCompletionResponse> CompleteCSharpTypes => _CompleteCSharpTypes;
+    [NotNull] public IRdEndpoint<string[], MixinCompletionResponse> ResolveCSharpTypes => _ResolveCSharpTypes;
+    [NotNull] public IRdEndpoint<string, string> GetCSharpHostSchema => _GetCSharpHostSchema;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
 
     //private fields
-    [NotNull] private readonly RdCall<MixinParseRequest, MixinParseResponse> _ParseMixinFiles;
-    [NotNull] private readonly RdCall<MixinCompletionRequest, MixinCompletionResponse> _CompleteMixin;
-    [NotNull] private readonly RdCall<MixinDefinitionQuery, MixinDefinitionResponse> _QueryMixinDefinitions;
-    [NotNull] private readonly RdCall<string, MixinLanguageCatalog> _GetMixinLanguageCatalog;
-    [NotNull] private readonly RdCall<string, string> _FormatHal;
-    [NotNull] private readonly RdCall<string, string> _FormatHix;
-    [NotNull] private readonly RdCall<HixExecutionRequest, HixExecutionResponse> _ExecuteHix;
+    [NotNull] private readonly RdCall<string, MixinCompletionResponse> _CompleteCSharpTypes;
+    [NotNull] private readonly RdCall<string[], MixinCompletionResponse> _ResolveCSharpTypes;
+    [NotNull] private readonly RdCall<string, string> _GetCSharpHostSchema;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
 
     //primary constructor
     private HelixExpressionModel(
-      [NotNull] RdCall<MixinParseRequest, MixinParseResponse> parseMixinFiles,
-      [NotNull] RdCall<MixinCompletionRequest, MixinCompletionResponse> completeMixin,
-      [NotNull] RdCall<MixinDefinitionQuery, MixinDefinitionResponse> queryMixinDefinitions,
-      [NotNull] RdCall<string, MixinLanguageCatalog> getMixinLanguageCatalog,
-      [NotNull] RdCall<string, string> formatHal,
-      [NotNull] RdCall<string, string> formatHix,
-      [NotNull] RdCall<HixExecutionRequest, HixExecutionResponse> executeHix,
+      [NotNull] RdCall<string, MixinCompletionResponse> completeCSharpTypes,
+      [NotNull] RdCall<string[], MixinCompletionResponse> resolveCSharpTypes,
+      [NotNull] RdCall<string, string> getCSharpHostSchema,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
-      if (parseMixinFiles == null) throw new ArgumentNullException("parseMixinFiles");
-      if (completeMixin == null) throw new ArgumentNullException("completeMixin");
-      if (queryMixinDefinitions == null) throw new ArgumentNullException("queryMixinDefinitions");
-      if (getMixinLanguageCatalog == null) throw new ArgumentNullException("getMixinLanguageCatalog");
-      if (formatHal == null) throw new ArgumentNullException("formatHal");
-      if (formatHix == null) throw new ArgumentNullException("formatHix");
-      if (executeHix == null) throw new ArgumentNullException("executeHix");
+      if (completeCSharpTypes == null) throw new ArgumentNullException("completeCSharpTypes");
+      if (resolveCSharpTypes == null) throw new ArgumentNullException("resolveCSharpTypes");
+      if (getCSharpHostSchema == null) throw new ArgumentNullException("getCSharpHostSchema");
       if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
 
-      _ParseMixinFiles = parseMixinFiles;
-      _CompleteMixin = completeMixin;
-      _QueryMixinDefinitions = queryMixinDefinitions;
-      _GetMixinLanguageCatalog = getMixinLanguageCatalog;
-      _FormatHal = formatHal;
-      _FormatHix = formatHix;
-      _ExecuteHix = executeHix;
+      _CompleteCSharpTypes = completeCSharpTypes;
+      _ResolveCSharpTypes = resolveCSharpTypes;
+      _GetCSharpHostSchema = getCSharpHostSchema;
       _IsHelixEnabled = isHelixEnabled;
       _IsHelixEnabled.OptimizeNested = true;
-      _ParseMixinFiles.Async = true;
-      _CompleteMixin.Async = true;
-      _QueryMixinDefinitions.Async = true;
-      _GetMixinLanguageCatalog.Async = true;
-      _FormatHal.Async = true;
-      _FormatHix.Async = true;
-      _ExecuteHix.Async = true;
-      BindableChildren.Add(new KeyValuePair<string, object>("parseMixinFiles", _ParseMixinFiles));
-      BindableChildren.Add(new KeyValuePair<string, object>("completeMixin", _CompleteMixin));
-      BindableChildren.Add(new KeyValuePair<string, object>("queryMixinDefinitions", _QueryMixinDefinitions));
-      BindableChildren.Add(new KeyValuePair<string, object>("getMixinLanguageCatalog", _GetMixinLanguageCatalog));
-      BindableChildren.Add(new KeyValuePair<string, object>("formatHal", _FormatHal));
-      BindableChildren.Add(new KeyValuePair<string, object>("formatHix", _FormatHix));
-      BindableChildren.Add(new KeyValuePair<string, object>("executeHix", _ExecuteHix));
+      _CompleteCSharpTypes.Async = true;
+      _ResolveCSharpTypes.Async = true;
+      _GetCSharpHostSchema.Async = true;
+      BindableChildren.Add(new KeyValuePair<string, object>("completeCSharpTypes", _CompleteCSharpTypes));
+      BindableChildren.Add(new KeyValuePair<string, object>("resolveCSharpTypes", _ResolveCSharpTypes));
+      BindableChildren.Add(new KeyValuePair<string, object>("getCSharpHostSchema", _GetCSharpHostSchema));
       BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
     //secondary constructor
     internal HelixExpressionModel (
     ) : this (
-      new RdCall<MixinParseRequest, MixinParseResponse>(MixinParseRequest.Read, MixinParseRequest.Write, MixinParseResponse.Read, MixinParseResponse.Write),
-      new RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest.Read, MixinCompletionRequest.Write, MixinCompletionResponse.Read, MixinCompletionResponse.Write),
-      new RdCall<MixinDefinitionQuery, MixinDefinitionResponse>(MixinDefinitionQuery.Read, MixinDefinitionQuery.Write, MixinDefinitionResponse.Read, MixinDefinitionResponse.Write),
-      new RdCall<string, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
+      new RdCall<string, MixinCompletionResponse>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, MixinCompletionResponse.Read, MixinCompletionResponse.Write),
+      new RdCall<string[], MixinCompletionResponse>(ReadStringArray, WriteStringArray, MixinCompletionResponse.Read, MixinCompletionResponse.Write),
       new RdCall<string, string>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString),
-      new RdCall<string, string>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString),
-      new RdCall<HixExecutionRequest, HixExecutionResponse>(HixExecutionRequest.Read, HixExecutionRequest.Write, HixExecutionResponse.Read, HixExecutionResponse.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
     //deconstruct trait
     //statics
 
+    public static CtxReadDelegate<string[]> ReadStringArray = JetBrains.Rd.Impl.Serializers.ReadString.Array();
 
+    public static  CtxWriteDelegate<string[]> WriteStringArray = JetBrains.Rd.Impl.Serializers.WriteString.Array();
 
-    protected override long SerializationHash => 2407513834663374199L;
+    protected override long SerializationHash => -3308294366828357265L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -145,13 +115,9 @@ namespace HelixRider.Protocol
     {
       printer.Println("HelixExpressionModel (");
       using (printer.IndentCookie()) {
-        printer.Print("parseMixinFiles = "); _ParseMixinFiles.PrintEx(printer); printer.Println();
-        printer.Print("completeMixin = "); _CompleteMixin.PrintEx(printer); printer.Println();
-        printer.Print("queryMixinDefinitions = "); _QueryMixinDefinitions.PrintEx(printer); printer.Println();
-        printer.Print("getMixinLanguageCatalog = "); _GetMixinLanguageCatalog.PrintEx(printer); printer.Println();
-        printer.Print("formatHal = "); _FormatHal.PrintEx(printer); printer.Println();
-        printer.Print("formatHix = "); _FormatHix.PrintEx(printer); printer.Println();
-        printer.Print("executeHix = "); _ExecuteHix.PrintEx(printer); printer.Println();
+        printer.Print("completeCSharpTypes = "); _CompleteCSharpTypes.PrintEx(printer); printer.Println();
+        printer.Print("resolveCSharpTypes = "); _ResolveCSharpTypes.PrintEx(printer); printer.Println();
+        printer.Print("getCSharpHostSchema = "); _GetCSharpHostSchema.PrintEx(printer); printer.Println();
         printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
@@ -174,7 +140,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:139</p>
+  /// <p>Generated from: HelixExpressionModel.kt:134</p>
   /// </summary>
   public sealed class HixExecutionRequest : IPrintable, IEquatable<HixExecutionRequest>
   {
@@ -287,7 +253,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:151</p>
+  /// <p>Generated from: HelixExpressionModel.kt:146</p>
   /// </summary>
   public sealed class HixExecutionResponse : IPrintable, IEquatable<HixExecutionResponse>
   {
@@ -400,7 +366,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:145</p>
+  /// <p>Generated from: HelixExpressionModel.kt:140</p>
   /// </summary>
   public sealed class HixTestResult : IPrintable, IEquatable<HixTestResult>
   {
@@ -511,7 +477,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:60</p>
+  /// <p>Generated from: HelixExpressionModel.kt:55</p>
   /// </summary>
   public sealed class MixinCompletionItem : IPrintable, IEquatable<MixinCompletionItem>
   {
@@ -641,7 +607,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:69</p>
+  /// <p>Generated from: HelixExpressionModel.kt:64</p>
   /// </summary>
   public sealed class MixinCompletionRequest : IPrintable, IEquatable<MixinCompletionRequest>
   {
@@ -744,7 +710,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:75</p>
+  /// <p>Generated from: HelixExpressionModel.kt:70</p>
   /// </summary>
   public sealed class MixinCompletionResponse : IPrintable, IEquatable<MixinCompletionResponse>
   {
@@ -831,7 +797,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:38</p>
+  /// <p>Generated from: HelixExpressionModel.kt:33</p>
   /// </summary>
   public sealed class MixinDeclaration : IPrintable, IEquatable<MixinDeclaration>
   {
@@ -943,7 +909,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:119</p>
+  /// <p>Generated from: HelixExpressionModel.kt:114</p>
   /// </summary>
   public sealed class MixinDefinitionQuery : IPrintable, IEquatable<MixinDefinitionQuery>
   {
@@ -1064,7 +1030,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:127</p>
+  /// <p>Generated from: HelixExpressionModel.kt:122</p>
   /// </summary>
   public sealed class MixinDefinitionResponse : IPrintable, IEquatable<MixinDefinitionResponse>
   {
@@ -1151,7 +1117,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:54</p>
+  /// <p>Generated from: HelixExpressionModel.kt:49</p>
   /// </summary>
   public sealed class MixinDiagnostic : IPrintable, IEquatable<MixinDiagnostic>
   {
@@ -1254,7 +1220,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:27</p>
+  /// <p>Generated from: HelixExpressionModel.kt:22</p>
   /// </summary>
   public sealed class MixinFileInput : IPrintable, IEquatable<MixinFileInput>
   {
@@ -1356,7 +1322,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:109</p>
+  /// <p>Generated from: HelixExpressionModel.kt:104</p>
   /// </summary>
   public sealed class MixinFileSnapshot : IPrintable, IEquatable<MixinFileSnapshot>
   {
@@ -1501,7 +1467,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:135</p>
+  /// <p>Generated from: HelixExpressionModel.kt:130</p>
   /// </summary>
   public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
   {
@@ -1588,7 +1554,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:79</p>
+  /// <p>Generated from: HelixExpressionModel.kt:74</p>
   /// </summary>
   public sealed class MixinLanguageDefinition : IPrintable, IEquatable<MixinLanguageDefinition>
   {
@@ -1808,7 +1774,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:33</p>
+  /// <p>Generated from: HelixExpressionModel.kt:28</p>
   /// </summary>
   public sealed class MixinParseRequest : IPrintable, IEquatable<MixinParseRequest>
   {
@@ -1904,7 +1870,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:131</p>
+  /// <p>Generated from: HelixExpressionModel.kt:126</p>
   /// </summary>
   public sealed class MixinParseResponse : IPrintable, IEquatable<MixinParseResponse>
   {
@@ -1991,7 +1957,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:45</p>
+  /// <p>Generated from: HelixExpressionModel.kt:40</p>
   /// </summary>
   public sealed class MixinReference : IPrintable, IEquatable<MixinReference>
   {
@@ -2121,7 +2087,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:22</p>
+  /// <p>Generated from: HelixExpressionModel.kt:17</p>
   /// </summary>
   public sealed class MixinSourceRange : IPrintable, IEquatable<MixinSourceRange>
   {
@@ -2212,7 +2178,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:98</p>
+  /// <p>Generated from: HelixExpressionModel.kt:93</p>
   /// </summary>
   public sealed class MixinTypeFact : IPrintable, IEquatable<MixinTypeFact>
   {

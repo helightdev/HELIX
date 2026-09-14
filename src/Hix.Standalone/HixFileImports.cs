@@ -38,7 +38,7 @@ public static class HixFileImports {
     if (Path.IsPathRooted(pattern)) throw new ArgumentException("%import paths must be relative");
     var regex = new Regex("^" + Regex.Escape(pattern)
       .Replace(@"\*\*", ".*").Replace(@"\*", "[^/]*") + "$", RegexOptions.CultureInvariant);
-    var matches = Directory.EnumerateFiles(directory, "*.hix", SearchOption.AllDirectories)
+    var matches = HixWorkspace.Files(directory, "*.hix")
       .Where(path => regex.IsMatch(Relative(directory, path)))
       .OrderBy(path => Relative(directory, path), StringComparer.Ordinal).ToArray();
     if (matches.Length == 0) throw new FileNotFoundException("%import matched no Hix files: " + pattern);

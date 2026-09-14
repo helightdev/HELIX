@@ -11,7 +11,7 @@ metadataArguments
   ;
 metadataArgument: scalarAtom | COMMA | EQUALS | HASH | AMP | PERCENT;
 
-section: SECTION IDENTIFIER (AMP scalarAtom)? lineEnd sectionEntry*;
+section: SECTION IDENTIFIER (AMP scalarAtom)? lineEnd (list newlines | sectionEntry*);
 sectionEntry: metadata* field;
 field: fieldKey (EQUALS value | collectionValue) lineEnd;
 fieldKey: IDENTIFIER | STRING;

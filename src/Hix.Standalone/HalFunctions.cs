@@ -14,12 +14,27 @@ internal static class HalFunctions {
     new SimpleFunction("standalone_parseHal", (thread, args) => Parse(thread, args)),
     new SimpleFunction("standalone_writeHal", (thread, args) => Write(thread, args)));
 
+  internal static IReadOnlyDictionary<string, IHixValue> Evaluate(HalDocumentSyntax document, IReadOnlyDictionary<string, HixPattern> definitions,
+    HixCoroutine thread, Func<HalAssetReference, IHixValue> external = null) {
+    if (document.Diagnostics.Count != 0) throw new ArgumentException(string.Join("; ", document.Diagnostics.Select(d => d.Message)));
+    var asset = new Asset(document.Sections, definitions, external);
+    return document.Sections.ToDictionary(s => s.Id, s => asset.Resolve(thread, s.Id), StringComparer.Ordinal);
+  }
+  internal static string Validate(HalDocumentSyntax document, IReadOnlyDictionary<string, HixPattern> definitions, Func<HalAssetReference,IHixValue> external = null) {
+    try {
+      using var context = new HixCoroutine();
+      var asset = new Asset(document.Sections, definitions, external);
+      foreach (var section in document.Sections) asset.Resolve(context, section.Id);
+      return null;
+    } catch (HalException exception) { return exception.Message; }
+  }
+
   private static IHixValue Parse(HixCoroutine thread, IHixValue[] args) {
     try {
       var document = HalDocumentSyntax.Parse(thread.ResolveText(args[0]));
       if (document.Diagnostics.Count != 0) throw new HalException(string.Join("; ", document.Diagnostics.Select(
         diagnostic => "line " + diagnostic.Line + ": " + diagnostic.Message)));
-      return new Asset(document.Sections).Resolve(thread, args.Length == 1 ? "0" : thread.ResolveText(args[1]));
+      return new Asset(document.Sections).Resolve(thread, args.Length == 1 ? document.Sections.FirstOrDefault()?.Id ?? "0" : thread.ResolveText(args[1]));
     } catch (HalException exception) { return thread.Error("invalid Hal: " + exception.Message); }
   }
 
@@ -64,7 +79,11 @@ internal static class HalFunctions {
     private readonly IReadOnlyDictionary<string, HalSectionSyntax> sections;
     private readonly Dictionary<string, IHixValue> values = new(StringComparer.Ordinal);
     private readonly HashSet<string> active = new(StringComparer.Ordinal);
-    public Asset(IReadOnlyList<HalSectionSyntax> source) {
+    private readonly IReadOnlyDictionary<string, HixPattern> definitions;
+    private readonly Func<HalAssetReference,IHixValue> external;
+    public Asset(IReadOnlyList<HalSectionSyntax> source, IReadOnlyDictionary<string, HixPattern> definitions = null, Func<HalAssetReference,IHixValue> external = null) {
+      this.definitions = definitions;
+      this.external = external;
       if (source.Count == 0) throw new HalException("expected at least one section");
       if (source.Skip(1).Any(section => section.Id == null)) throw new HalException("only the first section may omit its id");
       if (source.GroupBy(section => section.Id, StringComparer.Ordinal).Any(group => group.Count() > 1)) throw new HalException("duplicate section id");
@@ -74,7 +93,7 @@ internal static class HalFunctions {
       if (values.TryGetValue(id, out var cached)) return cached;
       if (!sections.TryGetValue(id, out var section)) throw new HalException("unknown section '" + id + "'");
       if (!active.Add(id)) throw new HalException("cyclic section reference '" + id + "'");
-      var value = Construct(thread, section.Type, Evaluate(thread, new HalTableSyntax(section.Fields)));
+      var value = Construct(thread, section.Type, Evaluate(thread, section.Value));
       active.Remove(id); return values[id] = value;
     }
     private IHixValue Evaluate(HixCoroutine thread, HalValueSyntax node) => node switch {
@@ -84,6 +103,9 @@ internal static class HalFunctions {
         new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(item.Name), Evaluate(thread, item.Value)))),
       HalTypedSyntax typed => Construct(thread, typed.Type, Evaluate(thread, typed.Value)),
       HalCallSyntax {Name: "ref", Arguments.Count: 1} reference => Resolve(thread, ScalarText(reference.Arguments[0].Value)),
+      HalCallSyntax {Name: "asset"} reference => external != null
+        ? external(HalAssetReference.Parse(reference))
+        : throw new HalException("external asset references require an AssetDatabase"),
       HalSelectionSyntax selection => selection.Members.Aggregate(Evaluate(thread, selection.Receiver),
         (current, member) => current.Select(thread, HixString.Dynamic(member))),
       HalCallSyntax expression => throw new HalException("unsupported data expression '" + expression.Name + "'"),
@@ -91,13 +113,14 @@ internal static class HalFunctions {
     };
     private static string ScalarText(HalValueSyntax node) => node is HalScalarSyntax {Value: { } value}
       ? Convert.ToString(value, CultureInfo.InvariantCulture) : throw new HalException("reference id must be a scalar");
-    private static IHixValue Construct(HixCoroutine thread, string type, IHixValue value) {
+    private IHixValue Construct(HixCoroutine thread, string type, IHixValue value) {
+      var patterns = definitions ?? thread.PatternDefinitions;
       var pattern = HixPatterns.Named(type);
-      if (pattern is NamedHixPattern named && !thread.PatternDefinitions.TryGetValue(named.Name, out pattern))
+      if (pattern is NamedHixPattern named && !patterns.TryGetValue(named.Name, out pattern))
         throw new HalException("unknown pattern '" + type + "'");
-      if (HixPatterns.TryTrait(pattern, thread.PatternDefinitions, out _)) throw new HalException("traits are not instantiable");
-      value = ApplyDefaults(thread, value, pattern, thread.PatternDefinitions);
-      if (!thread.Matches(pattern, value, out var failure)) throw new HalException("value does not match '" + type + "': " + failure);
+      if (HixPatterns.TryTrait(pattern, patterns, out _)) throw new HalException("traits are not instantiable");
+      value = ApplyDefaults(thread, value, pattern, patterns);
+      if (!HixPatternMatcher.Matches(pattern, value, thread, patterns, out var failure)) throw new HalException("value does not match '" + type + "': " + failure);
       return value;
     }
   }

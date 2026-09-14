@@ -13,11 +13,17 @@ public sealed record HalDiagnostic(int Line, int Column, int Start, int Length, 
 public sealed record HalMetadataSyntax(string Name, string Text);
 public sealed record HalDocumentSyntax(IReadOnlyList<HalMetadataSyntax> Metadata,
   IReadOnlyList<HalSectionSyntax> Sections, IReadOnlyList<HalDiagnostic> Diagnostics) {
+  /// Optional persistent asset identity, declared with %uid("...") before the primary section.
+  public string Uid { get; init; }
+  public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
   public static HalDocumentSyntax Parse(string source) => HalSyntax.Parse(source ?? string.Empty);
   public static string Format(string source, int indentSize = 2) => HalFormatter.Format(source, indentSize);
 }
 public sealed record HalSectionSyntax(string Type, string Id, IReadOnlyList<HalFieldSyntax> Fields,
-  IReadOnlyList<HalMetadataSyntax> Metadata);
+  IReadOnlyList<HalMetadataSyntax> Metadata) {
+  public HalListSyntax List { get; init; }
+  public HalValueSyntax Value => List ?? (HalValueSyntax)new HalTableSyntax(Fields);
+}
 public sealed record HalFieldSyntax(string Name, HalValueSyntax Value, IReadOnlyList<HalMetadataSyntax> Metadata);
 public abstract record HalValueSyntax;
 public sealed record HalScalarSyntax(object Value) : HalValueSyntax;
@@ -27,6 +33,24 @@ public sealed record HalTypedSyntax(string Type, HalValueSyntax Value) : HalValu
 public sealed record HalCallSyntax(string Name, IReadOnlyList<HalArgumentSyntax> Arguments) : HalValueSyntax;
 public sealed record HalArgumentSyntax(string Name, HalValueSyntax Value);
 public sealed record HalSelectionSyntax(HalValueSyntax Receiver, IReadOnlyList<string> Members) : HalValueSyntax;
+
+/// Foreign asset references are explicit selectors, independent from local ref(section) calls.
+public sealed record HalAssetReference(string Kind, string Value, string Section = null) {
+  public static HalAssetReference Parse(HalCallSyntax call) {
+    if (call.Name != "asset" || call.Arguments.Count is < 1 or > 2 || call.Arguments.Any(a => a.Name != null) ||
+        call.Arguments[0].Value is not HalCallSyntax selector || selector.Name is not ("path" or "uid") ||
+        selector.Arguments.Count != 1 || selector.Arguments[0].Name != null ||
+        selector.Arguments[0].Value is not HalScalarSyntax {Value:string value} || string.IsNullOrWhiteSpace(value))
+      throw new ArgumentException("Expected asset(path(\"file.hal\")) or asset(uid(\"asset-id\")), optionally followed by a section argument");
+    string section = null;
+    if (call.Arguments.Count == 2) {
+      if (call.Arguments[1].Value is not HalScalarSyntax {Value: { } id} || id is bool)
+        throw new ArgumentException("Asset section must be a string or number");
+      section = Convert.ToString(id, CultureInfo.InvariantCulture);
+    }
+    return new(selector.Name, value, section);
+  }
+}
 
 public static class HalFormatter {
   public static string Format(string source, int indentSize = 2) {
@@ -101,7 +125,42 @@ internal static class HalSyntax {
     var document = parser.document();
     var blocks = document.sectionBlock();
     var sections = blocks.Select((block, index) => Section(block, index)).ToArray();
-    return new HalDocumentSyntax(blocks.FirstOrDefault()?.metadata().Select(Metadata).ToArray() ?? [], sections, diagnostics);
+    var primary = blocks.FirstOrDefault()?.metadata().Where(m => m.IDENTIFIER()?.GetText() == "uid").ToArray() ?? [];
+    string uid = null;
+    foreach (var metadata in AllMetadata(document).Where(m => m.IDENTIFIER()?.GetText() == "uid")) {
+      string failure = null;
+      if (!primary.Contains(metadata)) failure = "uid metadata belongs before the primary asset section";
+      else if (primary.Length != 1) failure = "an asset may declare only one uid";
+      else {
+        var arguments = metadata.metadataArguments();
+        var positional = arguments?.argumentList()?.argument();
+        if (positional is {Length: 1} && positional[0].EQUALS() == null && Value(positional[0].value()) is HalScalarSyntax {Value:string text}) uid = text;
+        else if (arguments?.LANGLE() != null && arguments.metadataArgument().Length == 1 && arguments.metadataArgument()[0].scalarAtom() is { } atom && (atom.STRING() != null || atom.IDENTIFIER() != null || atom.BARE() != null)) uid = AtomText(atom);
+        else failure = "uid requires one string argument: %uid(\"asset-id\")";
+        if (failure == null && string.IsNullOrWhiteSpace(uid)) failure = "asset uid must not be empty";
+      }
+      if (failure != null) diagnostics.Add(new(metadata.Start.Line, metadata.Start.Column, metadata.Start.StartIndex, metadata.Stop.StopIndex - metadata.Start.StartIndex + 1, failure));
+    }
+    var tags = new List<string>();
+    var primaryMetadata = blocks.FirstOrDefault()?.metadata() ?? [];
+    foreach (var metadata in AllMetadata(document).Where(m => m.IDENTIFIER()?.GetText() == "tag")) {
+      var arguments = metadata.metadataArguments();
+      var positional = arguments?.argumentList()?.argument();
+      string tag = null;
+      if (positional is {Length: 1} && positional[0].EQUALS() == null && Value(positional[0].value()) is HalScalarSyntax {Value:string text}) tag = text;
+      else if (arguments?.LANGLE() != null && arguments.metadataArgument().Length == 1 && arguments.metadataArgument()[0].scalarAtom() is { } atom && (atom.STRING() != null || atom.IDENTIFIER() != null || atom.BARE() != null)) tag = AtomText(atom);
+      var failure = !primaryMetadata.Contains(metadata) ? "tag metadata belongs before the primary asset section" :
+        string.IsNullOrWhiteSpace(tag) ? "tag requires one nonempty string argument: %tag(\"name\")" : null;
+      if (failure != null) diagnostics.Add(new(metadata.Start.Line, metadata.Start.Column, metadata.Start.StartIndex, metadata.Stop.StopIndex - metadata.Start.StartIndex + 1, failure));
+      else if (!tags.Contains(tag)) tags.Add(tag);
+    }
+    return new HalDocumentSyntax(blocks.FirstOrDefault()?.metadata().Select(Metadata).ToArray() ?? [], sections, diagnostics) { Uid = uid, Tags = tags };
+  }
+
+  private static IEnumerable<HalParser.MetadataContext> AllMetadata(ParserRuleContext context) {
+    if (context is HalParser.MetadataContext metadata) yield return metadata;
+    foreach (var child in context.children?.OfType<ParserRuleContext>() ?? [])
+      foreach (var nested in AllMetadata(child)) yield return nested;
   }
 
   private static HalSectionSyntax Section(HalParser.SectionBlockContext block, int index) {
@@ -109,7 +168,7 @@ internal static class HalSyntax {
     return new HalSectionSyntax(context.IDENTIFIER().GetText(),
       context.scalarAtom() == null ? (index == 0 ? "0" : null) : AtomText(context.scalarAtom()),
       context.sectionEntry().Select(entry => Field(entry.field(), entry.metadata())).ToArray(),
-      block.metadata().Select(Metadata).ToArray());
+      block.metadata().Select(Metadata).ToArray()) { List = context.list() == null ? null : List(context.list()) };
   }
 
   private static HalFieldSyntax Field(HalParser.FieldContext context, IEnumerable<HalParser.MetadataContext> metadata) =>

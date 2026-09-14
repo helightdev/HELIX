@@ -6,13 +6,8 @@ import com.jetbrains.rd.generator.nova.csharp.CSharp50Generator
 import com.jetbrains.rd.generator.nova.kotlin.Kotlin11Generator
 import com.jetbrains.rider.model.nova.ide.SolutionModel
 
-/**
- * Versioned language-service protocol for mixin additional files.
- *
- * The backend is deliberately an analysis server, not the owner of editor PSI. The frontend
- * sends a complete same-directory file set and receives diagnostics and semantic facts. IntelliJ
- * syntax and PSI are built directly from the shared ANTLR grammar in the frontend.
- */
+/** C# interop is the only backend RPC surface. Snapshot structs are frontend data models
+ * populated from the external Hix toolchain; Rider never analyzes Hix through RD. */
 @Suppress("unused")
 object HelixExpressionModel : Ext(SolutionModel.Solution) {
     init {
@@ -155,13 +150,9 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("tests", array(hixTestResult))
         }
 
-        call("parseMixinFiles", parseRequest, parseResponse).async
-        call("completeMixin", completionRequest, completionResponse).async
-        call("queryMixinDefinitions", definitionQuery, definitionResponse).async
-        call("getMixinLanguageCatalog", string, languageCatalog).async
-        call("formatHal", string, string).async
-        call("formatHix", string, string).async
-        call("executeHix", hixExecutionRequest, hixExecutionResponse).async
+        call("completeCSharpTypes", string, completionResponse).async
+        call("resolveCSharpTypes", array(string), completionResponse).async
+        call("getCSharpHostSchema", string, string).async
         property("isHelixEnabled", bool)
     }
 }

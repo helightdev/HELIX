@@ -72,7 +72,7 @@ class HixPreFormatProcessor : PreFormatProcessor {
         val documents = PsiDocumentManager.getInstance(file.project)
         val document = documents.getDocument(file) ?: return range
         val formatted = try {
-            file.project.solution.helixExpressionModel.formatHix.sync(file.text, RpcTimeouts(1_000L, 5_000L))
+            file.project.getService(dev.helight.helix.hix.HixToolchainService::class.java).request("hix/format", mapOf("text" to file.text), 5_000).asString
         } catch (_: Throwable) { return range }
         if (formatted != document.text) { document.replaceString(0, document.textLength, formatted); documents.commitDocument(document) }
         return TextRange(0, formatted.length)

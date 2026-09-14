@@ -33,6 +33,10 @@ internal class WorkspaceSettings(private val project: Project) :
             syncHelixEnabled(value)
         }
 
+    var toolchainPath: String
+        get() = state.toolchainPath
+        set(value) { updateState { it.copy(toolchainPath = value) } }
+
     var entries: List<WorkspaceEntry>
         get() = state.entries.map { entry ->
             val recovered = if (entry.typeId.isNotBlank()) entry
@@ -46,7 +50,10 @@ internal class WorkspaceSettings(private val project: Project) :
         }
 
     private fun syncHelixEnabled(value: Boolean) {
-        val model = project.solution.helixExpressionModel
+        if (project.isDefault || project.isDisposed) return
+        val model = try { project.solution.helixExpressionModel }
+            catch (cancelled: com.intellij.openapi.progress.ProcessCanceledException) { throw cancelled }
+            catch (_: RuntimeException) { return }
         model.protocol?.scheduler?.queue {
             model.isHelixEnabled.set(value)
         }
@@ -55,5 +62,6 @@ internal class WorkspaceSettings(private val project: Project) :
 
 internal data class WorkspaceSettingsState(
     @JvmField var helixEnabled: Boolean = false,
+    @JvmField var toolchainPath: String = "",
     @JvmField var entries: List<WorkspaceEntry> = emptyList()
 )

@@ -39,7 +39,7 @@ public static class HixImageFile {
     };
     public BytecodeExpression ToEntry() => new(new BytecodeFunction("", false, [], Body), IsPrelude, Line);
   }
-  private static JsonSerializer Serializer(HixStringPool strings = null) => JsonSerializer.Create(new JsonSerializerSettings {
+  internal static JsonSerializer Serializer(HixStringPool strings = null) => JsonSerializer.Create(new JsonSerializerSettings {
     Formatting = Formatting.Indented, MaxDepth = 256,
     Converters = { new PatternConverter(), new ValueConverter(strings) }
   });

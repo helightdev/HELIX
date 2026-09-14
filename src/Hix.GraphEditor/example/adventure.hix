@@ -1,0 +1,42 @@
+// A richer graph example. Enums constrain ordinary string values.
+type QuestDifficulty = %enum<story><normal><hard> string;
+type QuestState = %enum<available><active><complete> string;
+type QuestFaction = %enum<rangers><merchants><scholars> string;
+type ItemRarity = %enum<common><rare><legendary> string;
+
+type QuestLocation = @{string name, number x, number y};
+type QuestNpc = @{string name, QuestFaction faction, QuestLocation home};
+
+// The selected section type determines which union variant supplies a port.
+%tagged<talk>
+type TalkObjective = @{string title, QuestNpc speaker, string dialogue, bool optional = false};
+%tagged<collect>
+type CollectObjective = @{string title, string item, %min<1> number count = 1, bool optional = false};
+%tagged<explore>
+type ExploreObjective = @{string title, QuestLocation destination, %min<1> number radius = 10, bool optional = false};
+type QuestObjective = TalkObjective | CollectObjective | ExploreObjective;
+type QuestObjectives = %many<QuestObjective> tuple;
+
+%tagged<currency>
+type CurrencyReward = @{%min<0> number amount, %enum<gold><silver> string currency = [<gold>]};
+%tagged<equipment>
+type EquipmentReward = @{string item, ItemRarity rarity, %min<1> number quantity = 1};
+type QuestReward = CurrencyReward | EquipmentReward;
+type QuestRewards = %many<QuestReward> tuple;
+
+// Fixed tuples and homogeneous lists both have section-backed list nodes.
+type QuestLevelRange = @[number minimum, number maximum];
+type QuestTags = %many<string> tuple;
+type Quest = @{
+  string title,
+  QuestDifficulty difficulty = [<normal>],
+  QuestState state = [<available>],
+  QuestNpc giver,
+  QuestLocation destination,
+  QuestObjectives objectives,
+  QuestRewards rewards,
+  QuestLevelRange levels,
+  QuestTags tags,
+  string? subtitle = null,
+  %optional string designerNote
+};

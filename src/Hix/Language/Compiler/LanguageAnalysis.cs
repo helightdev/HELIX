@@ -29,6 +29,7 @@ public sealed class LanguageAnalysis {
     TypeFacts = CollectTypeFacts();
   }
 
+  public IReadOnlyList<TypeDeclarationIr> TypeDeclarations => DeclarationExports.Expand(Program.Declarations).OfType<TypeDeclarationIr>().ToArray();
   public CompilationUnitIr Program { get; }
   public IReadOnlyList<Symbol> Declarations { get; }
   public IReadOnlyList<Reference> References { get; }

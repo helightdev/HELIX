@@ -128,12 +128,9 @@ boundary used by IDE integrations. `Synchronize` accepts a complete directory wo
 returns immutable snapshots containing declarations, references, diagnostics, lazy completion
 sites, and type facts. It owns source-hash/revision caches and cross-file resolution.
 
-`IHixAnalyzerHost` is the optional host-symbol boundary used for integrations such as Rider's C#
-type index. The source generator does not reference or contain `Hix.Standalone`; its dependency
-direction remains independent. Rider currently links only the analyzer implementation sources
-into its backend because the generator embeds Hix types. The same implementation is part of the
-standalone assembly and can later be exposed through JSON-RPC/LSP without relocating analysis
-back into an IDE plugin.
+`IHixAnalyzerHost` is the optional host-symbol boundary. Rider uses the configured toolchain's
+stdio analysis server; its C# backend supplies only host declarations and C# symbol lookup.
+The source generator remains independent of `Hix.Standalone`.
 
 Coroutine execution uses `vm.CreateCoroutine(program, context)` and bounded
 `coroutine.Resume(instructionBudget)` slices. Dispose abandoned coroutines to release
@@ -314,3 +311,114 @@ declarations introduce parameters in metadata order. Bounds follow the name and 
 not nested angle brackets within a string argument. Calls infer type arguments; explicit runtime-call
 type arguments remain programmatic IR only. Constructed types and generic declarations emit no
 runtime type environments or specialized code.
+
+## HAL graph editing
+
+Run `./gradlew runHalGraphEditor` from the repository root to build the standalone
+toolchain and serve the XYFlow editor from `src/Hix.GraphEditor/example` by default.
+Use `-PHalGraphRoot=/path/to/workspace` to select another workspace. See [the editor guide](../Hix.GraphEditor/README.md)
+for the example workspace, graph semantics, and revisioned HTTP/stdio analysis protocol.
+
+### Persistent workspace asset database
+
+`AssetDatabase.Open(assetOrWorkspacePath)` maintains `.hix/assets.duckdb` in the
+uppermost associated workspace. Association follows ancestor manifests that own the
+nearest workspace through modules or path dependencies; an unrelated nested manifest
+keeps its own database. Types still come from the nearest workspace and its declared
+dependencies. Without a manifest, the containing directory is the workspace.
+The database uses `DuckDB.NET.Data.Full` (including the native full bindings), pinned
+to 1.4.1 for .NET Standard 2.0 compatibility. `.hix` is disposable generated data and
+is excluded from discovery and version control. Any schema version mismatch (older or
+newer) clears the entire database and regenerates the cache. There are no migrations.
+
+```hal
+%uid("world.watchtower")
+%tag("location")
+%tag("quest")
+--- Location &tower
+name = "Watchtower"
+
+// In another asset:
+// location = asset(uid("world.watchtower"))
+// location = asset(path("locations/watchtower.hal"), "tower")
+```
+
+`%uid("...")` is optional primary-section metadata. UIDs must be nonempty and unique
+within the indexed workspace; duplicate declarations fail indexing. Declared UIDs
+preserve identity across file moves. Assets without a UID receive a database-local
+identity associated with their path. `asset(path("relative.hal"))` and
+`asset(uid("..."))` select the primary section; an optional second argument selects
+an anchor. Paths are relative to the referencing file, confined to the associated
+workspace, and cannot traverse symbolic links. `ref("anchor")` stays local.
+
+`%tag("...")` is repeatable primary-section metadata. Each occurrence contributes one
+nonempty, case-sensitive tag; duplicates collapse to one membership. Tags are shared
+rows in `tags`, with an indexed `asset_tags` join table. `Query(tag: "quest")` filters
+assets in SQL; `Tags(assetId)` lists their tags. Updating valid source replaces the
+memberships, and deleted assets disappear from tag queries.
+
+The database API separates `Refresh()` filesystem reconciliation, indexed/paginated
+`Query(type, offset, limit, tag)`, `Find(pathOrId)`, `Analyze()`, `Document(path)`,
+`Symbols(name)`, `Dependencies(path, reverse)`, and `Build(path, processorVersion)`.
+Builds resolve references recursively, apply Hix defaults/tags, validate types, detect
+cycles, and cache all section values. Fingerprints include source content, compiler
+identity, workspace type inputs, processor version, and dependency fingerprints.
+Successful values and dependency records publish in one transaction. Failed builds
+retain the previous artifact internally but throw rather than serving it as current.
+Deleted assets disappear from queries; invalid source retains last-known objects with
+an exposed diagnostic. Query/dependency results describe the last indexed/built state;
+call `Refresh` or `Build` to reconcile external changes. UID resolution reconciles the
+index before lookup so moved files are found.
+
+The SQL layout uses `workspaces(id, path, fingerprint)` and `files(id, path)` to store
+paths once. `documents` relates each file to its analysis workspace. Symbols, references,
+diagnostics, and type facts refer to document IDs; reference targets and asset dependency
+edges refer to file IDs. Stable `asset_identities` anchor objects, builds, and tags even
+when an asset changes its file binding or removes its declared UID.
+
+Each pattern is a row in `patterns(workspace_id, name, kind, display, definition)`.
+The definition column contains only that pattern's canonical AST, not a workspace-wide
+object. Name and kind are indexed SQL columns. `Patterns(name, kind, offset, limit)`
+queries the last indexed set without parsing sources or loading other patterns; call
+`Analyze()` when filesystem changes need to be reconciled. Document snapshots are
+reconstructed from their relational rows rather than stored as duplicate JSON blobs.
+
+Canonical pattern definitions, source diagnostics, document type facts, declarations,
+and symbol locations persist across process restarts. Warm analysis hashes inputs and
+loads saved analysis without reparsing Hix. Type-input changes conservatively invalidate
+the nearest workspace's analysis; unrelated asset edits do not. Queries are paginated
+and indexed. Full reconciliation still walks files, and cold analysis still constructs
+the workspace semantic model; this is not a claim of constant-time project loading.
+Editor buffers remain revisioned in memory and never overwrite disk index entries
+until saved. The graph editor uses the persistent analysis automatically.
+
+The analysis server exposes `assets/index`, `assets/query`, `assets/build`,
+`assets/dependencies`, `assets/analyze`, `assets/document`, `assets/symbols`,
+`assets/patterns`, and `assets/tags` over
+stdio and HTTP. Supply `path` (asset or workspace), with `type`, `offset`, `limit`,
+`reverse`, `name`, `kind`, `tag`, `assetId`, or `processorVersion` as appropriate. `assets/build` returns
+`assetId`, `fingerprint`, `cacheHit`, and serialized full section values.
+`hix/get` falls back to persisted disk analysis when there is no open buffer.
+Use one server process per database for writes; DuckDB's process lock prevents
+concurrent independent writers. Dispose `AssetDatabase` on the opening thread.
+
+Rider requires a Hix toolchain executable in HELIX project settings. Browse to it or use
+**Detect from PATH** (Linux: `hix` / `Hix.Toolchain`; Windows: `hix.exe` / `Hix.Toolchain.exe`).
+Analysis, completion, formatting, and run/test execution use that executable. There is no
+bundled analyzer fallback. Each project owns a stateful `analysis-server` process; changing
+settings restarts it and invalidates frontend snapshots. C# interop alone uses Rider's RD
+backend: it exports host library declarations and resolves/completes C# types. The external
+compiler analyzes those declarations; the plugin does not parse or compile Hix in its backend.
+Saved workspace analysis creates the uppermost associated `.hix/assets.duckdb` cache during
+`hix/synchronize`; unsaved text stays in memory.
+
+`:riderPlugin:runIde` always depends on `buildHixToolchainAot`. On Linux,
+`installDevelopmentToolchain` copies the executable as `~/.local/bin/hix` and its runtime
+libraries beside it. Add `~/.local/bin` to PATH before starting Rider to use autodetection.
+On Windows, select the executable under `build/hix-toolchain/aot`.
+
+`:riderPlugin:testDotNet` builds the toolchain and runs the C# interop tests against it
+(using the modern .NET test host on Linux). To select an existing executable manually:
+`HIX_TOOLCHAIN=/absolute/path/to/hix dotnet test src/RiderPlugin/src/dotnet/HelixRider.Tests/HelixRider.Tests.csproj -p:RiderTestFramework=net8.0`.
+The modern-host override excludes the Windows STA/PSI test environment; it does not replace
+interactive Rider QA.

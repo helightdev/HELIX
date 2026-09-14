@@ -1,3 +1,6 @@
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import com.jetbrains.plugin.structure.base.utils.isFile
 import groovy.ant.FileNameFinder
 import org.apache.tools.ant.taskdefs.condition.Os
@@ -131,10 +134,13 @@ val compileDotNet = tasks.register<DotNetBuildTask>("compileDotNet") {
 }
 
 val testDotNet = tasks.register<Exec>("testDotNet") {
+    dependsOn(":buildHixToolchainAot", ":riderPlugin:protocol:rdgen")
+    environment("HIX_TOOLCHAIN", rootProject.layout.buildDirectory.file("hix-toolchain/aot/Hix.Toolchain" + if (isWindows) ".exe" else "").get().asFile.absolutePath)
     group = "verification"
     workingDir(projectDir)
     commandLine("dotnet", "test", file(DotnetSolution).absolutePath,
         "--configuration", BuildConfiguration.get(), "--logger", "GitHubActions")
+    if (!isWindows) args("-p:RiderTestFramework=net8.0")
 }
 
 tasks.buildPlugin {
@@ -193,7 +199,37 @@ tasks.test {
     systemProperty("unityExtensions.projectRoot", projectDir.absolutePath)
 }
 
+abstract class InstallHixToolchainTask : DefaultTask() {
+    @get:org.gradle.api.tasks.InputDirectory abstract val sourceDirectory: DirectoryProperty
+    @get:Internal abstract val destinationDirectory: DirectoryProperty
+    @TaskAction fun install() {
+        if (!System.getProperty("os.name").lowercase().contains("linux")) return
+        val directory = destinationDirectory.get().asFile.toPath()
+        Files.createDirectories(directory)
+        sourceDirectory.get().asFile.listFiles().orEmpty().filter {
+            it.isFile && it.extension !in listOf("dbg", "pdb")
+        }.forEach { source ->
+            val destination = directory.resolve(if (source.name == "Hix.Toolchain") "hix" else source.name)
+            val staging = Files.createTempFile(directory, ".hix-install-", ".tmp")
+            try {
+                Files.copy(source.toPath(), staging, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES)
+                staging.toFile().setExecutable(true, false)
+                // Replace the inode so an already running server can retain its executable.
+                Files.move(staging, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } finally { Files.deleteIfExists(staging) }
+        }
+    }
+}
+val installDevelopmentToolchain = tasks.register<InstallHixToolchainTask>("installDevelopmentToolchain") {
+    dependsOn(":buildHixToolchainAot")
+    sourceDirectory.set(rootProject.layout.buildDirectory.dir("hix-toolchain/aot"))
+    destinationDirectory.set(layout.dir(providers.systemProperty("user.home").map { File(it, ".local/bin") }))
+}
+// Native AOT and Rider's managed build share .NET intermediate directories.
+compileDotNet.configure { mustRunAfter(":buildHixToolchainAot") }
+
 tasks.runIde {
+    dependsOn(installDevelopmentToolchain)
     // Rider 2026.2 with the bundled Unity plugin exceeds the old 1.5 GB sandbox default while indexing.
     // Keep this scoped to the launched IDE; callers can lower or raise it with -PRiderMaxHeapSize=<size>.
     maxHeapSize = providers.gradleProperty("RiderMaxHeapSize").getOrElse("4g")
@@ -225,13 +261,6 @@ tasks.prepareSandbox {
             outputFolder.file("${DotnetPluginId.get()}.pdb"),
             outputFolder.file("HelixSourceGenerator.dll"),
             outputFolder.file("HelixSourceGenerator.pdb"),
-            // Hix.Toolchain remains an optional external executable. These assemblies are
-            // the reusable manifest/runtime API used by the bundled Rider backend itself.
-            outputFolder.file("Hix.Standalone.dll"),
-            outputFolder.file("Hix.Standalone.pdb"),
-            outputFolder.file("Hix.dll"),
-            outputFolder.file("Hix.pdb"),
-            outputFolder.file("antlr.runtime.dll"),
             outputFolder.file("Newtonsoft.Json.dll"),
     )
 

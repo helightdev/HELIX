@@ -108,3 +108,33 @@ tasks.wrapper {
     distributionUrl =
         "https://cache-redirector.jetbrains.com/services.gradle.org/distributions/gradle-${gradleVersion}-all.zip"
 }
+
+val installHalGraphFrontend = tasks.register<Exec>("installHalGraphFrontend") {
+    group = "hix"
+    workingDir("src/Hix.GraphEditor")
+    commandLine("npm", "ci", "--no-audit", "--no-fund")
+    inputs.files("src/Hix.GraphEditor/package.json", "src/Hix.GraphEditor/package-lock.json")
+    outputs.dir("src/Hix.GraphEditor/node_modules")
+}
+val buildHalGraphFrontend = tasks.register<Exec>("buildHalGraphFrontend") {
+    group = "hix"
+    dependsOn(installHalGraphFrontend)
+    workingDir("src/Hix.GraphEditor")
+    commandLine("npm", "run", "build")
+    inputs.dir("src/Hix.GraphEditor/src")
+    inputs.files("src/Hix.GraphEditor/index.html", "src/Hix.GraphEditor/package-lock.json")
+    outputs.dir("src/Hix.GraphEditor/dist")
+}
+tasks.register<Exec>("runHalGraphEditor") {
+    group = "hix"
+    description = "Builds the standalone Hix toolchain and XYFlow editor, then serves the local HAL editor."
+    dependsOn("buildHixToolchain", buildHalGraphFrontend)
+    val configuration = providers.gradleProperty("BuildConfiguration").orElse("Debug")
+    val root = providers.gradleProperty("HalGraphRoot").orElse(file("src/Hix.GraphEditor/example").absolutePath)
+    val port = providers.gradleProperty("HalGraphPort").orElse("5178")
+    val workspace = file(root.get())
+    workingDir(workspace)
+    commandLine("dotnet", file("src/Hix.Toolchain/bin/${configuration.get()}/net8.0/Hix.Toolchain.dll").absolutePath,
+        "graph-server", "--root", workspace.absolutePath, "--port", port.get(),
+        "--web", file("src/Hix.GraphEditor/dist").absolutePath)
+}

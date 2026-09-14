@@ -17,8 +17,12 @@ public sealed class HixProject {
   public IReadOnlyList<HixSourceFile> MainSources() => Sources(false);
   public IReadOnlyList<HixSourceFile> TestSources() => Sources(true);
   public IReadOnlyList<HixSourceFile> Sources(bool includeTests) {
+    return SourcesFor(Manifest, includeTests);
+  }
+  public IReadOnlyList<HixSourceFile> SourcesFor(HixManifest manifest, bool includeTests = false) {
     var result = new List<HixSourceFile>(); var files = new HashSet<string>(PathComparer); var visited = new HashSet<string>(PathComparer);
-    Visit(Manifest, Manifest.Name, includeTests, result, files, visited, []); return result;
+    var name = modules.Values.FirstOrDefault(m => PathComparer.Equals(m.Manifest.Path, manifest.Path))?.QualifiedName ?? manifest.Name;
+    Visit(manifest, name, includeTests, result, files, visited, []); return result;
   }
   private void Visit(HixManifest manifest, string qualifiedName, bool tests, ICollection<HixSourceFile> result,
     ISet<string> files, ISet<string> visited, IReadOnlyList<string> chain) {
@@ -75,7 +79,7 @@ public sealed class HixProject {
   private static IReadOnlyList<string> MatchDirectories(string directory, IEnumerable<string> patterns) => Match(directory, patterns, true).Where(Directory.Exists).ToArray();
   private static IReadOnlyList<string> Match(string directory, IEnumerable<string> patterns, bool directories) {
     if (!Directory.Exists(directory)) return [];
-    var entries = directories ? Directory.EnumerateDirectories(directory, "*", SearchOption.AllDirectories).Prepend(directory) : Directory.EnumerateFiles(directory, "*.hix", SearchOption.AllDirectories);
+    var entries = directories ? HixWorkspace.Directories(directory).Prepend(directory) : HixWorkspace.Files(directory, "*.hix");
     var all = entries.Select(System.IO.Path.GetFullPath).ToArray(); var result = new HashSet<string>(PathComparer);
     foreach (var raw in patterns) { var pattern = raw.Replace('\\', '/').TrimEnd('/'); if (System.IO.Path.IsPathRooted(pattern)) throw new ArgumentException("Hix source patterns must be relative: " + raw); var regex = Glob(pattern); foreach (var entry in all) { var relative = Relative(directory, entry); if (regex.IsMatch(relative) || directories && pattern.EndsWith("/**") && regex.IsMatch(relative + "/")) result.Add(entry); } }
     return result.OrderBy(x => Relative(directory, x), StringComparer.Ordinal).ToArray();

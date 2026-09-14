@@ -14,17 +14,12 @@ import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
 import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiManager
 import com.intellij.util.concurrency.AppExecutorUtil
-import com.jetbrains.rd.framework.RdTaskResult
 import com.jetbrains.rd.framework.impl.RpcTimeouts
-import com.jetbrains.rd.util.reactive.adviseOnce
-import com.jetbrains.rider.plugins.unity.UnityProjectLifetimeService
 import com.jetbrains.rider.projectView.solution
 import dev.helight.helix.protocol.MixinFileInput
 import dev.helight.helix.protocol.MixinFileSnapshot
 import dev.helight.helix.protocol.MixinLanguageDefinition
-import dev.helight.helix.protocol.MixinParseRequest
 import dev.helight.helix.protocol.MixinCompletionItem
-import dev.helight.helix.protocol.MixinCompletionRequest
 import dev.helight.helix.protocol.helixExpressionModel
 import dev.helight.helix.hal.HalManifest
 import java.util.concurrent.ConcurrentHashMap
@@ -65,27 +60,24 @@ class HixSnapshotService(private val project: Project) {
 
     fun ensureLanguageCatalog(backend: String = DEFAULT_BACKEND) {
         if (catalogs[backend]?.isNotEmpty() == true || project.isDisposed || project.isDefault) return
-        // Settings previews and early indexing may have PSI before Rider attaches a solution.
-        val model = try { project.solution.helixExpressionModel }
-            catch (cancelled: com.intellij.openapi.progress.ProcessCanceledException) { throw cancelled }
-            catch (_: RuntimeException) { return }
         if (!catalogRequestsInFlight.add(backend)) return
-        val lifetime = UnityProjectLifetimeService.getLifetime(project)
-        model.getMixinLanguageCatalog
-            .start(lifetime, backend).result.adviseOnce(lifetime) { result ->
-                catalogRequestsInFlight.remove(backend)
-                if (result is RdTaskResult.Success && result.value.definitions.isNotEmpty()) {
-                    catalogs[backend] = result.value.definitions
-                    modificationTracker.incModificationCount()
-                    val files = knownFiles.values.toList()
-                    ApplicationManager.getApplication().invokeLater {
-                        if (project.isDisposed) return@invokeLater
-                        val psiManager = PsiManager.getInstance(project)
-                        val daemon = DaemonCodeAnalyzer.getInstance(project)
-                        files.mapNotNull(psiManager::findFile).forEach(daemon::restart)
-                    }
-                } else scheduleCatalogRetry(backend)
-            }
+        AppExecutorUtil.getAppExecutorService().execute {
+            try {
+                catalogs[backend] = project.service<HixToolchainService>().definitions(backend)
+                modificationTracker.incModificationCount()
+                ApplicationManager.getApplication().invokeLater {
+                    if (!project.isDisposed) DaemonCodeAnalyzer.getInstance(project).restart()
+                }
+            } catch (_: Exception) { scheduleCatalogRetry(backend) }
+            finally { catalogRequestsInFlight.remove(backend) }
+        }
+    }
+
+    fun resetToolchain() {
+        catalogs.clear(); definitionQueries.clear(); requestedDirectoryHashes.clear()
+        byPath.clear(); byHash.clear(); semanticRetries.clear()
+        modificationTracker.incModificationCount()
+        knownFiles.values.distinctBy { it.parent?.path }.forEach { requestDirectory(it) }
     }
 
     fun definitionsFor(source: CharSequence, file: VirtualFile? = null): Array<MixinLanguageDefinition> {
@@ -110,25 +102,19 @@ class HixSnapshotService(private val project: Project) {
 
     fun lazyCompletions(kind: String, prefix: String, source: CharSequence,
                         file: VirtualFile? = null): Array<MixinCompletionItem> = try {
-        project.solution.helixExpressionModel.completeMixin
-            .sync(MixinCompletionRequest(kind, prefix, effectiveBackend(source, file)), RpcTimeouts(500L, 2_000L)).items
-    } catch (_: Throwable) {
-        emptyArray()
-    }
+        if (kind == "CSharpType") project.solution.helixExpressionModel.completeCSharpTypes
+            .sync(prefix, RpcTimeouts(500L, 2_000L)).items
+        else project.service<HixToolchainService>().complete(kind, prefix, effectiveBackend(source, file))
+    } catch (_: Exception) { emptyArray() }
 
     fun queryDefinitions(kind: String, receiverType: String = "", operandType: String = "",
                          prefix: String = "", source: CharSequence,
                          file: VirtualFile? = null): Array<MixinLanguageDefinition> {
         val key = DefinitionQueryKey(effectiveBackend(source, file), kind, receiverType, operandType, prefix)
         return definitionQueries[key] ?: try {
-            project.solution.helixExpressionModel.queryMixinDefinitions.sync(
-                dev.helight.helix.protocol.MixinDefinitionQuery(kind, receiverType, operandType, prefix,
-                    key.backend), RpcTimeouts(500L, 2_000L)).definitions.also {
-                definitionQueries[key] = it
-            }
-        } catch (_: Throwable) {
-            emptyArray()
-        }
+            project.service<HixToolchainService>().definitions(key.backend, kind, receiverType, operandType, prefix)
+                .also { definitionQueries[key] = it }
+        } catch (_: Exception) { emptyArray() }
     }
 
     fun snapshot(path: String): MixinFileSnapshot? = byPath[normalise(path)]
@@ -244,7 +230,6 @@ class HixSnapshotService(private val project: Project) {
             MixinFileInput(path, source, revision)
         }.toTypedArray()
 
-        val lifetime = UnityProjectLifetimeService.getLifetime(project)
         val responded = AtomicBoolean(false)
         AppExecutorUtil.getAppScheduledExecutorService().schedule({
             if (responded.get() || project.isDisposed) return@schedule
@@ -254,18 +239,19 @@ class HixSnapshotService(private val project: Project) {
                     inputs.forEach { listeners.forEach { listener -> listener(it.filePath, null) } }
             }
         }, REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        project.solution.helixExpressionModel.parseMixinFiles
-            .start(lifetime, MixinParseRequest(inputs, requestedBackend)).result.adviseOnce(lifetime) { result ->
+        AppExecutorUtil.getAppExecutorService().execute {
+            try {
+                val files = project.service<HixToolchainService>().parse(inputs, requestedBackend)
                 responded.set(true)
-                if (result !is RdTaskResult.Success) {
-                    requestedDirectoryHashes.remove(requestKey, requestHash)
-                    ApplicationManager.getApplication().invokeLater {
-                        inputs.forEach { listeners.forEach { listener -> listener(it.filePath, null) } }
-                    }
-                    return@adviseOnce
+                accept(requestKey, requestHash, files)
+            } catch (_: Exception) {
+                responded.set(true)
+                requestedDirectoryHashes.remove(requestKey, requestHash)
+                ApplicationManager.getApplication().invokeLater {
+                    if (!project.isDisposed) inputs.forEach { listeners.forEach { listener -> listener(it.filePath, null) } }
                 }
-                accept(requestKey, requestHash, result.value.files)
             }
+        }
     }
 
     fun revalidateDirectory(origin: VirtualFile, sourceOverride: String? = null) {
@@ -406,7 +392,7 @@ class HixSnapshotService(private val project: Project) {
                                           val operandType: String, val prefix: String)
 
     companion object {
-        private const val REQUEST_TIMEOUT_SECONDS = 10L
+        private const val REQUEST_TIMEOUT_SECONDS = 60L
         private const val SEMANTIC_RETRY_DELAY_MS = 750L
         private const val MAX_SEMANTIC_RETRIES = 80
         private const val CATALOG_RETRY_DELAY_MS = 500L

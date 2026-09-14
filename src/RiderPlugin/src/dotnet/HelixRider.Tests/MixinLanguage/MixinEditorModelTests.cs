@@ -38,7 +38,7 @@ public sealed class MixinEditorModelTests {
 
     [Test]
     public void CanonicalAnalysisUsesAntlrTokensAndSemanticAst() {
-        const string source = "mixin Example {\n  pure func Build { return(<ok>) }\n  expression { emit(Build()) }\n}";
+        const string source = "mixin Example {\n  pure func Build() -> string { return(<ok>) }\n  expression { emit(Build()) }\n}";
         var analysis = new LanguageAnalysis(source);
 
         Assert.That(analysis.Program.Diagnostics, Is.Empty);

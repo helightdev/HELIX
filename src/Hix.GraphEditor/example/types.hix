@@ -1,0 +1,3 @@
+type Position = @{number x = 0, number y = 0};
+type Character = @{string name, number health = 100, Position position};
+type Scene = @{string title, Character hero, %many<Character> tuple characters};

@@ -482,6 +482,12 @@ public partial class HalParser : Parser {
 		[System.Diagnostics.DebuggerNonUserCode] public LineEndContext lineEnd() {
 			return GetRuleContext<LineEndContext>(0);
 		}
+		[System.Diagnostics.DebuggerNonUserCode] public ListContext list() {
+			return GetRuleContext<ListContext>(0);
+		}
+		[System.Diagnostics.DebuggerNonUserCode] public NewlinesContext newlines() {
+			return GetRuleContext<NewlinesContext>(0);
+		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode AMP() { return GetToken(HalParser.AMP, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ScalarAtomContext scalarAtom() {
 			return GetRuleContext<ScalarAtomContext>(0);
@@ -532,21 +538,44 @@ public partial class HalParser : Parser {
 
 			State = 103;
 			lineEnd();
-			State = 107;
+			State = 113;
 			ErrorHandler.Sync(this);
-			_alt = Interpreter.AdaptivePredict(TokenStream,8,Context);
-			while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
-				if ( _alt==1 ) {
-					{
-					{
-					State = 104;
-					sectionEntry();
-					}
-					}
+			switch (TokenStream.LA(1)) {
+			case LBRACKET:
+				{
+				State = 104;
+				list();
+				State = 105;
+				newlines();
 				}
-				State = 109;
+				break;
+			case Eof:
+			case SECTION:
+			case PERCENT:
+			case STRING:
+			case IDENTIFIER:
+			case NEWLINE:
+				{
+				State = 110;
 				ErrorHandler.Sync(this);
 				_alt = Interpreter.AdaptivePredict(TokenStream,8,Context);
+				while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
+					if ( _alt==1 ) {
+						{
+						{
+						State = 107;
+						sectionEntry();
+						}
+						}
+					}
+					State = 112;
+					ErrorHandler.Sync(this);
+					_alt = Interpreter.AdaptivePredict(TokenStream,8,Context);
+				}
+				}
+				break;
+			default:
+				throw new NoViableAltException(this);
 			}
 			}
 		}
@@ -592,21 +621,21 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 113;
+			State = 118;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			while (_la==PERCENT) {
 				{
 				{
-				State = 110;
+				State = 115;
 				metadata();
 				}
 				}
-				State = 115;
+				State = 120;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 			}
-			State = 116;
+			State = 121;
 			field();
 			}
 		}
@@ -655,16 +684,16 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 118;
+			State = 123;
 			fieldKey();
-			State = 122;
+			State = 127;
 			ErrorHandler.Sync(this);
 			switch (TokenStream.LA(1)) {
 			case EQUALS:
 				{
-				State = 119;
+				State = 124;
 				Match(EQUALS);
-				State = 120;
+				State = 125;
 				value();
 				}
 				break;
@@ -672,14 +701,14 @@ public partial class HalParser : Parser {
 			case LBRACKET:
 			case IDENTIFIER:
 				{
-				State = 121;
+				State = 126;
 				collectionValue();
 				}
 				break;
 			default:
 				throw new NoViableAltException(this);
 			}
-			State = 124;
+			State = 129;
 			lineEnd();
 			}
 		}
@@ -718,7 +747,7 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 126;
+			State = 131;
 			_la = TokenStream.LA(1);
 			if ( !(_la==STRING || _la==IDENTIFIER) ) {
 			ErrorHandler.RecoverInline(this);
@@ -782,27 +811,27 @@ public partial class HalParser : Parser {
 		EnterRule(_localctx, 18, RULE_value);
 		int _la;
 		try {
-			State = 164;
+			State = 169;
 			ErrorHandler.Sync(this);
-			switch ( Interpreter.AdaptivePredict(TokenStream,16,Context) ) {
+			switch ( Interpreter.AdaptivePredict(TokenStream,17,Context) ) {
 			case 1:
 				EnterOuterAlt(_localctx, 1);
 				{
-				State = 128;
-				Match(IDENTIFIER);
-				State = 129;
-				typedContainer();
 				State = 133;
+				Match(IDENTIFIER);
+				State = 134;
+				typedContainer();
+				State = 138;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				while (_la==HASH) {
 					{
 					{
-					State = 130;
+					State = 135;
 					selection();
 					}
 					}
-					State = 135;
+					State = 140;
 					ErrorHandler.Sync(this);
 					_la = TokenStream.LA(1);
 				}
@@ -811,19 +840,19 @@ public partial class HalParser : Parser {
 			case 2:
 				EnterOuterAlt(_localctx, 2);
 				{
-				State = 136;
+				State = 141;
 				call();
-				State = 140;
+				State = 145;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				while (_la==HASH) {
 					{
 					{
-					State = 137;
+					State = 142;
 					selection();
 					}
 					}
-					State = 142;
+					State = 147;
 					ErrorHandler.Sync(this);
 					_la = TokenStream.LA(1);
 				}
@@ -832,19 +861,19 @@ public partial class HalParser : Parser {
 			case 3:
 				EnterOuterAlt(_localctx, 3);
 				{
-				State = 143;
+				State = 148;
 				table();
-				State = 147;
+				State = 152;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				while (_la==HASH) {
 					{
 					{
-					State = 144;
+					State = 149;
 					selection();
 					}
 					}
-					State = 149;
+					State = 154;
 					ErrorHandler.Sync(this);
 					_la = TokenStream.LA(1);
 				}
@@ -853,19 +882,19 @@ public partial class HalParser : Parser {
 			case 4:
 				EnterOuterAlt(_localctx, 4);
 				{
-				State = 150;
+				State = 155;
 				list();
-				State = 154;
+				State = 159;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				while (_la==HASH) {
 					{
 					{
-					State = 151;
+					State = 156;
 					selection();
 					}
 					}
-					State = 156;
+					State = 161;
 					ErrorHandler.Sync(this);
 					_la = TokenStream.LA(1);
 				}
@@ -874,19 +903,19 @@ public partial class HalParser : Parser {
 			case 5:
 				EnterOuterAlt(_localctx, 5);
 				{
-				State = 157;
+				State = 162;
 				looseScalar();
-				State = 161;
+				State = 166;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				while (_la==HASH) {
 					{
 					{
-					State = 158;
+					State = 163;
 					selection();
 					}
 					}
-					State = 163;
+					State = 168;
 					ErrorHandler.Sync(this);
 					_la = TokenStream.LA(1);
 				}
@@ -930,20 +959,20 @@ public partial class HalParser : Parser {
 		TypedContainerContext _localctx = new TypedContainerContext(Context, State);
 		EnterRule(_localctx, 20, RULE_typedContainer);
 		try {
-			State = 168;
+			State = 173;
 			ErrorHandler.Sync(this);
 			switch (TokenStream.LA(1)) {
 			case LBRACE:
 				EnterOuterAlt(_localctx, 1);
 				{
-				State = 166;
+				State = 171;
 				table();
 				}
 				break;
 			case LBRACKET:
 				EnterOuterAlt(_localctx, 2);
 				{
-				State = 167;
+				State = 172;
 				list();
 				}
 				break;
@@ -1007,48 +1036,48 @@ public partial class HalParser : Parser {
 			int _alt;
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 170;
+			State = 175;
 			Match(LBRACE);
-			State = 171;
+			State = 176;
 			newlines();
-			State = 193;
+			State = 198;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 1572868L) != 0)) {
 				{
-				State = 172;
+				State = 177;
 				tableEntry();
-				State = 185;
+				State = 190;
 				ErrorHandler.Sync(this);
-				_alt = Interpreter.AdaptivePredict(TokenStream,20,Context);
+				_alt = Interpreter.AdaptivePredict(TokenStream,21,Context);
 				while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
 					if ( _alt==1 ) {
 						{
 						{
-						State = 180;
+						State = 185;
 						ErrorHandler.Sync(this);
 						switch (TokenStream.LA(1)) {
 						case COMMA:
 							{
-							State = 173;
+							State = 178;
 							Match(COMMA);
-							State = 174;
+							State = 179;
 							newlines();
 							}
 							break;
 						case NEWLINE:
 							{
-							State = 176;
+							State = 181;
 							ErrorHandler.Sync(this);
 							_la = TokenStream.LA(1);
 							do {
 								{
 								{
-								State = 175;
+								State = 180;
 								Match(NEWLINE);
 								}
 								}
-								State = 178;
+								State = 183;
 								ErrorHandler.Sync(this);
 								_la = TokenStream.LA(1);
 							} while ( _la==NEWLINE );
@@ -1057,31 +1086,31 @@ public partial class HalParser : Parser {
 						default:
 							throw new NoViableAltException(this);
 						}
-						State = 182;
+						State = 187;
 						tableEntry();
 						}
 						}
 					}
-					State = 187;
+					State = 192;
 					ErrorHandler.Sync(this);
-					_alt = Interpreter.AdaptivePredict(TokenStream,20,Context);
+					_alt = Interpreter.AdaptivePredict(TokenStream,21,Context);
 				}
-				State = 189;
+				State = 194;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				if (_la==COMMA) {
 					{
-					State = 188;
+					State = 193;
 					Match(COMMA);
 					}
 				}
 
-				State = 191;
+				State = 196;
 				newlines();
 				}
 			}
 
-			State = 195;
+			State = 200;
 			Match(RBRACE);
 			}
 		}
@@ -1134,30 +1163,30 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 200;
+			State = 205;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			while (_la==PERCENT) {
 				{
 				{
-				State = 197;
+				State = 202;
 				metadata();
 				}
 				}
-				State = 202;
+				State = 207;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 			}
-			State = 203;
+			State = 208;
 			fieldKey();
-			State = 207;
+			State = 212;
 			ErrorHandler.Sync(this);
 			switch (TokenStream.LA(1)) {
 			case EQUALS:
 				{
-				State = 204;
+				State = 209;
 				Match(EQUALS);
-				State = 205;
+				State = 210;
 				value();
 				}
 				break;
@@ -1165,7 +1194,7 @@ public partial class HalParser : Parser {
 			case LBRACKET:
 			case IDENTIFIER:
 				{
-				State = 206;
+				State = 211;
 				collectionValue();
 				}
 				break;
@@ -1230,48 +1259,48 @@ public partial class HalParser : Parser {
 			int _alt;
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 209;
+			State = 214;
 			Match(LBRACKET);
-			State = 210;
+			State = 215;
 			newlines();
-			State = 232;
+			State = 237;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 4162176L) != 0)) {
 				{
-				State = 211;
+				State = 216;
 				value();
-				State = 224;
+				State = 229;
 				ErrorHandler.Sync(this);
-				_alt = Interpreter.AdaptivePredict(TokenStream,27,Context);
+				_alt = Interpreter.AdaptivePredict(TokenStream,28,Context);
 				while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
 					if ( _alt==1 ) {
 						{
 						{
-						State = 219;
+						State = 224;
 						ErrorHandler.Sync(this);
 						switch (TokenStream.LA(1)) {
 						case COMMA:
 							{
-							State = 212;
+							State = 217;
 							Match(COMMA);
-							State = 213;
+							State = 218;
 							newlines();
 							}
 							break;
 						case NEWLINE:
 							{
-							State = 215;
+							State = 220;
 							ErrorHandler.Sync(this);
 							_la = TokenStream.LA(1);
 							do {
 								{
 								{
-								State = 214;
+								State = 219;
 								Match(NEWLINE);
 								}
 								}
-								State = 217;
+								State = 222;
 								ErrorHandler.Sync(this);
 								_la = TokenStream.LA(1);
 							} while ( _la==NEWLINE );
@@ -1280,31 +1309,31 @@ public partial class HalParser : Parser {
 						default:
 							throw new NoViableAltException(this);
 						}
-						State = 221;
+						State = 226;
 						value();
 						}
 						}
 					}
-					State = 226;
+					State = 231;
 					ErrorHandler.Sync(this);
-					_alt = Interpreter.AdaptivePredict(TokenStream,27,Context);
+					_alt = Interpreter.AdaptivePredict(TokenStream,28,Context);
 				}
-				State = 228;
+				State = 233;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				if (_la==COMMA) {
 					{
-					State = 227;
+					State = 232;
 					Match(COMMA);
 					}
 				}
 
-				State = 230;
+				State = 235;
 				newlines();
 				}
 			}
 
-			State = 234;
+			State = 239;
 			Match(RBRACKET);
 			}
 		}
@@ -1345,17 +1374,17 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 237;
+			State = 242;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			if (_la==IDENTIFIER) {
 				{
-				State = 236;
+				State = 241;
 				Match(IDENTIFIER);
 				}
 			}
 
-			State = 239;
+			State = 244;
 			typedContainer();
 			}
 		}
@@ -1401,23 +1430,23 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 241;
+			State = 246;
 			Match(IDENTIFIER);
-			State = 242;
+			State = 247;
 			Match(LPAREN);
-			State = 243;
+			State = 248;
 			newlines();
-			State = 245;
+			State = 250;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 4162176L) != 0)) {
 				{
-				State = 244;
+				State = 249;
 				argumentList();
 				}
 			}
 
-			State = 247;
+			State = 252;
 			Match(RPAREN);
 			}
 		}
@@ -1471,39 +1500,39 @@ public partial class HalParser : Parser {
 			int _alt;
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 249;
+			State = 254;
 			argument();
-			State = 256;
+			State = 261;
 			ErrorHandler.Sync(this);
-			_alt = Interpreter.AdaptivePredict(TokenStream,32,Context);
+			_alt = Interpreter.AdaptivePredict(TokenStream,33,Context);
 			while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
 				if ( _alt==1 ) {
 					{
 					{
-					State = 250;
+					State = 255;
 					Match(COMMA);
-					State = 251;
+					State = 256;
 					newlines();
-					State = 252;
+					State = 257;
 					argument();
 					}
 					}
 				}
-				State = 258;
+				State = 263;
 				ErrorHandler.Sync(this);
-				_alt = Interpreter.AdaptivePredict(TokenStream,32,Context);
+				_alt = Interpreter.AdaptivePredict(TokenStream,33,Context);
 			}
-			State = 260;
+			State = 265;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			if (_la==COMMA) {
 				{
-				State = 259;
+				State = 264;
 				Match(COMMA);
 				}
 			}
 
-			State = 262;
+			State = 267;
 			newlines();
 			}
 		}
@@ -1542,24 +1571,24 @@ public partial class HalParser : Parser {
 		ArgumentContext _localctx = new ArgumentContext(Context, State);
 		EnterRule(_localctx, 34, RULE_argument);
 		try {
-			State = 268;
+			State = 273;
 			ErrorHandler.Sync(this);
-			switch ( Interpreter.AdaptivePredict(TokenStream,34,Context) ) {
+			switch ( Interpreter.AdaptivePredict(TokenStream,35,Context) ) {
 			case 1:
 				EnterOuterAlt(_localctx, 1);
 				{
-				State = 264;
+				State = 269;
 				Match(IDENTIFIER);
-				State = 265;
+				State = 270;
 				Match(EQUALS);
-				State = 266;
+				State = 271;
 				value();
 				}
 				break;
 			case 2:
 				EnterOuterAlt(_localctx, 2);
 				{
-				State = 267;
+				State = 272;
 				value();
 				}
 				break;
@@ -1599,9 +1628,9 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 270;
+			State = 275;
 			Match(HASH);
-			State = 271;
+			State = 276;
 			Match(IDENTIFIER);
 			}
 		}
@@ -1644,17 +1673,17 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 274;
+			State = 279;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
 			do {
 				{
 				{
-				State = 273;
+				State = 278;
 				scalarAtom();
 				}
 				}
-				State = 276;
+				State = 281;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 			} while ( (((_la) & ~0x3f) == 0 && ((1L << _la) & 4161536L) != 0) );
@@ -1700,7 +1729,7 @@ public partial class HalParser : Parser {
 		try {
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 278;
+			State = 283;
 			_la = TokenStream.LA(1);
 			if ( !((((_la) & ~0x3f) == 0 && ((1L << _la) & 4161536L) != 0)) ) {
 			ErrorHandler.RecoverInline(this);
@@ -1751,22 +1780,22 @@ public partial class HalParser : Parser {
 			int _alt;
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 290;
+			State = 295;
 			ErrorHandler.Sync(this);
-			switch ( Interpreter.AdaptivePredict(TokenStream,38,Context) ) {
+			switch ( Interpreter.AdaptivePredict(TokenStream,39,Context) ) {
 			case 1:
 				{
-				State = 281;
+				State = 286;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
 				if (_la==COMMA) {
 					{
-					State = 280;
+					State = 285;
 					Match(COMMA);
 					}
 				}
 
-				State = 284;
+				State = 289;
 				ErrorHandler.Sync(this);
 				_alt = 1;
 				do {
@@ -1774,7 +1803,7 @@ public partial class HalParser : Parser {
 					case 1:
 						{
 						{
-						State = 283;
+						State = 288;
 						Match(NEWLINE);
 						}
 						}
@@ -1782,21 +1811,21 @@ public partial class HalParser : Parser {
 					default:
 						throw new NoViableAltException(this);
 					}
-					State = 286;
+					State = 291;
 					ErrorHandler.Sync(this);
-					_alt = Interpreter.AdaptivePredict(TokenStream,37,Context);
+					_alt = Interpreter.AdaptivePredict(TokenStream,38,Context);
 				} while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER );
 				}
 				break;
 			case 2:
 				{
-				State = 288;
+				State = 293;
 				Match(COMMA);
 				}
 				break;
 			case 3:
 				{
-				State = 289;
+				State = 294;
 				Match(Eof);
 				}
 				break;
@@ -1836,23 +1865,25 @@ public partial class HalParser : Parser {
 	public NewlinesContext newlines() {
 		NewlinesContext _localctx = new NewlinesContext(Context, State);
 		EnterRule(_localctx, 44, RULE_newlines);
-		int _la;
 		try {
+			int _alt;
 			EnterOuterAlt(_localctx, 1);
 			{
-			State = 295;
+			State = 300;
 			ErrorHandler.Sync(this);
-			_la = TokenStream.LA(1);
-			while (_la==NEWLINE) {
-				{
-				{
-				State = 292;
-				Match(NEWLINE);
+			_alt = Interpreter.AdaptivePredict(TokenStream,40,Context);
+			while ( _alt!=2 && _alt!=global::Antlr4.Runtime.Atn.ATN.INVALID_ALT_NUMBER ) {
+				if ( _alt==1 ) {
+					{
+					{
+					State = 297;
+					Match(NEWLINE);
+					}
+					}
 				}
-				}
-				State = 297;
+				State = 302;
 				ErrorHandler.Sync(this);
-				_la = TokenStream.LA(1);
+				_alt = Interpreter.AdaptivePredict(TokenStream,40,Context);
 			}
 			}
 		}
@@ -1868,105 +1899,107 @@ public partial class HalParser : Parser {
 	}
 
 	private static int[] _serializedATN = {
-		4,1,25,299,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,7,
+		4,1,25,304,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,7,
 		7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,14,
 		2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,7,20,2,21,7,21,
 		2,22,7,22,1,0,1,0,1,0,1,0,1,0,5,0,52,8,0,10,0,12,0,55,9,0,1,0,1,0,1,0,
 		1,1,5,1,61,8,1,10,1,12,1,64,9,1,1,1,1,1,1,2,1,2,1,2,3,2,71,8,2,1,2,1,2,
 		1,3,1,3,5,3,77,8,3,10,3,12,3,80,9,3,1,3,1,3,1,3,3,3,85,8,3,1,3,3,3,88,
 		8,3,1,4,1,4,1,4,1,4,1,4,1,4,3,4,96,8,4,1,5,1,5,1,5,1,5,3,5,102,8,5,1,5,
-		1,5,5,5,106,8,5,10,5,12,5,109,9,5,1,6,5,6,112,8,6,10,6,12,6,115,9,6,1,
-		6,1,6,1,7,1,7,1,7,1,7,3,7,123,8,7,1,7,1,7,1,8,1,8,1,9,1,9,1,9,5,9,132,
-		8,9,10,9,12,9,135,9,9,1,9,1,9,5,9,139,8,9,10,9,12,9,142,9,9,1,9,1,9,5,
-		9,146,8,9,10,9,12,9,149,9,9,1,9,1,9,5,9,153,8,9,10,9,12,9,156,9,9,1,9,
-		1,9,5,9,160,8,9,10,9,12,9,163,9,9,3,9,165,8,9,1,10,1,10,3,10,169,8,10,
-		1,11,1,11,1,11,1,11,1,11,1,11,4,11,177,8,11,11,11,12,11,178,3,11,181,8,
-		11,1,11,5,11,184,8,11,10,11,12,11,187,9,11,1,11,3,11,190,8,11,1,11,1,11,
-		3,11,194,8,11,1,11,1,11,1,12,5,12,199,8,12,10,12,12,12,202,9,12,1,12,1,
-		12,1,12,1,12,3,12,208,8,12,1,13,1,13,1,13,1,13,1,13,1,13,4,13,216,8,13,
-		11,13,12,13,217,3,13,220,8,13,1,13,5,13,223,8,13,10,13,12,13,226,9,13,
-		1,13,3,13,229,8,13,1,13,1,13,3,13,233,8,13,1,13,1,13,1,14,3,14,238,8,14,
-		1,14,1,14,1,15,1,15,1,15,1,15,3,15,246,8,15,1,15,1,15,1,16,1,16,1,16,1,
-		16,1,16,5,16,255,8,16,10,16,12,16,258,9,16,1,16,3,16,261,8,16,1,16,1,16,
-		1,17,1,17,1,17,1,17,3,17,269,8,17,1,18,1,18,1,18,1,19,4,19,275,8,19,11,
-		19,12,19,276,1,20,1,20,1,21,3,21,282,8,21,1,21,4,21,285,8,21,11,21,12,
-		21,286,1,21,1,21,3,21,291,8,21,1,22,5,22,294,8,22,10,22,12,22,297,9,22,
-		1,22,0,0,23,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,
-		42,44,0,2,1,0,19,20,1,0,15,21,323,0,46,1,0,0,0,2,62,1,0,0,0,4,67,1,0,0,
-		0,6,87,1,0,0,0,8,95,1,0,0,0,10,97,1,0,0,0,12,113,1,0,0,0,14,118,1,0,0,
-		0,16,126,1,0,0,0,18,164,1,0,0,0,20,168,1,0,0,0,22,170,1,0,0,0,24,200,1,
-		0,0,0,26,209,1,0,0,0,28,237,1,0,0,0,30,241,1,0,0,0,32,249,1,0,0,0,34,268,
-		1,0,0,0,36,270,1,0,0,0,38,274,1,0,0,0,40,278,1,0,0,0,42,290,1,0,0,0,44,
-		295,1,0,0,0,46,47,3,44,22,0,47,53,3,2,1,0,48,49,3,44,22,0,49,50,3,2,1,
-		0,50,52,1,0,0,0,51,48,1,0,0,0,52,55,1,0,0,0,53,51,1,0,0,0,53,54,1,0,0,
-		0,54,56,1,0,0,0,55,53,1,0,0,0,56,57,3,44,22,0,57,58,5,0,0,1,58,1,1,0,0,
-		0,59,61,3,4,2,0,60,59,1,0,0,0,61,64,1,0,0,0,62,60,1,0,0,0,62,63,1,0,0,
-		0,63,65,1,0,0,0,64,62,1,0,0,0,65,66,3,10,5,0,66,3,1,0,0,0,67,68,5,2,0,
-		0,68,70,5,20,0,0,69,71,3,6,3,0,70,69,1,0,0,0,70,71,1,0,0,0,71,72,1,0,0,
-		0,72,73,3,44,22,0,73,5,1,0,0,0,74,78,5,13,0,0,75,77,3,8,4,0,76,75,1,0,
-		0,0,77,80,1,0,0,0,78,76,1,0,0,0,78,79,1,0,0,0,79,81,1,0,0,0,80,78,1,0,
-		0,0,81,88,5,14,0,0,82,84,5,11,0,0,83,85,3,32,16,0,84,83,1,0,0,0,84,85,
-		1,0,0,0,85,86,1,0,0,0,86,88,5,12,0,0,87,74,1,0,0,0,87,82,1,0,0,0,88,7,
-		1,0,0,0,89,96,3,40,20,0,90,96,5,6,0,0,91,96,5,5,0,0,92,96,5,4,0,0,93,96,
-		5,3,0,0,94,96,5,2,0,0,95,89,1,0,0,0,95,90,1,0,0,0,95,91,1,0,0,0,95,92,
-		1,0,0,0,95,93,1,0,0,0,95,94,1,0,0,0,96,9,1,0,0,0,97,98,5,1,0,0,98,101,
-		5,20,0,0,99,100,5,3,0,0,100,102,3,40,20,0,101,99,1,0,0,0,101,102,1,0,0,
-		0,102,103,1,0,0,0,103,107,3,42,21,0,104,106,3,12,6,0,105,104,1,0,0,0,106,
-		109,1,0,0,0,107,105,1,0,0,0,107,108,1,0,0,0,108,11,1,0,0,0,109,107,1,0,
-		0,0,110,112,3,4,2,0,111,110,1,0,0,0,112,115,1,0,0,0,113,111,1,0,0,0,113,
-		114,1,0,0,0,114,116,1,0,0,0,115,113,1,0,0,0,116,117,3,14,7,0,117,13,1,
-		0,0,0,118,122,3,16,8,0,119,120,5,5,0,0,120,123,3,18,9,0,121,123,3,28,14,
-		0,122,119,1,0,0,0,122,121,1,0,0,0,123,124,1,0,0,0,124,125,3,42,21,0,125,
-		15,1,0,0,0,126,127,7,0,0,0,127,17,1,0,0,0,128,129,5,20,0,0,129,133,3,20,
-		10,0,130,132,3,36,18,0,131,130,1,0,0,0,132,135,1,0,0,0,133,131,1,0,0,0,
-		133,134,1,0,0,0,134,165,1,0,0,0,135,133,1,0,0,0,136,140,3,30,15,0,137,
-		139,3,36,18,0,138,137,1,0,0,0,139,142,1,0,0,0,140,138,1,0,0,0,140,141,
-		1,0,0,0,141,165,1,0,0,0,142,140,1,0,0,0,143,147,3,22,11,0,144,146,3,36,
-		18,0,145,144,1,0,0,0,146,149,1,0,0,0,147,145,1,0,0,0,147,148,1,0,0,0,148,
-		165,1,0,0,0,149,147,1,0,0,0,150,154,3,26,13,0,151,153,3,36,18,0,152,151,
-		1,0,0,0,153,156,1,0,0,0,154,152,1,0,0,0,154,155,1,0,0,0,155,165,1,0,0,
-		0,156,154,1,0,0,0,157,161,3,38,19,0,158,160,3,36,18,0,159,158,1,0,0,0,
-		160,163,1,0,0,0,161,159,1,0,0,0,161,162,1,0,0,0,162,165,1,0,0,0,163,161,
-		1,0,0,0,164,128,1,0,0,0,164,136,1,0,0,0,164,143,1,0,0,0,164,150,1,0,0,
-		0,164,157,1,0,0,0,165,19,1,0,0,0,166,169,3,22,11,0,167,169,3,26,13,0,168,
-		166,1,0,0,0,168,167,1,0,0,0,169,21,1,0,0,0,170,171,5,7,0,0,171,193,3,44,
-		22,0,172,185,3,24,12,0,173,174,5,6,0,0,174,181,3,44,22,0,175,177,5,23,
-		0,0,176,175,1,0,0,0,177,178,1,0,0,0,178,176,1,0,0,0,178,179,1,0,0,0,179,
-		181,1,0,0,0,180,173,1,0,0,0,180,176,1,0,0,0,181,182,1,0,0,0,182,184,3,
-		24,12,0,183,180,1,0,0,0,184,187,1,0,0,0,185,183,1,0,0,0,185,186,1,0,0,
-		0,186,189,1,0,0,0,187,185,1,0,0,0,188,190,5,6,0,0,189,188,1,0,0,0,189,
-		190,1,0,0,0,190,191,1,0,0,0,191,192,3,44,22,0,192,194,1,0,0,0,193,172,
-		1,0,0,0,193,194,1,0,0,0,194,195,1,0,0,0,195,196,5,8,0,0,196,23,1,0,0,0,
-		197,199,3,4,2,0,198,197,1,0,0,0,199,202,1,0,0,0,200,198,1,0,0,0,200,201,
-		1,0,0,0,201,203,1,0,0,0,202,200,1,0,0,0,203,207,3,16,8,0,204,205,5,5,0,
-		0,205,208,3,18,9,0,206,208,3,28,14,0,207,204,1,0,0,0,207,206,1,0,0,0,208,
-		25,1,0,0,0,209,210,5,9,0,0,210,232,3,44,22,0,211,224,3,18,9,0,212,213,
-		5,6,0,0,213,220,3,44,22,0,214,216,5,23,0,0,215,214,1,0,0,0,216,217,1,0,
-		0,0,217,215,1,0,0,0,217,218,1,0,0,0,218,220,1,0,0,0,219,212,1,0,0,0,219,
-		215,1,0,0,0,220,221,1,0,0,0,221,223,3,18,9,0,222,219,1,0,0,0,223,226,1,
-		0,0,0,224,222,1,0,0,0,224,225,1,0,0,0,225,228,1,0,0,0,226,224,1,0,0,0,
-		227,229,5,6,0,0,228,227,1,0,0,0,228,229,1,0,0,0,229,230,1,0,0,0,230,231,
-		3,44,22,0,231,233,1,0,0,0,232,211,1,0,0,0,232,233,1,0,0,0,233,234,1,0,
-		0,0,234,235,5,10,0,0,235,27,1,0,0,0,236,238,5,20,0,0,237,236,1,0,0,0,237,
-		238,1,0,0,0,238,239,1,0,0,0,239,240,3,20,10,0,240,29,1,0,0,0,241,242,5,
-		20,0,0,242,243,5,11,0,0,243,245,3,44,22,0,244,246,3,32,16,0,245,244,1,
-		0,0,0,245,246,1,0,0,0,246,247,1,0,0,0,247,248,5,12,0,0,248,31,1,0,0,0,
-		249,256,3,34,17,0,250,251,5,6,0,0,251,252,3,44,22,0,252,253,3,34,17,0,
-		253,255,1,0,0,0,254,250,1,0,0,0,255,258,1,0,0,0,256,254,1,0,0,0,256,257,
-		1,0,0,0,257,260,1,0,0,0,258,256,1,0,0,0,259,261,5,6,0,0,260,259,1,0,0,
-		0,260,261,1,0,0,0,261,262,1,0,0,0,262,263,3,44,22,0,263,33,1,0,0,0,264,
-		265,5,20,0,0,265,266,5,5,0,0,266,269,3,18,9,0,267,269,3,18,9,0,268,264,
-		1,0,0,0,268,267,1,0,0,0,269,35,1,0,0,0,270,271,5,4,0,0,271,272,5,20,0,
-		0,272,37,1,0,0,0,273,275,3,40,20,0,274,273,1,0,0,0,275,276,1,0,0,0,276,
-		274,1,0,0,0,276,277,1,0,0,0,277,39,1,0,0,0,278,279,7,1,0,0,279,41,1,0,
-		0,0,280,282,5,6,0,0,281,280,1,0,0,0,281,282,1,0,0,0,282,284,1,0,0,0,283,
-		285,5,23,0,0,284,283,1,0,0,0,285,286,1,0,0,0,286,284,1,0,0,0,286,287,1,
-		0,0,0,287,291,1,0,0,0,288,291,5,6,0,0,289,291,5,0,0,1,290,281,1,0,0,0,
-		290,288,1,0,0,0,290,289,1,0,0,0,291,43,1,0,0,0,292,294,5,23,0,0,293,292,
-		1,0,0,0,294,297,1,0,0,0,295,293,1,0,0,0,295,296,1,0,0,0,296,45,1,0,0,0,
-		297,295,1,0,0,0,40,53,62,70,78,84,87,95,101,107,113,122,133,140,147,154,
-		161,164,168,178,180,185,189,193,200,207,217,219,224,228,232,237,245,256,
-		260,268,276,281,286,290,295
+		1,5,1,5,1,5,1,5,5,5,109,8,5,10,5,12,5,112,9,5,3,5,114,8,5,1,6,5,6,117,
+		8,6,10,6,12,6,120,9,6,1,6,1,6,1,7,1,7,1,7,1,7,3,7,128,8,7,1,7,1,7,1,8,
+		1,8,1,9,1,9,1,9,5,9,137,8,9,10,9,12,9,140,9,9,1,9,1,9,5,9,144,8,9,10,9,
+		12,9,147,9,9,1,9,1,9,5,9,151,8,9,10,9,12,9,154,9,9,1,9,1,9,5,9,158,8,9,
+		10,9,12,9,161,9,9,1,9,1,9,5,9,165,8,9,10,9,12,9,168,9,9,3,9,170,8,9,1,
+		10,1,10,3,10,174,8,10,1,11,1,11,1,11,1,11,1,11,1,11,4,11,182,8,11,11,11,
+		12,11,183,3,11,186,8,11,1,11,5,11,189,8,11,10,11,12,11,192,9,11,1,11,3,
+		11,195,8,11,1,11,1,11,3,11,199,8,11,1,11,1,11,1,12,5,12,204,8,12,10,12,
+		12,12,207,9,12,1,12,1,12,1,12,1,12,3,12,213,8,12,1,13,1,13,1,13,1,13,1,
+		13,1,13,4,13,221,8,13,11,13,12,13,222,3,13,225,8,13,1,13,5,13,228,8,13,
+		10,13,12,13,231,9,13,1,13,3,13,234,8,13,1,13,1,13,3,13,238,8,13,1,13,1,
+		13,1,14,3,14,243,8,14,1,14,1,14,1,15,1,15,1,15,1,15,3,15,251,8,15,1,15,
+		1,15,1,16,1,16,1,16,1,16,1,16,5,16,260,8,16,10,16,12,16,263,9,16,1,16,
+		3,16,266,8,16,1,16,1,16,1,17,1,17,1,17,1,17,3,17,274,8,17,1,18,1,18,1,
+		18,1,19,4,19,280,8,19,11,19,12,19,281,1,20,1,20,1,21,3,21,287,8,21,1,21,
+		4,21,290,8,21,11,21,12,21,291,1,21,1,21,3,21,296,8,21,1,22,5,22,299,8,
+		22,10,22,12,22,302,9,22,1,22,0,0,23,0,2,4,6,8,10,12,14,16,18,20,22,24,
+		26,28,30,32,34,36,38,40,42,44,0,2,1,0,19,20,1,0,15,21,329,0,46,1,0,0,0,
+		2,62,1,0,0,0,4,67,1,0,0,0,6,87,1,0,0,0,8,95,1,0,0,0,10,97,1,0,0,0,12,118,
+		1,0,0,0,14,123,1,0,0,0,16,131,1,0,0,0,18,169,1,0,0,0,20,173,1,0,0,0,22,
+		175,1,0,0,0,24,205,1,0,0,0,26,214,1,0,0,0,28,242,1,0,0,0,30,246,1,0,0,
+		0,32,254,1,0,0,0,34,273,1,0,0,0,36,275,1,0,0,0,38,279,1,0,0,0,40,283,1,
+		0,0,0,42,295,1,0,0,0,44,300,1,0,0,0,46,47,3,44,22,0,47,53,3,2,1,0,48,49,
+		3,44,22,0,49,50,3,2,1,0,50,52,1,0,0,0,51,48,1,0,0,0,52,55,1,0,0,0,53,51,
+		1,0,0,0,53,54,1,0,0,0,54,56,1,0,0,0,55,53,1,0,0,0,56,57,3,44,22,0,57,58,
+		5,0,0,1,58,1,1,0,0,0,59,61,3,4,2,0,60,59,1,0,0,0,61,64,1,0,0,0,62,60,1,
+		0,0,0,62,63,1,0,0,0,63,65,1,0,0,0,64,62,1,0,0,0,65,66,3,10,5,0,66,3,1,
+		0,0,0,67,68,5,2,0,0,68,70,5,20,0,0,69,71,3,6,3,0,70,69,1,0,0,0,70,71,1,
+		0,0,0,71,72,1,0,0,0,72,73,3,44,22,0,73,5,1,0,0,0,74,78,5,13,0,0,75,77,
+		3,8,4,0,76,75,1,0,0,0,77,80,1,0,0,0,78,76,1,0,0,0,78,79,1,0,0,0,79,81,
+		1,0,0,0,80,78,1,0,0,0,81,88,5,14,0,0,82,84,5,11,0,0,83,85,3,32,16,0,84,
+		83,1,0,0,0,84,85,1,0,0,0,85,86,1,0,0,0,86,88,5,12,0,0,87,74,1,0,0,0,87,
+		82,1,0,0,0,88,7,1,0,0,0,89,96,3,40,20,0,90,96,5,6,0,0,91,96,5,5,0,0,92,
+		96,5,4,0,0,93,96,5,3,0,0,94,96,5,2,0,0,95,89,1,0,0,0,95,90,1,0,0,0,95,
+		91,1,0,0,0,95,92,1,0,0,0,95,93,1,0,0,0,95,94,1,0,0,0,96,9,1,0,0,0,97,98,
+		5,1,0,0,98,101,5,20,0,0,99,100,5,3,0,0,100,102,3,40,20,0,101,99,1,0,0,
+		0,101,102,1,0,0,0,102,103,1,0,0,0,103,113,3,42,21,0,104,105,3,26,13,0,
+		105,106,3,44,22,0,106,114,1,0,0,0,107,109,3,12,6,0,108,107,1,0,0,0,109,
+		112,1,0,0,0,110,108,1,0,0,0,110,111,1,0,0,0,111,114,1,0,0,0,112,110,1,
+		0,0,0,113,104,1,0,0,0,113,110,1,0,0,0,114,11,1,0,0,0,115,117,3,4,2,0,116,
+		115,1,0,0,0,117,120,1,0,0,0,118,116,1,0,0,0,118,119,1,0,0,0,119,121,1,
+		0,0,0,120,118,1,0,0,0,121,122,3,14,7,0,122,13,1,0,0,0,123,127,3,16,8,0,
+		124,125,5,5,0,0,125,128,3,18,9,0,126,128,3,28,14,0,127,124,1,0,0,0,127,
+		126,1,0,0,0,128,129,1,0,0,0,129,130,3,42,21,0,130,15,1,0,0,0,131,132,7,
+		0,0,0,132,17,1,0,0,0,133,134,5,20,0,0,134,138,3,20,10,0,135,137,3,36,18,
+		0,136,135,1,0,0,0,137,140,1,0,0,0,138,136,1,0,0,0,138,139,1,0,0,0,139,
+		170,1,0,0,0,140,138,1,0,0,0,141,145,3,30,15,0,142,144,3,36,18,0,143,142,
+		1,0,0,0,144,147,1,0,0,0,145,143,1,0,0,0,145,146,1,0,0,0,146,170,1,0,0,
+		0,147,145,1,0,0,0,148,152,3,22,11,0,149,151,3,36,18,0,150,149,1,0,0,0,
+		151,154,1,0,0,0,152,150,1,0,0,0,152,153,1,0,0,0,153,170,1,0,0,0,154,152,
+		1,0,0,0,155,159,3,26,13,0,156,158,3,36,18,0,157,156,1,0,0,0,158,161,1,
+		0,0,0,159,157,1,0,0,0,159,160,1,0,0,0,160,170,1,0,0,0,161,159,1,0,0,0,
+		162,166,3,38,19,0,163,165,3,36,18,0,164,163,1,0,0,0,165,168,1,0,0,0,166,
+		164,1,0,0,0,166,167,1,0,0,0,167,170,1,0,0,0,168,166,1,0,0,0,169,133,1,
+		0,0,0,169,141,1,0,0,0,169,148,1,0,0,0,169,155,1,0,0,0,169,162,1,0,0,0,
+		170,19,1,0,0,0,171,174,3,22,11,0,172,174,3,26,13,0,173,171,1,0,0,0,173,
+		172,1,0,0,0,174,21,1,0,0,0,175,176,5,7,0,0,176,198,3,44,22,0,177,190,3,
+		24,12,0,178,179,5,6,0,0,179,186,3,44,22,0,180,182,5,23,0,0,181,180,1,0,
+		0,0,182,183,1,0,0,0,183,181,1,0,0,0,183,184,1,0,0,0,184,186,1,0,0,0,185,
+		178,1,0,0,0,185,181,1,0,0,0,186,187,1,0,0,0,187,189,3,24,12,0,188,185,
+		1,0,0,0,189,192,1,0,0,0,190,188,1,0,0,0,190,191,1,0,0,0,191,194,1,0,0,
+		0,192,190,1,0,0,0,193,195,5,6,0,0,194,193,1,0,0,0,194,195,1,0,0,0,195,
+		196,1,0,0,0,196,197,3,44,22,0,197,199,1,0,0,0,198,177,1,0,0,0,198,199,
+		1,0,0,0,199,200,1,0,0,0,200,201,5,8,0,0,201,23,1,0,0,0,202,204,3,4,2,0,
+		203,202,1,0,0,0,204,207,1,0,0,0,205,203,1,0,0,0,205,206,1,0,0,0,206,208,
+		1,0,0,0,207,205,1,0,0,0,208,212,3,16,8,0,209,210,5,5,0,0,210,213,3,18,
+		9,0,211,213,3,28,14,0,212,209,1,0,0,0,212,211,1,0,0,0,213,25,1,0,0,0,214,
+		215,5,9,0,0,215,237,3,44,22,0,216,229,3,18,9,0,217,218,5,6,0,0,218,225,
+		3,44,22,0,219,221,5,23,0,0,220,219,1,0,0,0,221,222,1,0,0,0,222,220,1,0,
+		0,0,222,223,1,0,0,0,223,225,1,0,0,0,224,217,1,0,0,0,224,220,1,0,0,0,225,
+		226,1,0,0,0,226,228,3,18,9,0,227,224,1,0,0,0,228,231,1,0,0,0,229,227,1,
+		0,0,0,229,230,1,0,0,0,230,233,1,0,0,0,231,229,1,0,0,0,232,234,5,6,0,0,
+		233,232,1,0,0,0,233,234,1,0,0,0,234,235,1,0,0,0,235,236,3,44,22,0,236,
+		238,1,0,0,0,237,216,1,0,0,0,237,238,1,0,0,0,238,239,1,0,0,0,239,240,5,
+		10,0,0,240,27,1,0,0,0,241,243,5,20,0,0,242,241,1,0,0,0,242,243,1,0,0,0,
+		243,244,1,0,0,0,244,245,3,20,10,0,245,29,1,0,0,0,246,247,5,20,0,0,247,
+		248,5,11,0,0,248,250,3,44,22,0,249,251,3,32,16,0,250,249,1,0,0,0,250,251,
+		1,0,0,0,251,252,1,0,0,0,252,253,5,12,0,0,253,31,1,0,0,0,254,261,3,34,17,
+		0,255,256,5,6,0,0,256,257,3,44,22,0,257,258,3,34,17,0,258,260,1,0,0,0,
+		259,255,1,0,0,0,260,263,1,0,0,0,261,259,1,0,0,0,261,262,1,0,0,0,262,265,
+		1,0,0,0,263,261,1,0,0,0,264,266,5,6,0,0,265,264,1,0,0,0,265,266,1,0,0,
+		0,266,267,1,0,0,0,267,268,3,44,22,0,268,33,1,0,0,0,269,270,5,20,0,0,270,
+		271,5,5,0,0,271,274,3,18,9,0,272,274,3,18,9,0,273,269,1,0,0,0,273,272,
+		1,0,0,0,274,35,1,0,0,0,275,276,5,4,0,0,276,277,5,20,0,0,277,37,1,0,0,0,
+		278,280,3,40,20,0,279,278,1,0,0,0,280,281,1,0,0,0,281,279,1,0,0,0,281,
+		282,1,0,0,0,282,39,1,0,0,0,283,284,7,1,0,0,284,41,1,0,0,0,285,287,5,6,
+		0,0,286,285,1,0,0,0,286,287,1,0,0,0,287,289,1,0,0,0,288,290,5,23,0,0,289,
+		288,1,0,0,0,290,291,1,0,0,0,291,289,1,0,0,0,291,292,1,0,0,0,292,296,1,
+		0,0,0,293,296,5,6,0,0,294,296,5,0,0,1,295,286,1,0,0,0,295,293,1,0,0,0,
+		295,294,1,0,0,0,296,43,1,0,0,0,297,299,5,23,0,0,298,297,1,0,0,0,299,302,
+		1,0,0,0,300,298,1,0,0,0,300,301,1,0,0,0,301,45,1,0,0,0,302,300,1,0,0,0,
+		41,53,62,70,78,84,87,95,101,110,113,118,127,138,145,152,159,166,169,173,
+		183,185,190,194,198,205,212,222,224,229,233,237,242,250,261,265,273,281,
+		286,291,295,300
 	};
 
 	public static readonly ATN _ATN =

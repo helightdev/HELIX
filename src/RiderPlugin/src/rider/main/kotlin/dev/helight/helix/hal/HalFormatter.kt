@@ -63,7 +63,7 @@ class HalPreFormatProcessor : PreFormatProcessor {
         if (file.language != HalLanguage) return range
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return range
         val formatted = try {
-            file.project.solution.helixExpressionModel.formatHal.sync(file.text, RpcTimeouts(1_000L, 5_000L))
+            file.project.getService(dev.helight.helix.hix.HixToolchainService::class.java).request("hal/format", mapOf("text" to file.text), 5_000).asString
         } catch (_: Throwable) {
             return range
         }

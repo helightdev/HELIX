@@ -25,7 +25,8 @@ public sealed class HixAnalyzerService {
 
   public IReadOnlyList<HixDefinition> Definitions => definitions;
 
-  public IReadOnlyList<HixDocumentSnapshot> Synchronize(IEnumerable<HixDocument> workspaceDocuments) {
+  public IReadOnlyList<HixDocumentSnapshot> Synchronize(IEnumerable<HixDocument> workspaceDocuments) => Synchronize(workspaceDocuments, null);
+  internal IReadOnlyList<HixDocumentSnapshot> Synchronize(IEnumerable<HixDocument> workspaceDocuments, IReadOnlyDictionary<string, LanguageAnalysis> prepared) {
     lock (gate) {
       var changed = workspaceDocuments?.ToArray() ?? [];
       foreach (var directory in changed.Select(item => DirectoryOf(item.Path)).Distinct(StringComparer.OrdinalIgnoreCase)) {
@@ -40,14 +41,14 @@ public sealed class HixAnalyzerService {
         var hash = SourceHash(text);
         if (!documents.TryGetValue(path, out var cached) || cached.Hash != hash)
           documents[path] = new CachedDocument(new HixDocument(path, text, document.Revision), hash,
-            new LanguageAnalysis(text, backend, recoverValidDeclarations: true));
+            prepared != null && prepared.TryGetValue(document.Path, out var analysis) ? analysis : new LanguageAnalysis(text, backend, recoverValidDeclarations: true));
         else if (cached.Document.Revision != document.Revision)
           documents[path] = cached with {Document = cached.Document with {Revision = document.Revision}};
       }
       var directories = changed.Select(item => DirectoryOf(item.Path)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
       return documents.Values.Where(item => directories.Contains(DirectoryOf(item.Document.Path),
           StringComparer.OrdinalIgnoreCase)).OrderBy(item => item.Document.Path, StringComparer.OrdinalIgnoreCase)
-        .Select(item => Snapshot(item, documents.Values.Where(candidate => SameDirectory(
+        .Select(item => Snapshot(item, documents.Values.Where(candidate => prepared != null || SameDirectory(
           candidate.Document.Path, item.Document.Path)).ToArray())).ToArray();
     }
   }

@@ -79,3 +79,14 @@ func pathFunctionsUseCanonicalForwardSlashes {
   assert(isDirPath(<path/to/>))
   assert(eq(pathSeparator(), </>))
 }
+
+
+type GraphRecord = @{string name};
+type GraphItems = %many<GraphRecord> tuple;
+%test
+func halListSectionsRoundTrip {
+  local source = "--- table\npeople = ref(people)\n--- GraphItems &people\n[ref(person)]\n--- GraphRecord &person\nname = Ada\n"
+  local value = parseHal($source)
+  assert(eq($value#people, parseHal($source, <people>)))
+  assert(eq(parseHal(writeHal(parseHal($source, <people>), GraphItems)), parseHal($source, <people>)))
+}

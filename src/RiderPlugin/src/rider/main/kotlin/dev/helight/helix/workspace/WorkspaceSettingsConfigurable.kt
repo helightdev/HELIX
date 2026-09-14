@@ -20,12 +20,26 @@ internal class WorkspaceSettingsConfigurable(private val project: Project) : Con
     private val settings = WorkspaceSettings.getInstance(project)
     private var model = CollectionListModel<WorkspaceEntry>()
     private lateinit var list: JBList<WorkspaceEntry>
+    private val toolchain = com.intellij.openapi.ui.TextFieldWithBrowseButton()
     private lateinit var helixEnabled: JBCheckBox
 
     override fun getDisplayName(): String = message("workspace.settings.name")
 
     override fun createComponent(): JComponent {
         helixEnabled = JBCheckBox("Enable HELIX Rider features for this project", settings.helixEnabled)
+        toolchain.text = settings.toolchainPath
+        toolchain.addBrowseFolderListener(project, com.intellij.openapi.fileChooser.FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor())
+        val detect = javax.swing.JButton("Detect from PATH").apply {
+            addActionListener {
+                val found = dev.helight.helix.hix.HixToolchainService.detectExecutable()
+                if (found != null) toolchain.text = found
+                else com.intellij.openapi.ui.Messages.showInfoMessage(project, "No hix executable found on PATH.", "Hix Toolchain")
+            }
+        }
+        val toolchainPanel = JPanel(BorderLayout(8, 0)).apply {
+            add(javax.swing.JLabel("Hix toolchain:"), BorderLayout.WEST)
+            add(toolchain, BorderLayout.CENTER); add(detect, BorderLayout.EAST)
+        }
         model = CollectionListModel(settings.entries)
         list = JBList(model).apply {
             cellRenderer = object : ColoredListCellRenderer<WorkspaceEntry>() {
@@ -48,23 +62,27 @@ internal class WorkspaceSettingsConfigurable(private val project: Project) : Con
             .setMoveDownAction { move(1) }
             .createPanel()
         return JPanel(BorderLayout(0, 8)).apply {
-            add(helixEnabled, BorderLayout.NORTH)
+            add(JPanel(java.awt.GridLayout(2, 1, 0, 8)).apply { add(helixEnabled); add(toolchainPanel) }, BorderLayout.NORTH)
             add(entriesPanel, BorderLayout.CENTER)
         }
     }
 
     override fun isModified(): Boolean =
-        helixEnabled.isSelected != settings.helixEnabled || model.items != settings.entries
+        toolchain.text != settings.toolchainPath || helixEnabled.isSelected != settings.helixEnabled || model.items != settings.entries
 
     override fun apply() {
         settings.helixEnabled = helixEnabled.isSelected
         settings.entries = model.items
+        settings.toolchainPath = toolchain.text.trim()
+        project.getService(dev.helight.helix.hix.HixToolchainService::class.java).dispose()
+        project.getService(dev.helight.helix.hix.HixSnapshotService::class.java).resetToolchain()
         DaemonCodeAnalyzer.getInstance(project).restart()
         UnityWorkspaceProjectViewPane.find(project)?.refreshWorkspace()
     }
 
     override fun reset() {
         helixEnabled.isSelected = settings.helixEnabled
+        toolchain.text = settings.toolchainPath
         model.replaceAll(settings.entries)
     }
 

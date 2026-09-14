@@ -34,7 +34,7 @@ class HalEditorInsightTest {
     @Test
     fun `header and reference completion do not offer unrelated fields or unsupported functions`() {
         val header = "--- U"
-        assertEquals(setOf("User", "Other"), HalCompletion.items(header, header.length, schema, false).map { it.name }.toSet())
+        assertEquals(setOf("table", "tuple", "User", "Other", "Pair"), HalCompletion.items(header, header.length, schema, false).map { it.name }.toSet())
         val reference = "--- User &user\nname = Ada\nage = ref(u)\n--- Other &other\ncount = 1\n"
         val items = HalCompletion.items(reference, reference.indexOf("ref(u") + 5, schema, false)
         assertEquals(setOf("user", "other"), items.map { it.name }.toSet())
