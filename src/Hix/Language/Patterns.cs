@@ -182,6 +182,7 @@ public enum HixGraphFieldKind { Value, Flow }
 public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optional = false,
   object DefaultValue = null, bool HasDefault = false, HixGraphFieldKind? Graph = null) {
   public IReadOnlyList<Compiler.BytecodeMetadata> Metadata { get; init; } = [];
+  public bool Obvious => Metadata.Any(item => item.Name == "obvious");
   public bool AllowsMissing => Optional || HasDefault;
   public string Display => (Metadata.Any(item => item.Name == "variadic") ? "..." : "") +
     Pattern.Display + (string.IsNullOrEmpty(Name) ? "" : " " + Name) +

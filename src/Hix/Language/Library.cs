@@ -90,7 +90,9 @@ public sealed class FunctionLibrary {
         var result = new FunctionSignature(Resolve(pattern.Result), pattern.Parameters.Select(field => Resolve(field.Pattern)).ToArray(),
           signature.Inputs?.LastOrDefault()?.Variadic == true,
           pattern.Parameters.Select(field => field.Name).ToArray(),
-          signature.Inputs?.Select(field => field.DefaultValue).ToArray(), declaration.TypeParameters);
+          signature.Inputs?.Select(field => field.DefaultValue).ToArray(), declaration.TypeParameters) {
+          ObviousArguments = pattern.Parameters.Select(field => field.Obvious).ToArray()
+        };
         return builder.ConfigureInference(declaration.Name, result);
       }).ToArray(), string.Join("\n", declaration.Metadata.Where(item => item.Name is "description" or "doc")
         .SelectMany(item => item.Values).OfType<StringExpressionIr>().Select(item => item.Value))) {

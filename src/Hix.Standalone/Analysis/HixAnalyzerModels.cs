@@ -22,6 +22,7 @@ public sealed record HixDefinition(string Name, string Kind, int ArgumentCount, 
   string Documentation) {
   public IReadOnlyList<string> DeclaredArgumentTypes { get; init; } = System.Array.Empty<string>();
   public IReadOnlyList<string> ArgumentNames { get; init; } = System.Array.Empty<string>();
+  public IReadOnlyList<bool> ObviousArguments { get; init; } = System.Array.Empty<bool>();
   public IReadOnlyList<bool> OptionalArguments { get; init; } = System.Array.Empty<bool>();
   public IReadOnlyList<string> ArgumentDefaults { get; init; } = System.Array.Empty<string>();
   public IReadOnlyList<string> TypeParameters { get; init; } = System.Array.Empty<string>();

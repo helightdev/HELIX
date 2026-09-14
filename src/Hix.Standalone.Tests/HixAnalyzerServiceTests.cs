@@ -6,8 +6,20 @@ namespace Hix.Standalone.Tests;
 
 public sealed class HixAnalyzerServiceTests {
   [Fact]
+  public void ObviousParameterMetadataSurvivesResolvedSignatures() {
+    const string source = "func pick(%obvious number value, number fallback) -> number { return($value) } func main { pick(1, 2) }";
+    var snapshot = Assert.Single(new HixAnalyzerService().Synchronize([new HixDocument("/tests/obvious.hix", source, 1)]));
+    Assert.Empty(snapshot.Diagnostics);
+    var call = Assert.Single(snapshot.TypeFacts.Where(fact => fact.Kind == "Call" && source.Substring(fact.Range.Start, fact.Range.Length) == "pick"));
+    Assert.Equal(new[] {true, false}, call.CallSignature.ObviousArguments);
+    Assert.Equal(new[] {"value", "fallback"}, call.CallSignature.ArgumentNames);
+  }
+
+  [Fact]
   public void CatalogCarriesParameterNamesDefaultsAndGenericBounds() {
     var definitions = new HixAnalyzerService(new HixStandaloneBackend()).Definitions;
+    var plus = Assert.Single(definitions.Where(item => item.Kind == "Function" && item.Name == "plus"));
+    Assert.Equal(new[] {true, true}, plus.ObviousArguments);
     var cast = Assert.Single(definitions.Where(item => item.Kind == "Function" && item.Name == "cast"));
     Assert.Equal(new[] {"value", "target"}, cast.ArgumentNames);
     Assert.Contains("TValue", cast.TypeParameters);

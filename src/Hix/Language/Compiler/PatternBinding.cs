@@ -338,7 +338,7 @@ public static class PatternBinding {
       foreach (var signature in definition.Signatures)
         Add(new SignatureHixPattern(call.Name, signature.ArgumentPatterns.Select((pattern, index) =>
           new HixPatternField(signature.GetArgumentName(index) ?? index.ToString(), pattern,
-            HasDefault: signature.GetArgumentDefault(index) != null)).ToArray(), signature.ResultPattern),
+            HasDefault: signature.GetArgumentDefault(index) != null) { Metadata = signature.ObviousArguments.ElementAtOrDefault(index) ? [new BytecodeMetadata("obvious", [], HixMetadataRetention.Compiler)] : [] }).ToArray(), signature.ResultPattern),
           signature.TypeParameters, signature.ArgumentDefaults, signature.IsVariadic, null, definition, signature.InferResult,
           signature.CallableArguments);
     if (!candidates.Any(candidate => candidate.ExactMatch))

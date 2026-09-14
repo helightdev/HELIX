@@ -98,7 +98,7 @@ class HixLookupTest {
 
     private fun method(receiver: String) = MixinLanguageDefinition("method", "Function", 1, false,
         "", receiver, "String", arrayOf(receiver), "Returns the selected value's name.",
-        arrayOf("value"), booleanArrayOf(false), arrayOf(""), emptyArray(), emptyArray(), arrayOf(receiver))
+        arrayOf("value"), booleanArrayOf(false), arrayOf(""), emptyArray(), emptyArray(), arrayOf(receiver), booleanArrayOf(false))
 
     @Test
     fun `chained lookup uses canonical operators and literal receiver types`() {

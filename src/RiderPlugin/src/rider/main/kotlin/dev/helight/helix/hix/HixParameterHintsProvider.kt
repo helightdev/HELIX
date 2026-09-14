@@ -42,6 +42,7 @@ open class HixParameterHintsProvider : InlayParameterHintsProvider {
             if (signatures.isEmpty()) return emptyList()
             return call.arguments.mapIndexedNotNull { index, argument ->
                 if (argument.name != null) return@mapIndexedNotNull null
+                if (signatures.any { it.parameters.getOrNull(it.parameter(call, index))?.obvious == true }) return@mapIndexedNotNull null
                 val names = signatures.mapNotNull { signature ->
                     signature.parameters.getOrNull(signature.parameter(call, index))?.name
                 }.distinct()

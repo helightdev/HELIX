@@ -104,7 +104,7 @@ public sealed class HelixMixinLanguageHost {
         value.ArgumentCount, value.Variadic, value.OperandType, value.ReceiverType, value.ResultType,
         value.ArgumentTypes.ToArray(), value.Documentation, value.ArgumentNames.ToArray(),
         value.OptionalArguments.ToArray(), value.ArgumentDefaults.ToArray(), value.TypeParameters.ToArray(),
-        value.TypeParameterBounds.ToArray(), value.DeclaredArgumentTypes.ToArray());
+        value.TypeParameterBounds.ToArray(), value.DeclaredArgumentTypes.ToArray(), value.ObviousArguments.ToArray());
     private static MixinCompletionItem Completion(HixCompletion value) => new(value.Name, value.InsertText,
         value.Kind, value.Documentation, value.Target?.Path ?? string.Empty,
         value.Target == null ? Range(0, 0) : Range(value.Target.Range));

@@ -14,7 +14,7 @@ import org.antlr.v4.runtime.tree.TerminalNode
 
 /** UI projections of compiler signatures. This does not bind or execute Hix calls. */
 data class HixEditorParameter(val name: String, val type: String, val optional: Boolean = false,
-                              val default: String = "", val variadic: Boolean = false) {
+                              val default: String = "", val variadic: Boolean = false, val obvious: Boolean = false) {
     val display: String get() = (if (variadic) "..." else "") +
         (if (name.isEmpty()) type else "$name: $type") +
         when { default.isNotEmpty() && default != "missing" -> " = $default"; optional -> " (optional)"; else -> "" }
@@ -177,7 +177,7 @@ internal object HixEditorCalls {
         definition.argumentTypes.mapIndexed { index, type -> HixEditorParameter(
             definition.argumentNames.getOrNull(index).orEmpty(), type,
             definition.optionalArguments.getOrNull(index) == true, definition.argumentDefaults.getOrNull(index).orEmpty(),
-            definition.variadic && index == definition.argumentTypes.lastIndex) }, definition.resultType, definition.documentation,
+            definition.variadic && index == definition.argumentTypes.lastIndex, definition.obviousArguments.getOrNull(index) == true) }, definition.resultType, definition.documentation,
         definition.typeParameters.mapIndexed { index, name -> name to (definition.typeParameterBounds.getOrNull(index) ?: "any") }.toMap(),
         declaredTypes = definition.declaredArgumentTypes.toList().takeIf { it.isNotEmpty() } ?: definition.argumentTypes.toList())
 
@@ -186,7 +186,8 @@ internal object HixEditorCalls {
         fun parameter(field: HixParser.PatternFieldContext, index: Int) = HixEditorParameter(
             key(field.ROOT_IDENTIFIER(), field.STRING()).orEmpty(), field.patternUnion()?.text ?: "any",
             field.value() != null || field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "optional" } == true,
-            field.value()?.text.orEmpty(), field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "variadic" } == true)
+            field.value()?.text.orEmpty(), field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "variadic" } == true,
+            field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "obvious" } == true)
         val mixin = offset?.let { position -> rules(parsed.tree).filterIsInstance<HixParser.MixinDeclarationContext>()
             .firstOrNull { position >= it.start.startIndex && position <= end(it) } }
         val functions = rules(parsed.tree).filterIsInstance<HixParser.FuncDeclarationContext>().mapNotNull { function ->

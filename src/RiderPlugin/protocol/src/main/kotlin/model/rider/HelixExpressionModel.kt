@@ -92,6 +92,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("typeParameters", array(string))
             field("typeParameterBounds", array(string))
             field("declaredArgumentTypes", array(string))
+            field("obviousArguments", array(bool))
         }
 
         val typeFact = structdef("mixinTypeFact") {

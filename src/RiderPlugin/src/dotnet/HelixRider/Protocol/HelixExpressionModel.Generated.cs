@@ -124,7 +124,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => 7518874239104377869L;
+    protected override long SerializationHash => 2407513834663374199L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -174,7 +174,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:138</p>
+  /// <p>Generated from: HelixExpressionModel.kt:139</p>
   /// </summary>
   public sealed class HixExecutionRequest : IPrintable, IEquatable<HixExecutionRequest>
   {
@@ -287,7 +287,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:150</p>
+  /// <p>Generated from: HelixExpressionModel.kt:151</p>
   /// </summary>
   public sealed class HixExecutionResponse : IPrintable, IEquatable<HixExecutionResponse>
   {
@@ -400,7 +400,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:144</p>
+  /// <p>Generated from: HelixExpressionModel.kt:145</p>
   /// </summary>
   public sealed class HixTestResult : IPrintable, IEquatable<HixTestResult>
   {
@@ -943,7 +943,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:118</p>
+  /// <p>Generated from: HelixExpressionModel.kt:119</p>
   /// </summary>
   public sealed class MixinDefinitionQuery : IPrintable, IEquatable<MixinDefinitionQuery>
   {
@@ -1064,7 +1064,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:126</p>
+  /// <p>Generated from: HelixExpressionModel.kt:127</p>
   /// </summary>
   public sealed class MixinDefinitionResponse : IPrintable, IEquatable<MixinDefinitionResponse>
   {
@@ -1356,7 +1356,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:108</p>
+  /// <p>Generated from: HelixExpressionModel.kt:109</p>
   /// </summary>
   public sealed class MixinFileSnapshot : IPrintable, IEquatable<MixinFileSnapshot>
   {
@@ -1501,7 +1501,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:134</p>
+  /// <p>Generated from: HelixExpressionModel.kt:135</p>
   /// </summary>
   public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
   {
@@ -1609,6 +1609,7 @@ namespace HelixRider.Protocol
     [NotNull] public string[] TypeParameters {get; private set;}
     [NotNull] public string[] TypeParameterBounds {get; private set;}
     [NotNull] public string[] DeclaredArgumentTypes {get; private set;}
+    [NotNull] public bool[] ObviousArguments {get; private set;}
 
     //private fields
     //primary constructor
@@ -1627,7 +1628,8 @@ namespace HelixRider.Protocol
       [NotNull] string[] argumentDefaults,
       [NotNull] string[] typeParameters,
       [NotNull] string[] typeParameterBounds,
-      [NotNull] string[] declaredArgumentTypes
+      [NotNull] string[] declaredArgumentTypes,
+      [NotNull] bool[] obviousArguments
     )
     {
       if (name == null) throw new ArgumentNullException("name");
@@ -1643,6 +1645,7 @@ namespace HelixRider.Protocol
       if (typeParameters == null) throw new ArgumentNullException("typeParameters");
       if (typeParameterBounds == null) throw new ArgumentNullException("typeParameterBounds");
       if (declaredArgumentTypes == null) throw new ArgumentNullException("declaredArgumentTypes");
+      if (obviousArguments == null) throw new ArgumentNullException("obviousArguments");
 
       Name = name;
       Kind = kind;
@@ -1659,10 +1662,11 @@ namespace HelixRider.Protocol
       TypeParameters = typeParameters;
       TypeParameterBounds = typeParameterBounds;
       DeclaredArgumentTypes = declaredArgumentTypes;
+      ObviousArguments = obviousArguments;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, out int argumentCount, out bool variadic, [NotNull] out string operandType, [NotNull] out string receiverType, [NotNull] out string resultType, [NotNull] out string[] argumentTypes, [NotNull] out string documentation, [NotNull] out string[] argumentNames, [NotNull] out bool[] optionalArguments, [NotNull] out string[] argumentDefaults, [NotNull] out string[] typeParameters, [NotNull] out string[] typeParameterBounds, [NotNull] out string[] declaredArgumentTypes)
+    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, out int argumentCount, out bool variadic, [NotNull] out string operandType, [NotNull] out string receiverType, [NotNull] out string resultType, [NotNull] out string[] argumentTypes, [NotNull] out string documentation, [NotNull] out string[] argumentNames, [NotNull] out bool[] optionalArguments, [NotNull] out string[] argumentDefaults, [NotNull] out string[] typeParameters, [NotNull] out string[] typeParameterBounds, [NotNull] out string[] declaredArgumentTypes, [NotNull] out bool[] obviousArguments)
     {
       name = Name;
       kind = Kind;
@@ -1679,6 +1683,7 @@ namespace HelixRider.Protocol
       typeParameters = TypeParameters;
       typeParameterBounds = TypeParameterBounds;
       declaredArgumentTypes = DeclaredArgumentTypes;
+      obviousArguments = ObviousArguments;
     }
     //statics
 
@@ -1699,7 +1704,8 @@ namespace HelixRider.Protocol
       var typeParameters = ReadStringArray(ctx, reader);
       var typeParameterBounds = ReadStringArray(ctx, reader);
       var declaredArgumentTypes = ReadStringArray(ctx, reader);
-      var _result = new MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation, argumentNames, optionalArguments, argumentDefaults, typeParameters, typeParameterBounds, declaredArgumentTypes);
+      var obviousArguments = JetBrains.Rd.Impl.Serializers.ReadBoolArray(ctx, reader);
+      var _result = new MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation, argumentNames, optionalArguments, argumentDefaults, typeParameters, typeParameterBounds, declaredArgumentTypes, obviousArguments);
       return _result;
     };
     public static CtxReadDelegate<string[]> ReadStringArray = JetBrains.Rd.Impl.Serializers.ReadString.Array();
@@ -1721,6 +1727,7 @@ namespace HelixRider.Protocol
       WriteStringArray(ctx, writer, value.TypeParameters);
       WriteStringArray(ctx, writer, value.TypeParameterBounds);
       WriteStringArray(ctx, writer, value.DeclaredArgumentTypes);
+      JetBrains.Rd.Impl.Serializers.WriteBoolArray(ctx, writer, value.ObviousArguments);
     };
     public static  CtxWriteDelegate<string[]> WriteStringArray = JetBrains.Rd.Impl.Serializers.WriteString.Array();
 
@@ -1740,7 +1747,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Name == other.Name && Kind == other.Kind && ArgumentCount == other.ArgumentCount && Variadic == other.Variadic && OperandType == other.OperandType && ReceiverType == other.ReceiverType && ResultType == other.ResultType && ArgumentTypes.SequenceEqual(other.ArgumentTypes) && Documentation == other.Documentation && ArgumentNames.SequenceEqual(other.ArgumentNames) && OptionalArguments.SequenceEqual(other.OptionalArguments) && ArgumentDefaults.SequenceEqual(other.ArgumentDefaults) && TypeParameters.SequenceEqual(other.TypeParameters) && TypeParameterBounds.SequenceEqual(other.TypeParameterBounds) && DeclaredArgumentTypes.SequenceEqual(other.DeclaredArgumentTypes);
+      return Name == other.Name && Kind == other.Kind && ArgumentCount == other.ArgumentCount && Variadic == other.Variadic && OperandType == other.OperandType && ReceiverType == other.ReceiverType && ResultType == other.ResultType && ArgumentTypes.SequenceEqual(other.ArgumentTypes) && Documentation == other.Documentation && ArgumentNames.SequenceEqual(other.ArgumentNames) && OptionalArguments.SequenceEqual(other.OptionalArguments) && ArgumentDefaults.SequenceEqual(other.ArgumentDefaults) && TypeParameters.SequenceEqual(other.TypeParameters) && TypeParameterBounds.SequenceEqual(other.TypeParameterBounds) && DeclaredArgumentTypes.SequenceEqual(other.DeclaredArgumentTypes) && ObviousArguments.SequenceEqual(other.ObviousArguments);
     }
     //hash code trait
     public override int GetHashCode()
@@ -1762,6 +1769,7 @@ namespace HelixRider.Protocol
         hash = hash * 31 + TypeParameters.ContentHashCode();
         hash = hash * 31 + TypeParameterBounds.ContentHashCode();
         hash = hash * 31 + DeclaredArgumentTypes.ContentHashCode();
+        hash = hash * 31 + ObviousArguments.ContentHashCode();
         return hash;
       }
     }
@@ -1785,6 +1793,7 @@ namespace HelixRider.Protocol
         printer.Print("typeParameters = "); TypeParameters.PrintEx(printer); printer.Println();
         printer.Print("typeParameterBounds = "); TypeParameterBounds.PrintEx(printer); printer.Println();
         printer.Print("declaredArgumentTypes = "); DeclaredArgumentTypes.PrintEx(printer); printer.Println();
+        printer.Print("obviousArguments = "); ObviousArguments.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -1895,7 +1904,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:130</p>
+  /// <p>Generated from: HelixExpressionModel.kt:131</p>
   /// </summary>
   public sealed class MixinParseResponse : IPrintable, IEquatable<MixinParseResponse>
   {
@@ -2203,7 +2212,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:97</p>
+  /// <p>Generated from: HelixExpressionModel.kt:98</p>
   /// </summary>
   public sealed class MixinTypeFact : IPrintable, IEquatable<MixinTypeFact>
   {

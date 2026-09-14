@@ -12,6 +12,8 @@ public static class MetadataFunctions {
       runtime meta synthetic() for function type mixin field;
       %description("Allows the final function input to accept remaining arguments.")
       meta variadic() for field;
+      %description("Marks a parameter name as obvious; suppresses parameter-name inlay hints.")
+      compiler meta obvious() for field;
       %description("Allows a field to be absent without making null a valid value.")
       meta optional() for pattern field;
       %description("Adds descriptive documentation.")

@@ -106,15 +106,15 @@ public static class Builtins {
       %description("Returns true for values other than missing, null, and errors.")
       pure func exists(any arg0) -> bool external;
       %description("Negates the truthiness of a value.")
-      pure func not(any arg0) -> bool external;
+      pure func not(%obvious any arg0) -> bool external;
       %description("Compares two values for equality, including tuple and table contents.")
-      pure func eq(any arg0, any arg1) -> bool external;
+      pure func eq(%obvious any arg0, %obvious any arg1) -> bool external;
       %description("Returns true when two values are not equal.")
-      pure func neq(any arg0, any arg1) -> bool external;
+      pure func neq(%obvious any arg0, %obvious any arg1) -> bool external;
       %description("Returns true when all supplied values are truthy.")
-      pure func and(any arg0, any arg1, %variadic any arg2) -> bool external;
+      pure func and(%obvious any arg0, %obvious any arg1, %variadic %obvious any arg2) -> bool external;
       %description("Returns true when at least one supplied value is truthy.")
-      pure func or(any arg0, any arg1, %variadic any arg2) -> bool external;
+      pure func or(%obvious any arg0, %obvious any arg1, %variadic %obvious any arg2) -> bool external;
       %description("Fails execution if any supplied condition is false.")
       pure func assert(%variadic any arg0) -> null external;
       %description("Produces an execution error with an optional message.")
@@ -122,31 +122,31 @@ public static class Builtins {
       %description("Produces an execution error with an optional message.")
       pure func fail(any arg0) -> error external;
       %description("Rounds a number to the nearest integer.")
-      pure func round(number arg0) -> number external;
+      pure func round(%obvious number arg0) -> number external;
       %description("Rounds a number down to the nearest integer.")
-      pure func floor(number arg0) -> number external;
+      pure func floor(%obvious number arg0) -> number external;
       %description("Rounds a number up to the nearest integer.")
-      pure func ceil(number arg0) -> number external;
+      pure func ceil(%obvious number arg0) -> number external;
       %description("Returns the absolute value of a number.")
-      pure func abs(number arg0) -> number external;
+      pure func abs(%obvious number arg0) -> number external;
       %description("Returns the square root of a number.")
-      pure func sqrt(number arg0) -> number external;
+      pure func sqrt(%obvious number arg0) -> number external;
       %description("Returns the smaller number.")
-      pure func min(number arg0, number arg1) -> number external;
+      pure func min(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Returns the larger number.")
-      pure func max(number arg0, number arg1) -> number external;
+      pure func max(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Raises the first number to the power of the second.")
       pure func pow(number arg0, number arg1) -> number external;
       %description("Subtracts the second number from the first, or negates a single number.")
-      pure func minus(number arg0, number arg1) -> number external;
+      pure func minus(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Adds two numbers.")
-      pure func plus(number arg0, number arg1) -> number external;
+      pure func plus(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Multiplies two numbers.")
-      pure func mult(number arg0, number arg1) -> number external;
+      pure func mult(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Divides the first number by the second.")
-      pure func div(number arg0, number arg1) -> number external;
+      pure func div(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Returns the remainder after division.")
-      pure func mod(number arg0, number arg1) -> number external;
+      pure func mod(%obvious number arg0, %obvious number arg1) -> number external;
       %description("Clamps a number to the supplied minimum and maximum.")
       pure func clamp(number arg0, number arg1, number arg2) -> number external;
       %description("Tests whether a number has no fractional part.")

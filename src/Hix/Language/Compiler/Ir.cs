@@ -134,7 +134,8 @@ public sealed record SignatureField {
   public bool AllowsMissing => Optional || HasDefault;
   public IReadOnlyList<MetadataIr> Metadata { get; }
   public HixPatternField AsPatternField() => new(Name, Pattern, Optional, HasDefault: HasDefault) {
-    Metadata = Variadic ? [new BytecodeMetadata("variadic", [], HixMetadataRetention.Compiler)] : []
+    Metadata = (Variadic ? new[] { new BytecodeMetadata("variadic", [], HixMetadataRetention.Compiler) } : Array.Empty<BytecodeMetadata>())
+      .Concat(Metadata.Where(item => item.Name == "obvious").Select(_ => new BytecodeMetadata("obvious", [], HixMetadataRetention.Compiler))).ToArray()
   };
 }
 

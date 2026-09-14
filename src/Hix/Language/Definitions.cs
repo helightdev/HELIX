@@ -72,6 +72,7 @@ public sealed record FunctionSignature(
   public HixPattern ResultPattern { get; init; } = ResultType == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(ResultType);
   public IReadOnlyList<HixPattern> ArgumentPatterns { get; init; } = ArgumentTypes.Select(kind =>
     kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind)).ToArray();
+  public IReadOnlyList<bool> ObviousArguments { get; init; } = Array.Empty<bool>();
   public IReadOnlyList<HixTypeParameter> TypeParameters { get; init; } = Array.Empty<HixTypeParameter>();
   public Func<IReadOnlyList<HixPattern>, HixPattern> InferResult { get; init; }
   /// <summary>Maps callable argument positions to tuple arguments used to invoke those callables.</summary>

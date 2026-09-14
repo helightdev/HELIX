@@ -182,6 +182,7 @@ internal static class HixDefinitionSignatures {
   internal static HixDefinition WithSignature(this HixDefinition definition, FunctionSignature signature) => definition with {
     DeclaredArgumentTypes = signature.ArgumentPatterns.Select(pattern => pattern.Display).ToArray(),
     ArgumentNames = Enumerable.Range(0, signature.ArgumentPatterns.Count).Select(index => signature.GetArgumentName(index) ?? "").ToArray(),
+    ObviousArguments = signature.ObviousArguments,
     OptionalArguments = Enumerable.Range(0, signature.ArgumentPatterns.Count).Select(index => signature.GetArgumentDefault(index) != null).ToArray(),
     ArgumentDefaults = Enumerable.Range(0, signature.ArgumentPatterns.Count).Select(index => DefaultText(signature.GetArgumentDefault(index))).ToArray(),
     TypeParameters = signature.TypeParameters.Select(parameter => parameter.Name).ToArray(),
@@ -198,6 +199,7 @@ internal static class HixDefinitionSignatures {
       TypeParameterBounds = resolution.Substitutions.Keys.Select(parameter => parameter.AdditionalBounds
         .Aggregate(parameter.Bound ?? HixPattern.Any, (root, next) => new IntersectionHixPattern(root, next)).Display).ToArray(),
       ArgumentNames = signature.Parameters.Select(field => field.Name ?? "").ToArray(),
+      ObviousArguments = signature.Parameters.Select(field => field.Obvious).ToArray(),
       OptionalArguments = signature.Parameters.Select(field => field.AllowsMissing).ToArray(),
       ArgumentDefaults = Enumerable.Range(0, signature.Parameters.Count).Select(index =>
         DefaultText(index < resolution.ParameterDefaults.Count ? resolution.ParameterDefaults[index] : null)).ToArray()

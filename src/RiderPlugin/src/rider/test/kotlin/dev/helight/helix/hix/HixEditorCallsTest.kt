@@ -72,7 +72,7 @@ class HixEditorCallsTest {
     fun `compiler catalog preserves parameter names generic bounds and default values`() {
         val definition = MixinLanguageDefinition("convert", "Function", 2, false, "", "T", "T",
             arrayOf("T", "bool"), "description", arrayOf("value", "strict"), booleanArrayOf(false, true),
-            arrayOf("", "false"), arrayOf("T"), arrayOf("number"), arrayOf("T", "bool"))
+            arrayOf("", "false"), arrayOf("T"), arrayOf("number"), arrayOf("T", "bool"), booleanArrayOf(true, false))
         val signature = HixEditorCalls.from(definition)
         assertEquals("convert(value: T, strict: bool = false) -> T", signature.display)
         assertEquals(mapOf("T" to "number"), signature.bounds)
@@ -109,5 +109,13 @@ class HixEditorCallsTest {
         assertEquals(HixCompletionCompatibility.Match.Impossible, match("number", "opaque", emptyMap()))
         assertEquals(HixCompletionCompatibility.Match.Impossible, match("String", "string", mapOf("String" to "table")))
         assertEquals(HixCompletionCompatibility.Match.Compatible, match("null", "string?", emptyMap()))
+    }
+    @Test fun `obvious parameters omit inlays without losing their names`() {
+        val source = "func sum(%obvious number left, number right) -> number external;\nfunc main { sum(1, 2) }"
+        val signature = HixEditorCalls.local(source).first { it.name == "sum" }
+        assertTrue(signature.parameters.first().obvious)
+        assertEquals("left", signature.parameters.first().name)
+        val call = HixEditorCalls.hix(source).first { it.name == "sum" }
+        assertEquals(listOf("right"), HixParameterHintsProvider.hints(call, listOf(signature)).map { it.first })
     }
 }
