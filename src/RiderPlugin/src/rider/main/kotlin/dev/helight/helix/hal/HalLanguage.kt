@@ -356,7 +356,8 @@ internal object HalStructure {
     fun completionScope(source: String, offset: Int): Pair<String, Set<String>>? {
         val tree = HalAntlrSyntax.parse(source).tree
         val table = rules(tree).filterIsInstance<HalParser.TableContext>().filter {
-            it.start.startIndex <= offset && it.stop.stopIndex + 1 >= offset
+            val closing = it.RBRACE()?.symbol
+            it.start.startIndex <= offset && (closing == null || closing.startIndex < 0 || offset <= closing.startIndex)
         }.maxByOrNull { it.start.startIndex }
         if (table != null) {
             val typedContainer = table.parent as? HalParser.TypedContainerContext
@@ -395,6 +396,10 @@ class HalCompletionContributor : CompletionContributor() {
             val offset = parameters.offset.coerceIn(0, source.length)
             val schema = HalManifest.text(parameters.originalFile.virtualFile)
             val isManifest = parameters.originalFile.virtualFile?.name?.equals("manifest.hal", true) == true
+            // HAL scalar PSI can span whitespace and preceding values. Derive
+            // the lookup prefix from the caret text so explicit blank-space
+            // completion doesn't filter every candidate against an outer token.
+            val scopedResult = result.withPrefixMatcher(HalCompletion.prefix(source, offset))
             HalCompletion.items(source, offset, schema, isManifest).forEach { item ->
                 val builder = LookupElementBuilder.create(item, item.insert).withPresentableText(item.name)
                     .withIcon(dev.helight.helix.hix.HixCompletionIcons.forKind(item.kind)).withTypeText(item.type, true)
@@ -406,7 +411,7 @@ class HalCompletionContributor : CompletionContributor() {
                                 .autoPopupParameterInfo(insertion.editor, null)
                         }
                     }
-                result.addElement(PrioritizedLookupElement.withPriority(builder, item.priority))
+                scopedResult.addElement(PrioritizedLookupElement.withPriority(builder, item.priority))
             }
         }
     }

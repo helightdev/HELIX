@@ -14,6 +14,9 @@ internal object HalCompletion {
         yield(rule)
         rule.children.orEmpty().filterIsInstance<ParserRuleContext>().forEach { yieldAll(rules(it)) }
     }
+    fun prefix(source: String, offset: Int): String = source.take(offset.coerceIn(0, source.length))
+        .takeLastWhile { it.isLetterOrDigit() || it in "_.-" }
+
     fun items(source: String, offset: Int, schema: String, isManifest: Boolean): List<Item> {
         val parsed = HalAntlrSyntax.parse(source)
         val token = parsed.tokens.firstOrNull { it.start < offset && offset <= it.end }
@@ -54,17 +57,39 @@ internal object HalCompletion {
             isManifest && type == "ManifestSources" -> HalManifest.sourceFields
             else -> HalManifest.fieldDefinitions(schema, type)
         }
+        // A list is a value scope, even on blank lines. Only a nested table
+        // may restore field completion inside it.
+        val container = nodes.filter { it is HalParser.ListContext || it is HalParser.TableContext }.filter {
+            val closing = when (it) {
+                is HalParser.ListContext -> it.RBRACKET()?.symbol
+                is HalParser.TableContext -> it.RBRACE()?.symbol
+                else -> null
+            }
+            it.start.startIndex <= offset && (offset < (closing?.startIndex ?: -1) ||
+                closing == null || closing.startIndex < 0)
+        }.maxByOrNull { it.start.startIndex }
+        val list = container as? HalParser.ListContext
+        val owner = list?.let { generateSequence(it.parent as? ParserRuleContext) { node -> node.parent as? ParserRuleContext }
+            .firstOrNull { node -> node is HalParser.FieldContext || node is HalParser.TableEntryContext } }
+        val listKey = when (owner) {
+            is HalParser.FieldContext -> owner.fieldKey()
+            is HalParser.TableEntryContext -> owner.fieldKey()
+            else -> null
+        }
+        val listScope = listKey?.let { HalStructure.completionScope(source, it.start.startIndex) }
+        val listField = listScope?.let { fields(it.first).firstOrNull { field -> field.name == listKey?.text?.removeSurrounding("\"") } }
+        val elementType = listField?.let { if (it.many) it.type else HalManifest.manyElement(schema, it.type) }
         val key = nodes.filterIsInstance<HalParser.FieldKeyContext>().firstOrNull {
             offset >= it.start.startIndex && offset <= it.stop.stopIndex + 1
         }
         val fieldPosition = key != null || line.isBlank() || line.takeLastWhile { it !in "{,=" }.isBlank() && !line.endsWith('=')
-        if (fieldPosition) return fields(scope.first).filter { it.name !in scope.second || it.name == key?.text?.removeSurrounding("\"") }
+        if (fieldPosition && list == null) return fields(scope.first).filter { it.name !in scope.second || it.name == key?.text?.removeSurrounding("\"") }
             .map { Item(it.name, HixLookup.fieldName(it.name) + " = ", "Field", it.type, if (it.required) 1200.0 else 950.0) }
         val field = nodes.filter { it is HalParser.FieldContext || it is HalParser.TableEntryContext }.filter {
             offset >= it.start.startIndex && offset <= (it.stop?.stopIndex ?: source.length) + 1
         }.minByOrNull { (it.stop?.stopIndex ?: source.length) - it.start.startIndex }
         val fieldKey = when (field) { is HalParser.FieldContext -> field.fieldKey(); is HalParser.TableEntryContext -> field.fieldKey(); else -> null }
-        val expected = fields(scope.first).firstOrNull { it.name == fieldKey?.text?.removeSurrounding("\"") }?.type ?: "any"
+        val expected = elementType ?: fields(scope.first).firstOrNull { it.name == fieldKey?.text?.removeSurrounding("\"") }?.type ?: "any"
         val alternatives = HalManifest.unionMembers(schema, expected).toSet() + expected.split('|').map { it.trim().removeSuffix("?") }
         val results = arrayListOf<Item>()
         if (scope.first == "ManifestDependencies") {
@@ -75,10 +100,11 @@ internal object HalCompletion {
             return results
         }
         types.forEach { type ->
+            if (HalManifest.unionMembers(schema, type).isNotEmpty()) return@forEach
             val exact = type in alternatives
             val tuple = shapes[type]?.tuple == true || HalManifest.manyElement(schema, type) != null
             val match = if (exact) HixCompletionCompatibility.Match.Exact else HixCompletionCompatibility.match(if (tuple) "tuple" else "table", expected)
-            if (match == HixCompletionCompatibility.Match.Impossible) return@forEach
+            if (match == HixCompletionCompatibility.Match.Impossible || (HalManifest.unionMembers(schema, expected).isNotEmpty() && !exact)) return@forEach
             val required = fields(expected).filter { it.required }.map { it.name }.toSet()
             val supplied = fields(type).map { it.name }.toSet()
             if (!exact && required.isNotEmpty() && !supplied.containsAll(required)) return@forEach

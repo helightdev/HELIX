@@ -35,8 +35,9 @@ internal object HixLookup {
             var shape = if (sourceFields != null) Constructor(name, sourceFields.mapIndexed { index, field ->
                 ConstructorField(key(field.ROOT_IDENTIFIER(), field.STRING()) ?: if (tuple) index.toString()
                     else field.patternUnion()?.text ?: index.toString(),
-                    field.metadataList()?.metadata()?.firstOrNull { it.IDENTIFIER()?.text == "many" }?.text
-                        ?: field.patternUnion()?.text ?: "any",
+                    field.metadataList()?.metadata()?.firstOrNull { it.IDENTIFIER()?.text == "many" }?.let {
+                        if (it.argumentValue().isEmpty()) "%many<${field.patternUnion()?.text ?: "any"}>" else it.text
+                    } ?: field.patternUnion()?.text ?: "any",
                     field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "optional" } == true,
                     field.value() != null || field.metadataList()?.metadata()?.any { it.IDENTIFIER()?.text == "default" } == true,
                     field.value()?.text.orEmpty())

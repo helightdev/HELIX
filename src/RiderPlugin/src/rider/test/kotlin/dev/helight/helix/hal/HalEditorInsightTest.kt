@@ -44,4 +44,28 @@ class HalEditorInsightTest {
         val scalar = "--- User\nname = "
         assertFalse(HalCompletion.items(scalar, scalar.length, schema, false).any { it.kind == "Constructor" })
     }
+    @Test
+    fun `many union lists suggest element constructors without outer fields`() {
+        val schema = "type Pet = %union<Cat><Dog>; %tagged type Cat = @{string name}; %tagged type Dog = @{string name}; type House = @{%optional string tag, %many<Pet> pets};"
+        for (tail in listOf("\n  ", "\n  C", "\n  Cat { name = Miso }\n  ")) {
+            val source = "--- House\npets = [" + tail
+            val items = HalCompletion.items(source, source.length, schema, false)
+            assertEquals(setOf("Cat", "Dog"), items.filter { it.kind == "Constructor" }.map { it.name }.toSet())
+            assertFalse(items.any { it.kind == "Field" })
+        }
+        val source = "--- House\npets = [\n Cat {\n  "
+        assertEquals(listOf("name"), HalCompletion.items(source, source.length, schema, false).map { it.name })
+    }
+    @Test
+    fun `empty space inside a closed many list offers union members`() {
+        val schema = "type Pet = %union<Cat><Dog>; %tagged type Cat = @{string name}; %tagged type Dog = @{string name}; type House = @{%optional string tag, %many Pet pets};"
+        for (body in listOf("pets = [\n  |\n]", "pets [\n  |\n]", "pets = [ | ]")) {
+            val marked = "--- House\n" + body + "\ntag = home\n"
+            val offset = marked.indexOf('|')
+            val source = marked.replace("|", "")
+            val items = HalCompletion.items(source, offset, schema, false)
+            assertEquals(setOf("Cat", "Dog"), items.filter { it.kind == "Constructor" }.map { it.name }.toSet(), body + items)
+            assertFalse(items.any { it.kind == "Field" })
+        }
+    }
 }
