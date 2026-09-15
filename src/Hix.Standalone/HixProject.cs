@@ -14,6 +14,9 @@ public sealed class HixProject {
     var manifest = HixManifest.Load(path); var modules = new Dictionary<string, HixModule>(StringComparer.Ordinal);
     Discover(manifest, manifest.Name, modules, new HashSet<string>(PathComparer)); return new(manifest, modules);
   }
+  public IReadOnlyList<string> AssetFiles() => MatchAssetFiles(Manifest.Directory, Manifest.Sources.Assets);
+  public IReadOnlyList<HixSourceFile> MacroSources() => MatchFiles(Manifest.Directory, Manifest.Sources.Macros)
+    .Select(path => new HixSourceFile(path, File.ReadAllText(path))).ToArray();
   public IReadOnlyList<HixSourceFile> MainSources() => Sources(false);
   public IReadOnlyList<HixSourceFile> TestSources() => Sources(true);
   public IReadOnlyList<HixSourceFile> Sources(bool includeTests) {
@@ -76,10 +79,17 @@ public sealed class HixProject {
     return System.IO.Path.GetFullPath(child).StartsWith(prefix, IsWindows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
   }
   public static IReadOnlyList<string> MatchFiles(string directory, IEnumerable<string> patterns) => Match(directory, patterns, false).Where(File.Exists).Where(x => x.EndsWith(".hix", StringComparison.OrdinalIgnoreCase)).ToArray();
+  public static IReadOnlyList<string> MatchAssetFiles(string directory, IEnumerable<string> patterns) =>
+    Match(directory, patterns, false, "*.hal").Where(path => !Path.GetFileName(path).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase)).ToArray();
+  internal static bool MatchesFile(string directory, string path, IEnumerable<string> patterns) => patterns.Any(raw => {
+    var pattern = raw.Replace('\\', '/').TrimEnd('/');
+    if (Path.IsPathRooted(pattern)) throw new ArgumentException("Hix source patterns must be relative: " + raw);
+    return Glob(pattern).IsMatch(Relative(directory, path));
+  });
   private static IReadOnlyList<string> MatchDirectories(string directory, IEnumerable<string> patterns) => Match(directory, patterns, true).Where(Directory.Exists).ToArray();
-  private static IReadOnlyList<string> Match(string directory, IEnumerable<string> patterns, bool directories) {
+  private static IReadOnlyList<string> Match(string directory, IEnumerable<string> patterns, bool directories, string filePattern = "*.hix") {
     if (!Directory.Exists(directory)) return [];
-    var entries = directories ? HixWorkspace.Directories(directory).Prepend(directory) : HixWorkspace.Files(directory, "*.hix");
+    var entries = directories ? HixWorkspace.Directories(directory).Prepend(directory) : HixWorkspace.Files(directory, filePattern);
     var all = entries.Select(System.IO.Path.GetFullPath).ToArray(); var result = new HashSet<string>(PathComparer);
     foreach (var raw in patterns) { var pattern = raw.Replace('\\', '/').TrimEnd('/'); if (System.IO.Path.IsPathRooted(pattern)) throw new ArgumentException("Hix source patterns must be relative: " + raw); var regex = Glob(pattern); foreach (var entry in all) { var relative = Relative(directory, entry); if (regex.IsMatch(relative) || directories && pattern.EndsWith("/**") && regex.IsMatch(relative + "/")) result.Add(entry); } }
     return result.OrderBy(x => Relative(directory, x), StringComparer.Ordinal).ToArray();

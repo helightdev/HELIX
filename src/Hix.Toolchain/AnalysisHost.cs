@@ -44,7 +44,7 @@ internal static class AnalysisHost {
           if (method == "files/list") {
             var path = SafePath(root, (string)parameters["path"] ?? root);
             var entries = Directory.EnumerateFileSystemEntries(path).Where(p => (File.GetAttributes(p) & FileAttributes.ReparsePoint) == 0)
-              .Where(p => Path.GetFileName(p) != ".hix" && (Directory.Exists(p) || p.EndsWith(".hal", StringComparison.OrdinalIgnoreCase)))
+              .Where(p => Path.GetFileName(p) != ".hix" && (Directory.Exists(p) || (p.EndsWith(".hal", StringComparison.OrdinalIgnoreCase) && (Path.GetFileName(p).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase) || Hix.Standalone.HixWorkspace.Find(p).IncludesAsset(p)))))
               .OrderBy(p => !Directory.Exists(p)).ThenBy(p => p).Select(p => new { path = p, name = Path.GetFileName(p), directory = Directory.Exists(p) });
             Send(response, JsonConvert.SerializeObject(new { result = new { root, path, entries } }, Json), "application/json");
           } else {

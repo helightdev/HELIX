@@ -3,6 +3,8 @@ using Hix.Hal;
 namespace Hix.Standalone;
 
 public sealed record HixSourceSets(IReadOnlyList<string> Main, IReadOnlyList<string> Test, IReadOnlyList<string> Modules) {
+  public IReadOnlyList<string> Assets { get; init; } = ["assets/**"];
+  public IReadOnlyList<string> Macros { get; init; } = ["macros/**"];
   public static HixSourceSets Default { get; } = new(["src/**"], ["test/**"], ["modules/**"]);
 }
 public abstract record HixDependency(string Version);
@@ -44,8 +46,11 @@ public sealed record HixManifest(string Path, string Name, HixVersion Version, s
   private static HixSourceSets ParseSources(string file, HalValueSyntax value) {
     if (value == null) return HixSourceSets.Default;
     if (value is not HalTableSyntax table) throw Error(file, "Manifest.sources must be a table"); EnsureUnique(file, table.Fields, "sources");
-    var unknown = table.Fields.FirstOrDefault(x => x.Name is not ("main" or "test" or "modules")); if (unknown != null) throw Error(file, "unknown sources field '" + unknown.Name + "'");
-    return new(Patterns(table.Fields, "main", HixSourceSets.Default.Main), Patterns(table.Fields, "test", HixSourceSets.Default.Test), Patterns(table.Fields, "modules", HixSourceSets.Default.Modules));
+    var unknown = table.Fields.FirstOrDefault(x => x.Name is not ("main" or "test" or "modules" or "assets" or "macros")); if (unknown != null) throw Error(file, "unknown sources field '" + unknown.Name + "'");
+    return new(Patterns(table.Fields, "main", HixSourceSets.Default.Main), Patterns(table.Fields, "test", HixSourceSets.Default.Test), Patterns(table.Fields, "modules", HixSourceSets.Default.Modules)) {
+      Assets = Patterns(table.Fields, "assets", HixSourceSets.Default.Assets),
+      Macros = Patterns(table.Fields, "macros", HixSourceSets.Default.Macros)
+    };
   }
   private static IReadOnlyDictionary<string, HixDependency> ParseDependencies(string file, HalValueSyntax value) {
     if (value == null) return new Dictionary<string, HixDependency>(); if (value is not HalTableSyntax table) throw Error(file, "Manifest.dependencies must be a table"); EnsureUnique(file, table.Fields, "dependencies");

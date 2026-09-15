@@ -11,7 +11,7 @@ public sealed class HalGraphTests : IDisposable {
   private readonly HalGraphService service = new();
   public HalGraphTests() {
     Directory.CreateDirectory(Path.Combine(root, "assets"));
-    File.WriteAllText(Path.Combine(root, "manifest.hal"), "--- Manifest\nname = graph\nsources = { main = [\"*.hix\"], test = [], modules = [] }\n");
+    File.WriteAllText(Path.Combine(root, "manifest.hal"), "--- Manifest\nname = graph\nsources = {assets=[\"**\"], main = [\"*.hix\"], test = [], modules = [] }\n");
     File.WriteAllText(Path.Combine(root, "types.hix"), "type Item = @{string name};\ntype Asset = @{Item item, %many<Item> tuple items, %optional string note};\n");
   }
   private HalGraphSnapshot Open(string text = "--- Asset\n// keep this comment\nitem = Item {name = \"first\"}\nitems = []\n\n--- Item &second\nname = \"second\"\n") {
@@ -80,7 +80,7 @@ public sealed class HalGraphTests : IDisposable {
     File.AppendAllText(Path.Combine(root, "types.hix"), "type Extra = @{number count};");
     Assert.Contains(service.Get(doc.Session).Types, t => t.Name == "Extra");
     var nested = Path.Combine(root, "assets");
-    File.WriteAllText(Path.Combine(nested, "manifest.hal"), "--- Manifest\nname = inner\nsources = {main = [\"*.hix\"], test = [], modules = []}\n");
+    File.WriteAllText(Path.Combine(nested, "manifest.hal"), "--- Manifest\nname = inner\nsources = {assets=[\"**\"],main = [\"*.hix\"], test = [], modules = []}\n");
     File.WriteAllText(Path.Combine(nested, "local.hix"), "type Local = @{number count};");
     var next = service.Get(doc.Session);
     Assert.Equal(nested, next.Workspace);

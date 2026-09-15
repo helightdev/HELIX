@@ -4,4 +4,6 @@ sources = {
   main = ["*.hix"]
   test = []
   modules = []
+  assets = ["assets/**"]
+  macros = ["macros/**"]
 }

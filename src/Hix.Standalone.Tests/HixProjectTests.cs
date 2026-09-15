@@ -12,7 +12,22 @@ public sealed class HixProjectTests {
     var manifest = HixManifest.Load(directory);
     Assert.Equal("demo", manifest.Name); Assert.Equal("2.3.4.5-beta.7", manifest.Version.ToString());
     Assert.Equal("start", manifest.ApplicationMain); Assert.Equal(["src/**"], manifest.Sources.Main);
+    Assert.Equal(["assets/**"], manifest.Sources.Assets); Assert.Equal(["macros/**"], manifest.Sources.Macros);
     Assert.Equal(["test/**"], manifest.Sources.Test); Assert.Equal(["modules/**"], manifest.Sources.Modules);
+  });
+
+  [Fact] public void AssetAndMacroLocationsAreSeparateFromMainSources() => InProject(directory => {
+    Write(directory, "manifest.hal", "--- Manifest\nname = locations\nsources = {assets = [\"content/**\"], macros = \"tools/**\"}\n");
+    Write(directory, "src/main.hix", "func main {} ");
+    Write(directory, "tools/build.hix", "type MacroOnly = string;");
+    Write(directory, "content/nested/item.hal", "--- table\nname = example\n");
+    Write(directory, "assets/ignored.hal", "--- table\n");
+    var project = HixProject.Load(directory);
+    Assert.Equal(["content/**"], project.Manifest.Sources.Assets);
+    Assert.Equal(["tools/**"], project.Manifest.Sources.Macros);
+    Assert.EndsWith("main.hix", Assert.Single(project.MainSources()).Path);
+    Assert.EndsWith("build.hix", Assert.Single(project.MacroSources()).Path);
+    Assert.EndsWith("item.hal", Assert.Single(project.AssetFiles()));
   });
 
   [Fact] public void ManifestRequiresNameAndRejectsUnknownFields() => InProject(directory => {

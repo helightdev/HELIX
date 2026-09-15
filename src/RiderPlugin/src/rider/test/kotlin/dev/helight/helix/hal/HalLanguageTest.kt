@@ -35,7 +35,7 @@ class HalLanguageTest {
             HalManifest.manifestFields.map { it.name },
         )
         assertTrue(HalManifest.manifestFields.single { it.name == "name" }.required)
-        assertEquals(listOf("main", "test", "modules"), HalManifest.sourceFields.map { it.name })
+        assertEquals(listOf("main", "test", "modules", "assets", "macros"), HalManifest.sourceFields.map { it.name })
         assertEquals(listOf("uri", "version"), HalManifest.dependencyFields("PathDependency").map { it.name })
         assertEquals(
             listOf("repository", "branch", "rev", "tag", "version"),

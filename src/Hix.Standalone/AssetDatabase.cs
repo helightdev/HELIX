@@ -74,13 +74,12 @@ public sealed partial class AssetDatabase : IDisposable {
     if (!path.EndsWith(".hal", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(path).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Expected a HAL asset, not a manifest");
     for (var part = path; !HixWorkspace.SamePath(part, Workspace.Root); part = Path.GetDirectoryName(part))
       if ((File.Exists(part) || Directory.Exists(part)) && (File.GetAttributes(part) & FileAttributes.ReparsePoint) != 0) throw new ArgumentException("Asset paths cannot traverse symbolic links");
+    if (!Workspace.IncludesAsset(path)) throw new ArgumentException("Asset is outside manifest sources.assets: " + path);
     return path;
   }
   /// Explicit filesystem reconciliation. Query is indexed and does not scan the project.
   public int Refresh() {
-    var paths = new HashSet<string>(HixWorkspace.Files(Workspace.Root, "*.hal", directory =>
-        !File.Exists(Path.Combine(directory, "manifest.hal")) || HixWorkspace.SamePath(HixWorkspace.Find(directory).Root, Workspace.Root))
-      .Where(p => !Path.GetFileName(p).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase)), HixWorkspace.PathComparer);
+    var paths = new HashSet<string>(Workspace.AssetPaths(), HixWorkspace.PathComparer);
     foreach (var path in paths) Index(path);
     foreach (var obsolete in Read("SELECT f.path FROM assets a JOIN files f ON f.id=a.file_id WHERE NOT a.deleted", r => r.GetString(0)).Where(p => !paths.Contains(p))) MarkDeleted(obsolete);
     return paths.Count;

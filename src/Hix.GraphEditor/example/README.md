@@ -6,6 +6,8 @@ Run from the repository root:
 ./gradlew runHalGraphEditor
 ```
 
+The manifest selects `assets/**` for assets and reserves `macros/**` for future macro sources.
+
 Open `assets/scene.hal` for the small introductory graph, or `assets/adventure.hal`
 for a quest with twelve positioned, section-backed nodes.
 

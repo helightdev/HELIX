@@ -150,7 +150,8 @@ private fun unescapeString(text: String): String = buildString {
 
 internal object HalManifest {
     data class Field(val type: String, val name: String, val required: Boolean, val many: Boolean = false)
-    data class Config(val file: VirtualFile, val mainSources: List<String>, val testSources: List<String>)
+    data class Config(val file: VirtualFile, val mainSources: List<String>, val testSources: List<String>,
+                      val assetSources: List<String>, val macroSources: List<String>)
     val manifestFields = listOf(
         Field("string", "name", true),
         Field("string", "version", false),
@@ -166,6 +167,8 @@ internal object HalManifest {
         Field("string", "main", false, true),
         Field("string", "test", false, true),
         Field("string", "modules", false, true),
+        Field("string", "assets", false, true),
+        Field("string", "macros", false, true),
     )
     fun dependencyFields(type: String): List<Field> = when (type) {
         "ModuleDependency" -> listOf(Field("string", "version", false))
@@ -189,30 +192,27 @@ internal object HalManifest {
         if (section.IDENTIFIER().text != "Manifest") return null
         val mainSources = arrayListOf("src/**")
         val testSources = arrayListOf("test/**")
+        val assetSources = arrayListOf("assets/**")
+        val macroSources = arrayListOf("macros/**")
         section.sectionEntry().mapNotNull { it.field() }.forEach { field ->
             val name = fieldName(field.fieldKey())
             val value = field.value()
             when (name) {
                 "sources" -> {
                     val table = value?.table() ?: field.collectionValue()?.typedContainer()?.table()
-                    val main = table?.tableEntry()?.firstOrNull { fieldName(it.fieldKey()) == "main" }
-                    if (main != null) {
-                        mainSources.clear()
-                        val list = main.value()?.list() ?: main.collectionValue()?.typedContainer()?.list()
-                        if (list != null) list.value().mapNotNullTo(mainSources, ::scalarText)
-                        else scalarText(main.value())?.let(mainSources::add)
-                    }
-                    val test = table?.tableEntry()?.firstOrNull { fieldName(it.fieldKey()) == "test" }
-                    if (test != null) {
-                        testSources.clear()
-                        val list = test.value()?.list() ?: test.collectionValue()?.typedContainer()?.list()
-                        if (list != null) list.value().mapNotNullTo(testSources, ::scalarText)
-                        else scalarText(test.value())?.let(testSources::add)
+                    listOf("main" to mainSources, "test" to testSources, "assets" to assetSources, "macros" to macroSources).forEach { (key, target) ->
+                        val entry = table?.tableEntry()?.firstOrNull { fieldName(it.fieldKey()) == key }
+                        if (entry != null) {
+                            target.clear()
+                            val list = entry.value()?.list() ?: entry.collectionValue()?.typedContainer()?.list()
+                            if (list != null) list.value().mapNotNullTo(target, ::scalarText)
+                            else scalarText(entry.value())?.let(target::add)
+                        }
                     }
                 }
             }
         }
-        return Config(manifest, mainSources, testSources)
+        return Config(manifest, mainSources, testSources, assetSources, macroSources)
     }
     fun isTestSource(file: VirtualFile?): Boolean {
         val source = file ?: return false
@@ -508,12 +508,12 @@ class HalAnnotator : Annotator {
         val table = value.table ?: return error(holder, value.context, "Manifest.sources must be a table")
         val sites = table.tableEntry().map(::fieldSite)
         sites.groupBy(HalFieldSite::name).forEach { (name, occurrences) ->
-            if (name !in setOf("main", "test", "modules")) occurrences.forEach {
+            if (name !in HalManifest.sourceFields.map { it.name }.toSet()) occurrences.forEach {
                 error(holder, it.token, "Unknown sources field '$name'")
             }
             occurrences.drop(1).forEach { error(holder, it.token, "Duplicate sources field '$name'") }
         }
-        sites.filter { it.name in setOf("main", "test", "modules") }.forEach { site ->
+        sites.filter { it.name in HalManifest.sourceFields.map { it.name }.toSet() }.forEach { site ->
             val list = site.value.list
             if (list == null) requireString(holder, site.value, "Manifest.sources.${site.name}")
             else list.value().forEach { entry -> requireString(holder, HalValueSite(entry, null), "Manifest.sources.${site.name}") }

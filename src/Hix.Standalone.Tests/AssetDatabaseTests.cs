@@ -11,12 +11,41 @@ public sealed class AssetDatabaseTests : IDisposable {
   private readonly string root = Path.Combine(Path.GetTempPath(), "hix-database-" + Guid.NewGuid().ToString("N"));
   public AssetDatabaseTests() {
     Directory.CreateDirectory(root);
-    Write("manifest.hal", "--- Manifest\nname = database\nsources = {main=[\"*.hix\"],test=[],modules=[\"modules/*\"]}\n");
+    Write("manifest.hal", "--- Manifest\nname = database\nsources = {assets=[\"**\"],main=[\"*.hix\"],test=[],modules=[\"modules/*\"]}\n");
     Write("types.hix", "type Item = @{string name, number count = 2};\ntype Container = @{Item item};\n");
     Write("item.hal", "--- Item &item\nname = first\n");
     Write("container.hal", "--- Container\nitem = asset(path(\"item.hal\"), \"item\")\n");
   }
   private string Write(string relative, string text) { var path = Path.Combine(root, relative); Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path,text); return path; }
+  [Fact] public void AssetSetsControlIndexingDirectAccessAndNestedWorkspaceOwnership() {
+    Write("manifest.hal", "--- Manifest\nname = database\nsources = {main = [\"*.hix\"], assets = [\"content/**\"], modules = [\"modules/*\"]}\n");
+    var included = Write("content/item.hal", "--- Item\nname = included\n");
+    Write("modules/child/manifest.hal", "--- Manifest\nname = child\nsources = {assets = [\"data/**\"]}\n");
+    var child = Write("modules/child/data/item.hal", "--- table\nname = child\n");
+    var excluded = Write("modules/child/item.hal", "--- table\nname = excluded\n");
+    Write("content/private/manifest.hal", "--- Manifest\nname = unrelated\n");
+    Write("content/private/hidden.hal", "--- table\n");
+    using (var db = AssetDatabase.Open(root)) {
+      Assert.Equal(2, db.Refresh());
+      Assert.Equal(new[] { included, child }.OrderBy(x => x), db.Query().Select(x => x.Path).OrderBy(x => x));
+      Assert.Throws<ArgumentException>(() => db.Index(excluded));
+      Assert.Throws<ArgumentException>(() => db.Build(Path.Combine(root, "item.hal")));
+    }
+    Assert.Throws<ArgumentException>(() => new HalGraphService().Open(excluded));
+    Write("manifest.hal", "--- Manifest\nname = database\nsources = {assets = [], modules = []}\n");
+    using var empty = AssetDatabase.Open(root);
+    Assert.Equal(0, empty.Refresh()); Assert.Empty(empty.Query());
+  }
+
+  [Fact] public void LooseAssetFoldersDoNotIndexNestedManifestWorkspaces() {
+    File.Delete(Path.Combine(root, "manifest.hal"));
+    Write("nested/manifest.hal", "--- Manifest\nname = nested\n");
+    Write("nested/assets/item.hal", "--- table\n");
+    using var database = AssetDatabase.Open(root);
+    Assert.Equal(2, database.Refresh());
+    Assert.DoesNotContain(database.Query(), item => item.Path.Contains("nested"));
+  }
+
   [Fact] public void EditorSynchronizationCreatesDiskCacheWithoutPersistingUnsavedBuffer() {
     var path = Path.Combine(root, "types.hix");
     var server = new HixAnalysisServer();
@@ -92,7 +121,7 @@ public sealed class AssetDatabaseTests : IDisposable {
     }
   }
   [Fact] public void AssociatedModulesShareUppermostStorageButUseNearestTypes() {
-    Write("modules/child/manifest.hal", "--- Manifest\nname=child\nsources={main=[\"*.hix\"],test=[],modules=[]}\n");
+    Write("modules/child/manifest.hal", "--- Manifest\nname=child\nsources={assets=[\"**\"],main=[\"*.hix\"],test=[],modules=[]}\n");
     Write("modules/child/child.hix", "type Child = @{string name};\n");
     var asset = Write("modules/child/child.hal", "--- Child\nname=child\n");
     using (var db = AssetDatabase.Open(asset)) {
@@ -101,7 +130,7 @@ public sealed class AssetDatabaseTests : IDisposable {
       Assert.False(db.Build(asset).CacheHit);
       Assert.False(Directory.Exists(Path.Combine(root,"modules/child/.hix")));
     }
-    Write("unrelated/manifest.hal", "--- Manifest\nname=unrelated\nsources={main=[],test=[],modules=[]}\n");
+    Write("unrelated/manifest.hal", "--- Manifest\nname=unrelated\nsources={assets=[\"**\"],main=[],test=[],modules=[]}\n");
     using var unrelated = AssetDatabase.Open(Path.Combine(root,"unrelated"));
     Assert.Equal(Path.Combine(root,"unrelated"),unrelated.Workspace.Root);
   }
@@ -167,7 +196,7 @@ public sealed class AssetDatabaseTests : IDisposable {
   [Fact] public void RemovingUidStopsUidResolutionAndUnrelatedWorkspacesAreNotIndexed() {
     Write("item.hal", "%uid(\"inventory-item\")\n--- Item &item\nname=first\n");
     Write("container.hal", "--- Container\nitem=asset(uid(\"inventory-item\"))\n");
-    Write("unrelated/manifest.hal", "--- Manifest\nname=other\nsources={main=[],test=[],modules=[]}\n");
+    Write("unrelated/manifest.hal", "--- Manifest\nname=other\nsources={assets=[\"**\"],main=[],test=[],modules=[]}\n");
     Write("unrelated/other.hal", "--- table\nname=other\n");
     using var db = AssetDatabase.Open(root); Assert.Equal(2,db.Refresh()); db.Build("container.hal");
     Write("item.hal", "--- Item &item\nname=first\n");

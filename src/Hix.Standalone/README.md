@@ -121,6 +121,30 @@ paths resolve from the entry file's directory. The backend provides path joining
 normalization and inspection; working-directory and platform separator values; and file reading,
 writing, creation, deletion, copying, renaming, existence checks, length queries, and directory listing.
 
+## Manifest source locations
+
+`manifest.hal` accepts separate source sets:
+
+```hal
+sources = {
+  main = ["src/**"]
+  test = ["test/**"]
+  modules = ["modules/**"]
+  assets = ["assets/**"]
+  macros = ["macros/**"]
+}
+```
+
+These are the defaults when a field is omitted. Each field accepts a relative glob or a
+list of globs; `[]` disables that set. Assets are `.hal` files matching `sources.assets`.
+Indexing, asset references/builds, and graph editing respect the nearest manifest's set;
+associated modules use their own asset locations. A refresh removes previously indexed
+assets that no longer belong to a configured set. Manifest files are not indexed assets.
+Without a manifest, loose HAL files retain directory-based discovery.
+
+`HixProject.MacroSources()` exposes `.hix` files from `sources.macros` separately from
+ordinary main/test sources. Macro-specific compilation and processing are not implemented yet.
+
 ## Analyzer service
 
 `Hix.Standalone.Analysis.HixAnalyzerService` is the stateful, transport-neutral language-service

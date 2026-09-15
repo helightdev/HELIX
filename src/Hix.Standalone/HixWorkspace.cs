@@ -38,6 +38,25 @@ public sealed class HixWorkspace {
       }
     }
   }
+  public IReadOnlyList<string> AssetPaths() {
+    if (Project == null) return Files(Root, "*.hal", directory => !File.Exists(Path.Combine(directory, "manifest.hal"))).Where(path => !Path.GetFileName(path).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase)).ToArray();
+    var owners = new Dictionary<string, HixManifest>(PathComparer);
+    HixManifest Owner(string path) {
+      var directory = Path.GetDirectoryName(path);
+      if (!owners.TryGetValue(directory, out var owner)) owners[directory] = owner = HixManifest.Find(path);
+      return owner;
+    }
+    return Associated(Project).Where(manifest => Contains(Root, manifest.Directory))
+      .SelectMany(manifest => HixProject.MatchAssetFiles(manifest.Directory, manifest.Sources.Assets)
+        .Where(path => SamePath(Owner(path).Path, manifest.Path)))
+      .Distinct(PathComparer).OrderBy(path => path, PathComparer).ToArray();
+  }
+  public bool IncludesAsset(string path) {
+    if (!Contains(Root, path) || Contains(CacheDirectory, path) || !path.EndsWith(".hal", StringComparison.OrdinalIgnoreCase)
+        || Path.GetFileName(path).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase)) return false;
+    var owner = HixManifest.Find(path);
+    return owner == null || (SamePath(Find(path).Root, Root) && HixProject.MatchesFile(owner.Directory, path, owner.Sources.Assets));
+  }
   public IReadOnlyList<HixSourceFile> Sources() => Project != null ? Project.SourcesFor(Manifest) :
     System.IO.Directory.GetFiles(Directory, "*.hix").OrderBy(p => p, StringComparer.Ordinal).Select(p => new HixSourceFile(p, File.ReadAllText(p))).ToArray();
   internal static StringComparer PathComparer => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;

@@ -28,6 +28,8 @@ public sealed class HalGraphService {
     lock (gate) {
       path = Path.GetFullPath(path);
       if (!path.EndsWith(".hal", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Expected a .hal asset");
+      if (!Path.GetFileName(path).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase) && !HixWorkspace.Find(path).IncludesAsset(path))
+        throw new ArgumentException("Asset is outside manifest sources.assets: " + path);
       var session = new Session(path, File.ReadAllText(path));
       if (!Path.GetFileName(path).Equals("manifest.hal", StringComparison.OrdinalIgnoreCase))
         Commit(session, HalGraphSections.Extract(session.Text));
