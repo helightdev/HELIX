@@ -259,6 +259,11 @@ plugin and silently never runs it. The three steps are separate tasks (`lowerWea
 and outputs, so editing a mixin re-lowers but skips the build when the lowered sources come out
 unchanged.
 
+After deploying a new generator, regenerate Unity's project files before trusting the IDE. Rider
+and VS keep using the analyzer their `.csproj` files pointed at when they were written, so a
+freshly deployed generator can leave the IDE reporting errors on generated members while Unity
+itself compiles cleanly.
+
 By hand, if you need the pieces:
 
 ```bash
