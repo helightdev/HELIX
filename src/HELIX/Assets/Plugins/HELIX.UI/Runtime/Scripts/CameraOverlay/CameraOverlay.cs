@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HELIX.Compose;
@@ -180,7 +181,31 @@ namespace HELIX.UI.CameraOverlays {
       }
 
       // A structured or multi-part value writes one element per component rather than being flattened
-      // into a single element, where each write would overwrite the one before it.
+      // into a single element, where each write would overwrite the one before it. The typed overloads
+      // are preferred because ICompositeDatatype.WriteComponent takes an object and would box the
+      // value once per component per frame.
+      if (datatype is CompositeDatatype<T> typedComposite && typedComposite.ComponentCount > 0) {
+        var count = typedComposite.ComponentCount;
+        _fallbackWriter ??= new TextElementProseWriter();
+        for (var i = 0; i < count; i++) {
+          _fallbackWriter.Element = values.At(i);
+          typedComposite.WriteComponent(_fallbackWriter, value, i);
+          _fallbackWriter.Flush();
+        }
+        return count;
+      }
+
+      if (datatype is StructureDatatype<T> structure && structure.Properties.Count > 0) {
+        var count = structure.Properties.Count;
+        _fallbackWriter ??= new TextElementProseWriter();
+        for (var i = 0; i < count; i++) {
+          _fallbackWriter.Element = values.At(i);
+          structure.WriteComponent(_fallbackWriter, ref value, i);
+          _fallbackWriter.Flush();
+        }
+        return count;
+      }
+
       if (datatype is ICompositeDatatype composite && composite.ComponentCount > 0) {
         var count = composite.ComponentCount;
         _fallbackWriter ??= new TextElementProseWriter();
@@ -506,8 +531,14 @@ namespace HELIX.UI.CameraOverlays {
   ///   When the prose names a property value, only that value is kept: an overlay cell shows the value,
   ///   and the key and description are already placed by the row around it.
   /// </summary>
-  internal sealed class TextElementProseWriter : ProseWriter {
+  /// <remarks>
+  ///   This runs every frame, so nothing here is allowed to allocate in the steady state. Numbers are
+  ///   formatted into a reusable buffer through <see cref="IProseNumberWriter" /> rather than through
+  ///   <c>ToString</c>, and the accumulated text reaches the element as the builder itself.
+  /// </remarks>
+  internal sealed class TextElementProseWriter : ProseWriter, IProseNumberWriter {
     private readonly StringBuilder _builder = new();
+    private char[] _numberBuffer = new char[32];
     private int _depth;
     private int _valueDepth = -1;
     private bool _sawValue;
@@ -516,7 +547,12 @@ namespace HELIX.UI.CameraOverlays {
 
     /// <summary>Writes what has accumulated into the element and starts over.</summary>
     public void Flush() {
-      Element?.SetText(_builder.Length == 0 ? "null".AsSpan() : _builder.ToString().AsSpan());
+      if (Element != null) {
+        // SetText(StringBuilder) copies straight out of the builder. ToString would allocate a
+        // string per value per frame, which is what this path exists to avoid.
+        if (_builder.Length == 0) Element.SetText("null".AsSpan());
+        else Element.SetText(_builder);
+      }
       _builder.Clear();
       _depth = 0;
       _valueDepth = -1;
@@ -549,10 +585,49 @@ namespace HELIX.UI.CameraOverlays {
     public override void Write<T>(T value, IDatatype<T> datatype) => datatype.ToProse(this, value);
 
     public override void Write(string text) {
-      // Once a value scope has been seen, only its contents belong in the cell.
-      if (_sawValue && _valueDepth < 0) return;
+      if (Suppressed) return;
       _builder.Append(text ?? "null");
     }
+
+    // Written out per type rather than over ISpanFormattable, which this runtime's API profile
+    // does not expose. Each one formats into the shared buffer and appends what it wrote.
+    public void WriteNumber(int value, string format) {
+      if (Suppressed) return;
+      int written;
+      while (!value.TryFormat(_numberBuffer, out written, format.AsSpan(), CultureInfo.InvariantCulture))
+        Grow();
+      _builder.Append(_numberBuffer, 0, written);
+    }
+
+    public void WriteNumber(long value, string format) {
+      if (Suppressed) return;
+      int written;
+      while (!value.TryFormat(_numberBuffer, out written, format.AsSpan(), CultureInfo.InvariantCulture))
+        Grow();
+      _builder.Append(_numberBuffer, 0, written);
+    }
+
+    public void WriteNumber(float value, string format) {
+      if (Suppressed) return;
+      int written;
+      while (!value.TryFormat(_numberBuffer, out written, format.AsSpan(), CultureInfo.InvariantCulture))
+        Grow();
+      _builder.Append(_numberBuffer, 0, written);
+    }
+
+    public void WriteNumber(double value, string format) {
+      if (Suppressed) return;
+      int written;
+      while (!value.TryFormat(_numberBuffer, out written, format.AsSpan(), CultureInfo.InvariantCulture))
+        Grow();
+      _builder.Append(_numberBuffer, 0, written);
+    }
+
+    /// <summary>Once a value scope has been seen, only its contents belong in the cell.</summary>
+    private bool Suppressed => _sawValue && _valueDepth < 0;
+
+    /// <summary>Grows at most once or twice per writer; a formatted number is small and bounded.</summary>
+    private void Grow() => _numberBuffer = new char[_numberBuffer.Length * 2];
   }
 
   /// <summary>

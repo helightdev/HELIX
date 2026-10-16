@@ -208,7 +208,14 @@ namespace HELIX {
     public object GetComponentValue(object value, int index) => _components[index].GetValue((T)value);
     public object SetComponentValue(object value, int index, object componentValue) =>
       _components[index].SetValue((T)value, componentValue);
-    public void WriteComponent(IProseWriter writer, object value, int index) =>
+    /// <summary>
+    ///   Writes one component without boxing the owning value, for sinks that have it typed. The
+    ///   <see cref="ICompositeDatatype" /> member takes an object and is the boxing path.
+    /// </summary>
+    public void WriteComponent(IProseWriter writer, T value, int index) =>
+      _components[index].ToProse(writer, value);
+
+    void ICompositeDatatype.WriteComponent(IProseWriter writer, object value, int index) =>
       _components[index].ToProse(writer, (T)value);
     public string ToString(T value) => _toString(value);
     public T FromString(string value) => _fromString(value);
@@ -465,17 +472,14 @@ namespace HELIX {
     public bool TryWrite(IUniversalWriter writer, string name, int value) =>
       writer.TryWriteInt32(name, value);
 
-    public void ToProse(IProseWriter writer, int value) {
-      WriteNumber(writer, value.ToString(Format, CultureInfo.InvariantCulture));
-    }
+    public void ToProse(IProseWriter writer, int value) =>
+      DatatypeUtility.WriteDecorated(writer, value, Format, Prefix, Suffix, Unit);
 
     public void ToProse(IProseWriter writer, int? value) {
       if (value.HasValue) ToProse(writer, value.Value);
       else writer.Write(NullText);
     }
 
-    private void WriteNumber(IProseWriter writer, string number) =>
-      DatatypeUtility.WriteDecorated(writer, number, Prefix, Suffix, Unit);
   }
 
   public sealed class LongDatatype :
@@ -527,9 +531,8 @@ namespace HELIX {
     public bool TryWrite(IUniversalWriter writer, string name, long value) =>
       writer.TryWriteInt64(name, value);
 
-    public void ToProse(IProseWriter writer, long value) => DatatypeUtility.WriteDecorated(
-      writer, value.ToString(Format, CultureInfo.InvariantCulture), Prefix, Suffix, Unit
-    );
+    public void ToProse(IProseWriter writer, long value) =>
+      DatatypeUtility.WriteDecorated(writer, value, Format, Prefix, Suffix, Unit);
 
     public void ToProse(IProseWriter writer, long? value) {
       if (value.HasValue) ToProse(writer, value.Value);
@@ -602,13 +605,12 @@ namespace HELIX {
     public void ToProse(IProseWriter writer, float value) {
       if (Clamp) value = Math.Max(Min ?? float.MinValue, Math.Min(Max ?? float.MaxValue, value));
       value *= Scale;
-      DatatypeUtility.WriteDecorated(
-        writer,
-        Compact
-          ? DatatypeUtility.FormatCompact(value)
-          : value.ToString(Format, CultureInfo.InvariantCulture),
-        Prefix, Suffix, Unit
-      );
+      // Compact trims trailing zeroes off the formatted text, so it has to build the string.
+      if (Compact) {
+        DatatypeUtility.WriteDecorated(writer, DatatypeUtility.FormatCompact(value), Prefix, Suffix, Unit);
+        return;
+      }
+      DatatypeUtility.WriteDecorated(writer, value, Format, Prefix, Suffix, Unit);
     }
 
     public void ToProse(IProseWriter writer, float? value) {
@@ -669,11 +671,13 @@ namespace HELIX {
     public bool TryWrite(IUniversalWriter writer, string name, double value) =>
       writer.TryWriteDouble(name, value);
 
-    public void ToProse(IProseWriter writer, double value) => DatatypeUtility.WriteDecorated(
-      writer,
-      Compact ? DatatypeUtility.FormatCompact(value) : value.ToString(Format, CultureInfo.InvariantCulture),
-      Prefix, Suffix, Unit
-    );
+    public void ToProse(IProseWriter writer, double value) {
+      if (Compact) {
+        DatatypeUtility.WriteDecorated(writer, DatatypeUtility.FormatCompact(value), Prefix, Suffix, Unit);
+        return;
+      }
+      DatatypeUtility.WriteDecorated(writer, value, Format, Prefix, Suffix, Unit);
+    }
 
     public void ToProse(IProseWriter writer, double? value) {
       if (value.HasValue) ToProse(writer, value.Value);

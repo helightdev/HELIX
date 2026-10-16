@@ -30,6 +30,18 @@ namespace HELIX.Prose {
     void WriteLineBreak(bool force);
   }
 
+  /// <summary>
+  /// Optional capability for a sink that can take a number without it being turned into a string
+  /// first. A per-frame sink implements this so formatting a value costs no allocation; everything
+  /// else is unaffected, since a datatype falls back to writing the formatted text.
+  /// </summary>
+  public interface IProseNumberWriter {
+    void WriteNumber(int value, string format);
+    void WriteNumber(long value, string format);
+    void WriteNumber(float value, string format);
+    void WriteNumber(double value, string format);
+  }
+
   /// <summary>A self-formatting semantic value.</summary>
   public interface IProse {
     void ToProse(IProseWriter writer);
