@@ -107,3 +107,63 @@ tasks.wrapper {
     distributionUrl =
         "https://cache-redirector.jetbrains.com/services.gradle.org/distributions/gradle-${gradleVersion}-all.zip"
 }
+
+// The generator is a single analyzer DLL that lives in the Unity project. Lowering turns the
+// mixins into its sources; building bundles them with the weave host; deploying copies the
+// result where Unity's RoslynAnalyzer importer picks it up.
+val weaveConfiguration = providers.gradleProperty("BuildConfiguration").orElse("Release").get()
+val weaveMixinsDir = layout.projectDirectory.dir("src/HELIX/Weave/HELIX.Weave.Mixins").asFile
+val weaveGeneratedDir = layout.projectDirectory.dir("src/HELIX/Weave/HELIX.Weave.Generator/gen").asFile
+val weaveLowerDir = layout.projectDirectory.dir("src/Weave/Helix.Weave.Lower").asFile
+val weaveHostDir = layout.projectDirectory.dir("src/Weave/Helix.Weave").asFile
+val weaveGeneratorProject = layout.projectDirectory
+    .file("src/HELIX/Weave/HELIX.Weave.Generator/HELIX.Weave.Generator.csproj").asFile
+val weaveGeneratorOutput = layout.projectDirectory.file(
+    "src/HELIX/Weave/HELIX.Weave.Generator/bin/$weaveConfiguration/netstandard2.0/HelixWeaveGenerator.dll"
+).asFile
+val weaveAnalyzer = layout.projectDirectory
+    .file("src/HELIX/Assets/Plugins/HELIX/Runtime/Scripts/HelixWeaveGenerator.dll").asFile
+
+val lowerWeaveMixins = tasks.register<Exec>("lowerWeaveMixins") {
+    group = "helix"
+    description = "Lowers the HELIX mixins into the generator's sources."
+    commandLine("dotnet", "run", "--project", weaveLowerDir.absolutePath, "--",
+        weaveMixinsDir.absolutePath, weaveGeneratedDir.absolutePath)
+    inputs.dir(weaveMixinsDir).withPropertyName("mixins")
+    inputs.dir(weaveLowerDir).withPropertyName("lowerer")
+    outputs.dir(weaveGeneratedDir).withPropertyName("generated")
+}
+
+val buildWeaveGenerator = tasks.register<Exec>("buildWeaveGenerator") {
+    group = "helix"
+    description = "Builds the weave source generator."
+    dependsOn(lowerWeaveMixins)
+    commandLine("dotnet", "build", weaveGeneratorProject.absolutePath,
+        "-c", weaveConfiguration, "--nologo")
+    inputs.dir(weaveGeneratedDir).withPropertyName("generated")
+    inputs.dir(weaveHostDir).withPropertyName("host")
+    outputs.file(weaveGeneratorOutput).withPropertyName("generator")
+}
+
+tasks.register("deployWeaveGenerator") {
+    group = "helix"
+    description = "Builds the weave source generator and installs it into the Unity project."
+    dependsOn(buildWeaveGenerator)
+
+    // Captured as plain files: a doLast that reaches back into the script cannot be stored in
+    // the configuration cache.
+    val from = weaveGeneratorOutput
+    val to = weaveAnalyzer
+    inputs.file(from).withPropertyName("generator")
+    outputs.file(to).withPropertyName("analyzer")
+
+    doLast {
+        to.parentFile.mkdirs()
+        from.copyTo(to, overwrite = true)
+        // Unity loads this DLL directly; a half-written copy is worse than a failed build.
+        check(from.readBytes().contentEquals(to.readBytes())) {
+            "Deployed generator does not match ${from.absolutePath}"
+        }
+        logger.lifecycle("Deployed ${from.name} to ${to.path}")
+    }
+}
