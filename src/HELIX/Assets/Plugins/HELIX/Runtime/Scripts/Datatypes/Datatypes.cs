@@ -20,6 +20,25 @@ namespace HELIX {
     string Unit { get; }
   }
 
+  /// <summary>
+  ///   How a numeric datatype wants its value written when a sink formats it itself rather than going
+  ///   through <see cref="IDatatype{T}.ToProse" />. Lets an allocation-sensitive sink keep its direct
+  ///   path without reaching into one concrete datatype's fields.
+  /// </summary>
+  public interface IDatatypeNumberFormat {
+    /// <summary>Numeric format string, as passed to the value's own formatter.</summary>
+    string Format { get; }
+
+    /// <summary>Multiplied onto the value before it is written, for unit changes like 0..1 to percent.</summary>
+    float Scale { get; }
+
+    /// <summary>Whether the value is held to the datatype's range before it is written.</summary>
+    bool Clamp { get; }
+
+    /// <summary>Whether the datatype abbreviates large values, in which case it must write them itself.</summary>
+    bool Compact { get; }
+  }
+
   public interface IDatatypeAffix {
     string Prefix { get; }
     string Suffix { get; }
@@ -520,6 +539,7 @@ namespace HELIX {
 
   public sealed class FloatDatatype :
     IDatatype<float>, IDatatype<float?>, IDatatypeRange<float>, IDatatypeUnit, IDatatypeAffix,
+    IDatatypeNumberFormat,
     INumericConvertible<float>, IStringConvertible<float>, ISerializableDatatype<float> {
     public FloatDatatype(
       string format = "R", float? min = null, float? max = null,

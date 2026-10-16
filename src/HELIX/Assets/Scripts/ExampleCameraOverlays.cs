@@ -13,6 +13,7 @@ using UnityEngine.Serialization;
   private WorldCameraOverlayEntry _world;
   private Camera _namedCamera;
   private string _cameraName;
+  private readonly SerializerTest _sample = new("Example", 1, true, 1.8f, 70.0, 0.75f);
 
   [FormerlySerializedAs("enabledCameraOverlay")] public bool enabledCamera = true;
 
@@ -58,6 +59,8 @@ using UnityEngine.Serialization;
     prose.Property("Frame", Time.frameCount, Datatypes.Int);
     prose.Property("Time", Time.unscaledTime, Datatypes.Float);
     prose.Property("Time scale", Time.timeScale, Datatypes.Float);
+    // A generated structure, to show that one writes to an overlay as its components.
+    prose.Property("Sample", _sample, SerializerTest.Datatype);
     prose.Content(ExtraContent);
   }
 

@@ -38,7 +38,9 @@ namespace HELIX.UI {
         cx.NavigationHost(service.navigation).With(Flex.Fill());
       }
 
-      CameraOverlayComposition.Compose(ref cx, service.screenCameraOverlays, service.worldCameraOverlays);
+      CameraOverlayComposition.Compose(
+        ref cx, service.screenCameraOverlays, service.worldCameraOverlays, service.theme
+      );
       _console = CameraOverlayComposition.ComposeConsole(ref cx, service.commandSystem);
     }
 
@@ -50,10 +52,13 @@ namespace HELIX.UI {
     private static readonly ushort ConsoleId = CompositionId.GetTypeId(nameof(CommandConsoleElement));
 
     public static void Compose(
-      ref Composition cx, ScreenCameraOverlayController screen, WorldCameraOverlayController world
+      ref Composition cx, ScreenCameraOverlayController screen, WorldCameraOverlayController world,
+      ThemeData theme
     ) {
       if (!cx.AUTHORING.RequireTracked<CameraOverlayElement>(OverlayId, out var element, out _))
         element = new CameraOverlayElement(screen, world);
+      // Resolved here, where a theme change already causes a recompose, rather than per overlay tick.
+      element.SetTheme(theme);
       cx.AUTHORING.YieldElement(ref cx, element);
     }
 
