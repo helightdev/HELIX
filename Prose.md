@@ -518,3 +518,57 @@ datatype, with the string left as the override.
 
 1 is the keystone — 3, 4 and 5 are each roughly a file, and all three are
 currently blocked on having something to label things with.
+
+## 6. What was implemented
+
+Five commits on `composable-rework`. Verified with Unity's own compiler
+(clean compile, 152/152 EditMode tests) plus 82 weave unit tests; the stale
+`HELIX.Widgets.csproj` still references the deleted Hix generator, which is
+unrelated and predates this work.
+
+| § | Change | Status |
+|---|---|---|
+| 3.1 | Control construction on `ProseField<T>`, dispatch via `SpecConfig` | done — 636 → 270 lines |
+| 3.2 | `ProseFieldDecoration` by ref instead of a part list | done |
+| 3.3 | Label width, reset tooltips, tooltip glyph/width, theme radius and spacing | done, except the decorator point below |
+| 3.5 | Optional `Field` arguments, `WriteField`, `ForFields`, pooled field writer | done, except path prefixing below |
+| 3.4 | Theming, component rows, ordered fields, writer contract, shared controller base | done, except the two points below |
+| 5.2 | `Label`/`Description` from doc comments, through to `StructurePropertyDatatype` | done |
+| 5.3 | Generated command arguments keep their descriptions | done |
+| 5.4 | `StructureProse`: structure → nested `HXFormField`s | done |
+| 5.5 | `StructureOption<T>` | done |
+| 5.6 | `modifiers:` at construction; hidden/order/group | not done |
+| 5.8 | Typed `[Prop]` range/unit members | not done |
+
+### Deliberately not done
+
+- **§3.3, decoration through `HXDecorator`.** The field row already carries
+  label, description and affixes, so handing the same decorators to the
+  decorator layout renders them twice. Doing this properly means a
+  `DecoratorLayout` built on `InspectorLayout` and is a change to
+  `HXDecorator`, not to the bridge. `Passthrough` stays, with a comment
+  saying why.
+- **§3.5, resolving field paths against the nav path.** The example looked
+  redundant, but `OptionsService` derives `groupPath` *from* the option path
+  by splitting it, so absolute field paths are the design and prefixing would
+  be a second, conflicting convention.
+- **§3.4, composing entries through `DynamicFlexGroupBoundary`.** World
+  overlays need a per-tick camera projection written onto each entry, which
+  is what the hand-rolled `Synchronize` plus style writes are for.
+  `DynamicCollectionHelper.Synchronize` is the public API for exactly this,
+  so this is using the lower-level entry point, not bypassing the system.
+- **§3.4, `DetachEntry` instead of `display = None`.** Visibility flips every
+  time the camera turns, and detach/reattach churn could cost more than the
+  toggle. The actual waste — positioning and styling an entry that was going
+  to be hidden — is gone either way: the enabled and condition checks now run
+  before any work, not after.
+- **§5.6 and §5.8.** Both are refinement rather than capability, and neither
+  blocks anything else. They are the obvious next piece.
+
+### Corrections to the estimates above
+
+§3.4 was estimated at about 120 deleted lines. `CameraOverlay.cs` went from
+529 to 830: the ten fixed text elements and the `Vector3` special case did
+go, but the resolved style struct, the ordered-field bookkeeping and the
+accumulating text writer are all new. The deletion was real; it was just
+smaller than what replaced it.
