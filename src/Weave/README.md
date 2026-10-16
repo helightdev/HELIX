@@ -171,8 +171,8 @@ each checked by hand:
 
 - **`[Prop(Equatable = false)]` is honoured** (`SliderStyle.box`). Hix read the flag only after
   it had already returned early for a `[Prop]` with no explicit `defaultInit`, so the flag did
-  nothing. Weave excludes the property from `Equals`/`GetHashCode`, which is what the author
-  asked for — a real behaviour change in generated code, and the one difference worth a look.
+  nothing. Weave excludes the property from `Equals`/`GetHashCode`. This changes generated
+  behaviour and was kept deliberately: the attribute says what it means.
 - **`registration.RegisterHandlerBinding` and the `managed.IsActive` ticker guard are emitted**
   on every `[Managed]` type. Hix gated both on a `var#IsComponent` flag that another mixin had
   to have set first, so whether they appeared depended on attribute evaluation order. Weave asks
