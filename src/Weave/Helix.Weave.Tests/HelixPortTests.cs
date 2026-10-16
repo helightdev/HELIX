@@ -15,11 +15,15 @@ public class HelixPortTests {
   private readonly ITestOutputHelper _output;
   public HelixPortTests(ITestOutputHelper output) => _output = output;
 
+  /// <summary>
+  /// HELIX's own mixins live with the project, beside its Assets folder — the weave system
+  /// itself knows nothing about them.
+  /// </summary>
   private static string MixinsDirectory {
     get {
       var directory = new DirectoryInfo(AppContext.BaseDirectory);
-      while (directory is not null && directory.Name != "Weave") directory = directory.Parent;
-      return Path.Combine(directory!.FullName, "Helix.Weave.Mixins");
+      while (directory is not null && directory.Name != "src") directory = directory.Parent;
+      return Path.Combine(directory!.FullName, "HELIX", "Weave", "HELIX.Weave.Mixins");
     }
   }
 

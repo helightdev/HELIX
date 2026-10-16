@@ -1,7 +1,21 @@
 # Weave
 
-Standalone implementation of the codegen system drafted in [Weaver.md](../../Weaver.md).
-Not wired into HELIX or `HELIX.sln` — it proves itself through its own tests first.
+The codegen system drafted in [Weaver.md](../../Weaver.md). It knows nothing about HELIX:
+HELIX's own mixins live with the project, in `src/HELIX/Weave/` beside its `Assets/` folder, so
+Unity never compiles them into the game.
+
+```
+src/Weave/                      the system — no HELIX knowledge
+  Helix.Weave/                  host + authoring surface (netstandard2.0)
+  Helix.Weave.Lower/            the lowering pass + CLI (net8.0)
+  Helix.Weave.Tests/            unit tests + the end-to-end pipeline test (net8.0)
+  Helix.Weave.Compare/          runs this and Hix over a real Unity csproj and diffs
+
+src/HELIX/Weave/                HELIX's own mixins, beside Assets/ (never compiled by Unity)
+  HELIX.Weave.Mixins/           the ported .hix files
+  HELIX.Weave.Generator/        gen/ + csproj producing HelixWeaveGenerator.dll
+  HELIX.Weave.sln               open this to edit the mixins with full IDE support
+```
 
 ```
 Helix.Weave/          host + authoring surface (netstandard2.0)
@@ -49,6 +63,9 @@ dotnet test src/Weave/Helix.Weave.Tests/Helix.Weave.Tests.csproj
 dotnet run --project src/Weave/Helix.Weave.Lower -- <mixin-dir> <output-dir> [refs...]
 ```
 
+To work on HELIX's mixins, open `src/HELIX/Weave/HELIX.Weave.sln`; it carries the mixin project,
+the generator that bundles them, and the two weave projects they build against.
+
 ## Why there are no golden files
 
 `PipelineTests` lowers the fixtures, compiles the lowered output into a real generator, runs it
@@ -81,7 +98,7 @@ that consume it, not to the core.
 
 ## The HELIX port
 
-`Helix.Weave.Mixins/` is all five of HELIX's `.hix` files ported: `Core.cs`, `Context.cs`,
+`src/HELIX/Weave/HELIX.Weave.Mixins/` is all five of HELIX's `.hix` files ported: `Core.cs`, `Context.cs`,
 `Compose.cs`, `Boot.cs`, `Odin.cs`, plus `Shared.lib.cs` and `Types.lib.cs`. It references
 neither Unity nor the HELIX runtime — every runtime type is named by metadata string.
 
@@ -204,9 +221,11 @@ names and delete `HelixWeaveGenerator.dll*`.
 
 ```bash
 dotnet run --project src/Weave/Helix.Weave.Lower -- \
-  src/Weave/Helix.Weave.Mixins src/Weave/Helix.Weave.Generator/gen
-dotnet build src/Weave/Helix.Weave.Generator -c Release
+  src/HELIX/Weave/HELIX.Weave.Mixins src/HELIX/Weave/HELIX.Weave.Generator/gen
+dotnet build src/HELIX/Weave/HELIX.Weave.sln -c Release
 ```
+
+or `dotnet build src/HELIX/Weave/HELIX.Weave.sln -c Release -p:Lower=true` to re-lower first.
 
 The result is `HelixWeaveGenerator.dll` (~130 KB), a single analyzer assembly holding the host
 and the lowered mixins — the same shape as `HixUnityGenerator.dll`, with no `.additionalfile`.

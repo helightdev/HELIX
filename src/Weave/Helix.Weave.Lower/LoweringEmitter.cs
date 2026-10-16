@@ -48,7 +48,12 @@ public static class LoweringEmitter {
   }
 
   private static IEnumerable<string> UsingsOf(MixinDeclaration declaration) {
-    var seen = new HashSet<string>(System.StringComparer.Ordinal) { "using Helix.Weave;" };
+    // Seeded with what the file header already emits, so a mixin that imports the same
+    // namespaces does not produce duplicate-using warnings.
+    var seen = new HashSet<string>(System.StringComparer.Ordinal) {
+      "using Helix.Weave;",
+      "using Microsoft.CodeAnalysis;",
+    };
     foreach (var directive in declaration.Syntax.SyntaxTree.GetRoot().DescendantNodes()
                .OfType<UsingDirectiveSyntax>()) {
       var text = directive.ToString().Trim();
