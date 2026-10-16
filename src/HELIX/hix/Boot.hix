@@ -1,0 +1,69 @@
+//%pragma<DISASSEMBLE>
+%pragma<PROFILE>
+%vm<PROFILE>
+//%vm<DEBUG>
+%backend<Unity>
+---
+
+derivation mixin HELIX.Boot.NamedArgAttribute {
+  prelude expression {
+    local Named @= param#symbol:attributeOf<HELIX.Boot.NamedArgAttribute>;
+    when($Named:exists) {
+      local Configuration @> datatype.GetProperty("{{param#value#name}}").Modifiers.Add(NamedArgModifier.Instance);
+      return(param#value:put(<configuration>, $Configuration))
+    }
+    return(param#value)
+  }
+}
+
+mixin HELIX.Boot.CommandAttribute(string? name = [null], string? description = [null], string? parent = [null]) {
+  prelude expression {
+    local StructName @> {{target:name}}_Args
+    local StructHandle @= target:DeriveParameters;
+    EmitGeneratedStructure($StructName, $StructHandle, true);
+  }
+  expression {
+    using @> HELIX.Boot;
+    local TargetName @= target:name;
+    local StructName @> {{$TargetName}}_Args
+    %inline local StructHandle @= DeriveParameters(target);
+    local InvokeArguments @= $StructHandle:map(func => <[$0#value#modifier] args.[$0#value#name]>):join<, >;
+    local InvokeLambda @> args => {{$TargetName}}({{$InvokeArguments}})
+    local CommandName @= $name;
+    local CmdName @= $name:csharpLiteral;
+    when($CommandName:eq(null)) {
+      $CmdName @> "{{$TargetName}}"
+    }
+    local Description @= $description:csharpLiteral;
+    local Parent @= $parent:csharpLiteral;
+    local Bridge @> CommandBridge<{{$StructName}}>.Create({{$StructName}}.Datatype, {{$InvokeLambda}}, {{$CmdName}}, {{$Description}}, {{$Parent}})
+    inject(<$LoadManagedLate>, 0) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{$Bridge}});
+  }
+}
+
+mixin HELIX.Boot.RegisterCommandAttribute {
+  prelude expression {
+    inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
+    inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{target:name}});
+  }
+}
+
+mixin HELIX.Boot.RegisterOptionAttribute(string? path = [null]) {
+  prelude expression {
+    when(![$path:eq(null)]) {
+      local Path @= $path:csharpLiteral;
+      inject(<$Init>, -1) @> {{target:name}}.SetInferredPath({{$Path}});
+      inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof({{target:type:unwrap}}), {{$Path}}, true);
+      inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof({{target:type:unwrap}}), {{$Path}}, {{target:name}});
+      return
+    }
+    {
+      inject(<$Init>, -1) @> {{target:name}}.SetInferredName("{{target:name}}");
+      inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof(HELIX.Boot.Option), null, true);
+      inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof(HELIX.Boot.Option), null, {{target:name}})
+      return
+    }
+  }
+}
+
+mixin DefaultNamespace.TextMixin {}
