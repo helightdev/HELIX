@@ -9,7 +9,6 @@ src/Weave/                      the system — no HELIX knowledge
   Helix.Weave/                  host + authoring surface (netstandard2.0)
   Helix.Weave.Lower/            the lowering pass + CLI (net8.0)
   Helix.Weave.Tests/            unit tests + the end-to-end pipeline test (net8.0)
-  Helix.Weave.Compare/          runs this and Hix over a real Unity csproj and diffs
 
 src/HELIX/Weave/                HELIX's own mixins, beside Assets/ (never compiled by Unity)
   HELIX.Weave.Mixins/           the ported .hix files
@@ -128,22 +127,16 @@ Known differences from the Hix original, all deliberate:
 - Attribute decoding covers positional, named, enums, arrays and type arguments; nested attribute
   arrays of types are untested.
 
-## Comparing against Hix on the real codebase
+## How this was checked against Hix
 
-`Helix.Weave.Compare` builds a real Roslyn compilation from Unity's own generated `.csproj`
-(same sources, references, defines and sibling-assembly references), runs both generators over
-it, and compares their output semantically — base types and members as sets, method bodies in
-order, ignoring layout and spellings like `int` vs `global::System.Int32`.
+While both generators existed, a comparison tool built a real Roslyn compilation from Unity's
+own generated `.csproj` — same sources, references, defines and sibling-assembly references —
+ran both over it, and compared their output semantically: base types and members as sets, method
+bodies in order, ignoring layout and spellings like `int` versus `global::System.Int32`.
 
-```bash
-dotnet run --project src/Weave/Helix.Weave.Compare -- \
-  src/HELIX src/Weave/Helix.Weave.Mixins \
-  src/Weave/unity-backup/HixUnityGenerator.dll --out /tmp/weave-compare
-```
-
-Across the whole project: **51 of 77 generated types semantically identical, 0 produced by only
-one generator, 0 weave errors.** The remaining 26 differ in ways checked by hand and judged
-equivalent or deliberate (see below).
+It ended at **64 of 77 generated types equivalent, none produced by only one generator, and no
+weave errors**. Hix and the tool are both gone now; what follows is the record of what that
+comparison established, because it is the evidence that the port is faithful.
 
 ### Bugs the comparison found
 
@@ -161,6 +154,10 @@ equivalent or deliberate (see below).
   and a relocated `readonly` field cannot be assigned by the decoder.
 - A non-`partial` type must be skipped, not generated into.
 - Module imports were qualified twice, producing `global::global::`.
+- Module discovery walked referenced assemblies, so an application module re-registered
+  components a referenced module already had — the one bug that only showed at runtime.
+- A bare `[Ticker]` produced `FrameCountTicker(1)` instead of `(0)`, and enum properties went
+  through `EqualityComparer<T>.Default` instead of `==`.
 
 ### The remaining differences
 
@@ -190,9 +187,7 @@ each checked by hand:
 
 The generator is installed at
 `src/HELIX/Assets/Plugins/HELIX/Runtime/Scripts/HelixWeaveGenerator.dll` with a `RoslynAnalyzer`
-meta. The two generators cannot both run — they emit the same partial members — so
-`HixUnityGenerator.dll` is renamed to `.dll.disabled` alongside it, and the originals are kept in
-`src/Weave/unity-backup/`.
+meta, and is the only one: Hix and its generator are gone.
 
 **Result: the project compiles with zero errors, and 152/152 EditMode tests pass**, including
 the module-discovery and managed-container tests that exercise generated code directly. The only
@@ -245,10 +240,10 @@ Unity's own per-assembly generator timings, heaviest assembly in a burst:
 | weave, after caching symbol lookups | 0.45 s | ~0.65 s |
 | weave, incremental | **0.16 s** | **~0.35 s** |
 
-Measured side by side in one process (`Helix.Weave.Compare` prints per-project timings) weave
-still looks worse than Hix on the largest assembly, but that comparison flatters Hix: its
-`MixinCompilationCache` is process-wide, so it compiles its `.hix` catalog once and reuses it
-across all 20 projects, which is not what happens in a real build.
+Measured side by side in one process weave looked worse than Hix on the largest assembly, but
+that comparison flattered Hix: its `MixinCompilationCache` was process-wide, so it compiled its
+`.hix` catalog once and reused it across all 20 projects, which is not what happens in a real
+build. Unity's own numbers above are the ones that count.
 
 ## Building the generator DLL
 
