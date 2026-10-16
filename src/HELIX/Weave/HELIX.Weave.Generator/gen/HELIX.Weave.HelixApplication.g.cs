@@ -7,16 +7,16 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class HelixApplication {
-#line 424 "../../HELIX.Weave.Mixins/Context.cs"
+#line 425 "../../HELIX.Weave.Mixins/Context.cs"
     public string Name { get; init; }
 #line default
-#line 425 "../../HELIX.Weave.Mixins/Context.cs"
+#line 426 "../../HELIX.Weave.Mixins/Context.cs"
     public string Filter { get; init; }
 #line default
-#line 426 "../../HELIX.Weave.Mixins/Context.cs"
+#line 427 "../../HELIX.Weave.Mixins/Context.cs"
     public PureTypeRef[] Import { get; init; }
 #line default
-#line 428 "../../HELIX.Weave.Mixins/Context.cs"
+#line 429 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(TypeTarget t, HelixApplication a) {
         Modules.Configure(t, a.Filter, a.Import);
         if (t.IsGeneric) return;

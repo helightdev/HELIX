@@ -30,7 +30,9 @@ public static class PropertySeed {
     };
     var parameterModifier = refKind == RefKind.In ? "in " : "";
 
-    var equality = pure.IsPrimitive || pure.IsPointer
+    // Enums compare with == directly, like primitives; only genuinely opaque types need the
+    // comparer.
+    var equality = pure.IsPrimitive || pure.IsPointer || pure.IsEnum
       ? $"this.{name} == other.{name}"
       : $"global::System.Collections.Generic.EqualityComparer<{qualified}>.Default" +
         $".Equals(this.{name}, other.{name})";

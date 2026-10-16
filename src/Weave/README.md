@@ -162,16 +162,29 @@ equivalent or deliberate (see below).
 - A non-`partial` type must be skipped, not generated into.
 - Module imports were qualified twice, producing `global::global::`.
 
-### Deliberate differences from Hix
+### The remaining differences
 
-- **Equality is opt-in.** Hix's `equatableSelf` means the type declares `IEquatable<Self>`;
-  weave matches that rather than emitting equality for every `[Structure]`.
-- **`RegisterHandlerBinding` is always emitted** for an `[EventHandler]` on a `[Managed]` type.
-  Hix emits it only when its `var#IsComponent` flag happened to be set first, which depends on
-  attribute evaluation order; weave runs type-level mixins first, so the intent holds.
-- **`UnloadManaged` is generated public**, where Hix emits it private on some types. Public is a
+64 of 77 generated types are byte-for-byte equivalent. The 13 that differ fall into five kinds,
+each checked by hand:
+
+**Weave is right, Hix was wrong**
+
+- **`[Prop(Equatable = false)]` is honoured** (`SliderStyle.box`). Hix read the flag only after
+  it had already returned early for a `[Prop]` with no explicit `defaultInit`, so the flag did
+  nothing. Weave excludes the property from `Equals`/`GetHashCode`, which is what the author
+  asked for — a real behaviour change in generated code, and the one difference worth a look.
+- **`registration.RegisterHandlerBinding` and the `managed.IsActive` ticker guard are emitted**
+  on every `[Managed]` type. Hix gated both on a `var#IsComponent` flag that another mixin had
+  to have set first, so whether they appeared depended on attribute evaluation order. Weave asks
+  the type whether it carries `[Managed]`.
+
+**Cosmetic**
+
+- `UnloadManaged` is generated `public` where Hix emits it `private` on some types. Public is a
   superset and compiles; the asymmetry in Hix's own output looks incidental.
-- Shape mismatches are reported as diagnostics instead of silently generating nothing.
+- The datatype array has no trailing comma before its closing brace.
+- A resource's wire key is an escaped string rather than a verbatim one, which also escapes
+  correctly if a path ever contains a backslash.
 
 ## Wired into the Unity project
 

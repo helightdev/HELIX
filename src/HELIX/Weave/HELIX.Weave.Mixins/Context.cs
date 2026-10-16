@@ -322,7 +322,8 @@ public static class TimeSpec {
     if (string.IsNullOrWhiteSpace(text)) return false;
 
     var value = text.Trim();
-    if (value == "tick") { frames = 1; return true; }
+    // Rate 0 is FrameCountTicker's "every frame" short-circuit, which is what tick means.
+    if (value == "tick") { frames = 0; return true; }
 
     var multiplier = 1f;
     if (value.EndsWith("ms", StringComparison.OrdinalIgnoreCase)) {

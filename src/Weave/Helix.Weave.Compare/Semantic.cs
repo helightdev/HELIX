@@ -35,10 +35,23 @@ public static class Semantic {
         var hasRight = rightType.Members.TryGetValue(key, out var rightBody);
         if (!hasLeft) { differences.Add($"{name}: member only in weave: {key}"); continue; }
         if (!hasRight) { differences.Add($"{name}: member only in hix:   {key}"); continue; }
-        if (leftBody != rightBody) differences.Add($"{name}: body differs: {key}");
+        if (leftBody != rightBody)
+          differences.Add($"{name}: body differs: {key}{FirstDifference(leftBody, rightBody)}");
       }
     }
     return differences;
+  }
+
+  /// <summary>Where two bodies first diverge, so a difference can be judged without digging.</summary>
+  private static string FirstDifference(string left, string right) {
+    var limit = System.Math.Min(left.Length, right.Length);
+    var index = 0;
+    while (index < limit && left[index] == right[index]) index++;
+
+    var start = System.Math.Max(0, index - 30);
+    string Window(string text) =>
+      text.Substring(start, System.Math.Min(70, text.Length - start)).Replace("\n", " ");
+    return $"\n          hix:   …{Window(left)}…\n          weave: …{Window(right)}…";
   }
 
   private sealed record TypeShape(HashSet<string> Bases, Dictionary<string, string> Members);
@@ -94,18 +107,28 @@ public static class Semantic {
   private static readonly System.Text.RegularExpressions.Regex NullableForm =
     new(@"System\.Nullable<([^<>]+)>", System.Text.RegularExpressions.RegexOptions.Compiled);
 
-  private static string Canonical(string text) => NullableForm.Replace(text, "$1?")
-    .Replace("global::System.Boolean", "bool")
-    .Replace("global::System.Int32", "int")
-    .Replace("global::System.Int64", "long")
-    .Replace("global::System.Single", "float")
-    .Replace("global::System.Double", "double")
-    .Replace("global::System.String", "string")
-    .Replace("global::System.Object", "object")
-    .Replace("System.Object", "object")
-    .Replace("System.Boolean", "bool")
-    .Replace("System.Int32", "int")
-    .Replace("System.String", "string")
-    .Replace("global::", "")
-    .Replace("\r\n", "\n");
+  /// <summary>Numeric literal suffixes: 1F and 1.0f are the same literal.</summary>
+  private static readonly System.Text.RegularExpressions.Regex IntegralFloat =
+    new(@"(?<![\d.])(\d+)([FfDdMm])\b", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+  private static readonly (string From, string To)[] SpecialTypes = {
+    ("System.Boolean", "bool"), ("System.Byte", "byte"), ("System.SByte", "sbyte"),
+    ("System.Int16", "short"), ("System.UInt16", "ushort"),
+    ("System.Int32", "int"), ("System.UInt32", "uint"),
+    ("System.Int64", "long"), ("System.UInt64", "ulong"),
+    ("System.Single", "float"), ("System.Double", "double"), ("System.Decimal", "decimal"),
+    ("System.Char", "char"), ("System.String", "string"), ("System.Object", "object"),
+  };
+
+  /// <summary>Spelling differences that do not change meaning.</summary>
+  private static string Canonical(string text) {
+    if (text is null) return "";
+    var result = NullableForm.Replace(text, "$1?").Replace("\r\n", "\n");
+    foreach (var (from, to) in SpecialTypes)
+      result = result.Replace("global::" + from, to).Replace(from, to);
+    result = IntegralFloat.Replace(result, match =>
+      match.Groups[1].Value + ".0" + char.ToLowerInvariant(match.Groups[2].Value[0]));
+    return result.Replace("global::", "");
+  }
+
 }
