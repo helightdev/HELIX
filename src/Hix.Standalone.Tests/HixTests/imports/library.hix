@@ -1,1 +1,0 @@
-pure func importedDouble(number value) -> number { return(mult($value, 2)) }

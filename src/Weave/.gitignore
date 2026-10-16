@@ -1,0 +1,4 @@
+bin/
+obj/
+# Local copies of the generator this one replaces, kept only to switch back.
+unity-backup/

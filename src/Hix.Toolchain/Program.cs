@@ -1,1 +1,0 @@
-return AotReflectionRoots.Run(args);

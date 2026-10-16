@@ -1,4 +1,0 @@
-func example {
-  local name/*<# : string #>*/ = <Ada>
-  local count/*<# : number #>*/ = 30
-}

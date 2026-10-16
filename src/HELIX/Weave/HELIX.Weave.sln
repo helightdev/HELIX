@@ -1,0 +1,45 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Weave.Mixins", "HELIX.Weave.Mixins\HELIX.Weave.Mixins.csproj", "{4B1D2E7A-9C35-4F18-8A62-0D5C1E7F3A11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Weave.Generator", "HELIX.Weave.Generator\HELIX.Weave.Generator.csproj", "{5C2E3F8B-0D46-4A29-9B73-1E6D2F804B22}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "weave", "weave", "{6D3F4A9C-1E57-4B3A-AC84-2F7E3A915C33}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix.Weave", "..\..\Weave\Helix.Weave\Helix.Weave.csproj", "{7E405BAD-2F68-4C4B-BD95-3A8F4BA26D44}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix.Weave.Lower", "..\..\Weave\Helix.Weave.Lower\Helix.Weave.Lower.csproj", "{8F516CBE-3A79-4D5C-CEA6-4B9A5CB37E55}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4B1D2E7A-9C35-4F18-8A62-0D5C1E7F3A11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B1D2E7A-9C35-4F18-8A62-0D5C1E7F3A11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B1D2E7A-9C35-4F18-8A62-0D5C1E7F3A11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B1D2E7A-9C35-4F18-8A62-0D5C1E7F3A11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C2E3F8B-0D46-4A29-9B73-1E6D2F804B22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C2E3F8B-0D46-4A29-9B73-1E6D2F804B22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C2E3F8B-0D46-4A29-9B73-1E6D2F804B22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C2E3F8B-0D46-4A29-9B73-1E6D2F804B22}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E405BAD-2F68-4C4B-BD95-3A8F4BA26D44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E405BAD-2F68-4C4B-BD95-3A8F4BA26D44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E405BAD-2F68-4C4B-BD95-3A8F4BA26D44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E405BAD-2F68-4C4B-BD95-3A8F4BA26D44}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F516CBE-3A79-4D5C-CEA6-4B9A5CB37E55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F516CBE-3A79-4D5C-CEA6-4B9A5CB37E55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F516CBE-3A79-4D5C-CEA6-4B9A5CB37E55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F516CBE-3A79-4D5C-CEA6-4B9A5CB37E55}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = postSolution
+		{7E405BAD-2F68-4C4B-BD95-3A8F4BA26D44} = {6D3F4A9C-1E57-4B3A-AC84-2F7E3A915C33}
+		{8F516CBE-3A79-4D5C-CEA6-4B9A5CB37E55} = {6D3F4A9C-1E57-4B3A-AC84-2F7E3A915C33}
+	EndGlobalSection
+EndGlobal

@@ -167,6 +167,7 @@ _Recovery*
 **/Agents.md
 
 # Root Gradle build artifacts
+**/.hix/
 **/.gradle/
 **/.kotlin/
 **/.intellijPlatform/
