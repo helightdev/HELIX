@@ -521,10 +521,16 @@ currently blocked on having something to label things with.
 
 ## 6. What was implemented
 
-Five commits on `composable-rework`. Verified with Unity's own compiler
+Seven commits on `composable-rework`. Verified with Unity's own compiler
 (clean compile, 152/152 EditMode tests) plus 82 weave unit tests; the stale
 `HELIX.Widgets.csproj` still references the deleted Hix generator, which is
 unrelated and predates this work.
+
+Note that `dotnet build` on Unity's generated `.csproj` files does **not**
+check new files: they list their sources explicitly, so a file added since
+they were written is simply absent from the compile. `unity cmd recompile` is
+the check that means anything here — the same stale-project-file trap the
+README already describes for the IDE.
 
 | § | Change | Status |
 |---|---|---|
@@ -539,6 +545,25 @@ unrelated and predates this work.
 | 5.5 | `StructureOption<T>` | done |
 | 5.6 | `modifiers:` at construction; hidden/order/group | not done |
 | 5.8 | Typed `[Prop]` range/unit members | not done |
+
+Two things came out of testing rather than the plan:
+
+- **A field whose type has no registered control.** §3.1 claimed that
+  reaching the spec registry was better than vanishing. Half true: `cx.Spec`
+  throws, so `SerializerTest.weight` (a `double`, which `SpecConfig` has no
+  handler for) took down the whole composition when its tab opened. Such a
+  field now renders read-only and logs once naming the type, and `double` and
+  `long` get a text control, which is what they wanted. (`60383c59`)
+- **Per-frame allocation in the overlay path.** Deep profiling showed about
+  1.1 KB per frame in `OverlayFieldModel.SetText`: `StringBuilder.ToString`
+  in the flush, `Single.ToString` inside the numeric datatypes, and boxing
+  the owning value once per component. The flush now hands the builder to
+  `TextElement.SetText`; `IProseNumberWriter` is an optional capability, like
+  `IProseLineBreakWriter`, that lets a sink take a number and format it into
+  a reusable buffer with `TryFormat`; components go through typed overloads
+  on `CompositeDatatype<T>` and `StructureDatatype<T>`. Re-profiled at 51 B
+  per frame, all of it profiler and input machinery — `SetText` no longer
+  appears. (`bf3a22b2`)
 
 ### Deliberately not done
 
