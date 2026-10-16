@@ -196,26 +196,32 @@ tie-breaker.
 
 ## Performance
 
-From Unity's own generator timings in `Logs/Editor.log`:
+From Unity's own per-assembly generator timings in `Logs/Editor.log`, comparing one compile
+burst each:
 
-| | per-assembly generator time |
-|---|---|
-| Hix (`HixUnityGenerator`) | 1.47 – 1.59 s |
-| weave (`HelixWeaveGenerator`) | 0.72 – 0.91 s |
+| | heaviest assembly | burst total |
+|---|---|---|
+| Hix (`HixUnityGenerator`) | 0.63 s | ~2.0 s |
+| weave, before caching | 1.75 s | — |
+| weave, now | **0.45 s** | **~0.65 s** |
 
-Weave is about twice as fast, mostly because it has no `.hix` catalog to compile on every
-compilation. Measured side by side in one process (`Helix.Weave.Compare` prints per-project
-timings), weave looks *worse* than Hix on the largest assembly — 571 ms against 193 ms — but
-that comparison flatters Hix: its `MixinCompilationCache` is process-wide, so it compiles the
-catalog once and reuses it across all 20 projects, which is not what happens in a real build.
+Every other assembly in the current burst lands between 1 ms and 58 ms. (Bursts do not always
+cover an identical set of assemblies, so read the totals as indicative rather than exact.)
 
-Caching metadata-name lookups and the annotated-type scan in `SymbolFacts` halved the worst case
-(1323 ms → 571 ms cold, 243 ms warm). The remaining ceiling is incrementality: `Initialize`
-collects every match and combines it with `CompilationProvider`, so any edit regenerates every
-type in the assembly. Per-type caching is the next real win and is not done.
+Most of the improvement came from memoizing two things in `SymbolFacts`: metadata-name lookups,
+which `GetTypeByMetadataName` resolves by searching every referenced assembly and which the
+weaver was calling once per injection target per type, and the annotated-type scan behind module
+discovery.
 
-To go back to Hix: restore the two `HixUnityGenerator.dll*.disabled` files to their original
-names and delete `HelixWeaveGenerator.dll*`.
+Measured side by side in one process (`Helix.Weave.Compare` prints per-project timings), weave
+still looks worse than Hix on the largest assembly — 571 ms against 193 ms — but that comparison
+flatters Hix: its `MixinCompilationCache` is process-wide, so it compiles its `.hix` catalog once
+and reuses it across all 20 projects, which is not what happens in a real build. Unity's own
+numbers above are the ones that count.
+
+The remaining ceiling is incrementality: `Initialize` collects every match and combines it with
+`CompilationProvider`, so any edit regenerates every type in the assembly. Per-type caching is
+the next real win and is not done.
 
 ## Building the generator DLL
 
