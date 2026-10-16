@@ -154,6 +154,7 @@ tasks.register("deployWeaveGenerator") {
     // the configuration cache.
     val from = weaveGeneratorOutput
     val to = weaveAnalyzer
+    val meta = File(to.parentFile, to.name + ".meta")
     inputs.file(from).withPropertyName("generator")
     outputs.file(to).withPropertyName("analyzer")
 
@@ -163,6 +164,13 @@ tasks.register("deployWeaveGenerator") {
         // Unity loads this DLL directly; a half-written copy is worse than a failed build.
         check(from.readBytes().contentEquals(to.readBytes())) {
             "Deployed generator does not match ${from.absolutePath}"
+        }
+        // The RoslynAnalyzer label lives in the .meta, and Unity deletes an orphaned one if the
+        // DLL ever goes missing. Without it the generator is imported as a plain plugin and
+        // silently never runs, which only shows up later as compile errors.
+        check(meta.isFile() && meta.readText().contains("RoslynAnalyzer")) {
+            "${meta.name} is missing or has lost its RoslynAnalyzer label; Unity will not run the " +
+                "generator. Restore it from git."
         }
         logger.lifecycle("Deployed ${from.name} to ${to.path}")
     }
