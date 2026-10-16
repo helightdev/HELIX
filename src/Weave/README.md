@@ -248,12 +248,24 @@ build. Unity's own numbers above are the ones that count.
 ## Building the generator DLL
 
 ```bash
+./gradlew deployWeaveGenerator
+```
+
+That lowers the mixins, builds the generator and installs it into
+`Assets/Plugins/HELIX/Runtime/Scripts`, verifying the copy byte for byte and checking that the
+`.meta` still carries its `RoslynAnalyzer` label — without it Unity imports the DLL as a plain
+plugin and silently never runs it. The three steps are separate tasks (`lowerWeaveMixins`,
+`buildWeaveGenerator`, `deployWeaveGenerator`) in the `helix` group, each with declared inputs
+and outputs, so editing a mixin re-lowers but skips the build when the lowered sources come out
+unchanged.
+
+By hand, if you need the pieces:
+
+```bash
 dotnet run --project src/Weave/Helix.Weave.Lower -- \
   src/HELIX/Weave/HELIX.Weave.Mixins src/HELIX/Weave/HELIX.Weave.Generator/gen
 dotnet build src/HELIX/Weave/HELIX.Weave.sln -c Release
 ```
-
-or `dotnet build src/HELIX/Weave/HELIX.Weave.sln -c Release -p:Lower=true` to re-lower first.
 
 The result is `HelixWeaveGenerator.dll` (~130 KB), a single analyzer assembly holding the host
 and the lowered mixins — the same shape as `HixUnityGenerator.dll`, with no `.additionalfile`.
