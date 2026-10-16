@@ -32,7 +32,10 @@ namespace HELIX.Compose {
       .AddHandler<TextControlSpecHandler>()
       .AddHandler<IntegerControlSpecHandler>()
       .AddHandler<FloatControlSpecHandler>()
-      .AddHandler<CheckboxControlSpecHandler>();
+      .AddHandler<CheckboxControlSpecHandler>()
+      // Numeric types with no widget of their own, so a generated struct holding one still edits.
+      .AddHandler<NumberTextControlSpecHandler<double>>()
+      .AddHandler<NumberTextControlSpecHandler<long>>();
 
     public SpecConfig AddFactory<T>(ReadComposable<T> composable) where T : struct, ISpec {
       transformers[typeof(T)] = composable;

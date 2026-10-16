@@ -23,6 +23,8 @@ namespace HELIX.Compose {
     private static readonly CompositionAction<T> Setter = SetValue;
     private static readonly CompositionAction Committer = Commit;
     private Composable _control;
+    private ProseUnityRichTextWriter _textWriter;
+    private bool _warnedAboutMissingControl;
 
     public ProseField(string path, string name, IDatatype<T> datatype) {
       Path = path ?? string.Empty;
@@ -50,16 +52,38 @@ namespace HELIX.Compose {
     private void ComposeControl(ref Composition cx) {
       var field = cx.Lookup<HXFormField>();
       var data = field?.FieldData;
-      cx.Spec(
-        new ControlSpec<T>(
-          field == null ? default : field.GetValue<T>(),
-          Datatype,
-          Setter,
-          Committer,
-          data?.HasFlag(FieldFlags.Disabled) != true,
-          data?.HasFlag(FieldFlags.Error) == true
-        )
+      var spec = new ControlSpec<T>(
+        field == null ? default : field.GetValue<T>(),
+        Datatype,
+        Setter,
+        Committer,
+        data?.HasFlag(FieldFlags.Disabled) != true,
+        data?.HasFlag(FieldFlags.Error) == true
       );
+
+      // A value type with no registered control still shows its value. Throwing out of cx.Spec would
+      // take the whole composition down over one field, and contributing nothing would hide it.
+      if (SpecConfig.Key[in cx].GetFactory(in spec) == null) {
+        ComposeReadOnlyValue(ref cx, spec.value);
+        return;
+      }
+
+      cx.Spec(in spec);
+      cx.CURSOR.Flexible();
+    }
+
+    private void ComposeReadOnlyValue(ref Composition cx, T value) {
+      if (!_warnedAboutMissingControl) {
+        _warnedAboutMissingControl = true;
+        UnityEngine.Debug.LogWarning(
+          $"No control is registered for '{typeof(T)}', so field '{Path}' is read-only. " +
+          $"Register an ISpecHandler for it on the SpecConfig in scope."
+        );
+      }
+      _textWriter ??= new ProseUnityRichTextWriter();
+      _textWriter.Reset();
+      _textWriter.Write(value, Datatype);
+      cx.Text(_textWriter.Build());
       cx.CURSOR.Flexible();
     }
 

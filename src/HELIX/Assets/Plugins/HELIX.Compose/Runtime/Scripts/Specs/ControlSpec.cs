@@ -121,6 +121,23 @@ namespace HELIX.Compose {
     }
   }
 
+  /// <summary>
+  ///   A text control for a numeric type that has no widget of its own, so double, long and friends
+  ///   get an editable field instead of no control at all. Registered per value type.
+  /// </summary>
+  public sealed class NumberTextControlSpecHandler<TValue> : ISpecHandler
+  where TValue : struct, IComparable<TValue> {
+    public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec =>
+      spec is IControlSpec { ValueType: var type } && type == typeof(TValue)
+        ? NumberTextControlFactory<T, TValue>.Text
+        : null;
+  }
+
+  internal static class NumberTextControlFactory<TSpec, TValue>
+  where TSpec : struct, ISpec where TValue : struct, IComparable<TValue> {
+    internal static readonly ReadComposable<TSpec> Text = ControlSpecFactories.NumberText<TSpec, TValue>;
+  }
+
   public sealed class CheckboxControlSpecHandler : ControlSpecHandler<bool> {
     protected override ReadComposable<T> Factory<T>() {
       return ControlFactory<T>.Checkbox;
@@ -237,6 +254,48 @@ namespace HELIX.Compose {
 
     internal static void Checkbox<T>(ref Composition cx, in T spec) where T : struct, ISpec {
       Compose(ref cx, in spec, ComposeCheckbox);
+    }
+
+    internal static void NumberText<TSpec, TValue>(ref Composition cx, in TSpec spec)
+    where TSpec : struct, ISpec where TValue : struct, IComparable<TValue> {
+      Compose(ref cx, in spec, NumberTextContent<TValue>.Content);
+    }
+
+    /// <summary>
+    ///   The generic text control. Held in a static generic so the delegate is created once per value
+    ///   type rather than on every composition.
+    /// </summary>
+    private static class NumberTextContent<TValue> where TValue : struct, IComparable<TValue> {
+      internal static readonly Composable Content = Compose;
+      private static readonly CompositionAction<TValue, TextEditEndReason> Ended = EditingEnded;
+
+      private static void Compose(ref Composition cx) {
+        var control = cx.Lookup<ControlSpecBoundary>().Control;
+        var formatter = Unwrap(control.Datatype);
+        if (formatter is not IStringConvertible<TValue> convertible) return;
+        Decorations(control.Datatype, out var prefix, out var suffix);
+        cx.DatatypeTextField(
+          (TValue)control.Value,
+          convertible,
+          onEditingEnded: Ended,
+          enabled: control.Enabled,
+          prefix: prefix,
+          suffix: suffix
+        );
+      }
+
+      private static void EditingEnded(
+        CompositionContext context, TValue parsed, TextEditEndReason reason
+      ) {
+        if (reason == TextEditEndReason.Cancelled) return;
+        var control = Control(context);
+        if (Unwrap(control.Datatype) is IDatatypeRange<TValue> range) {
+          if (range.Min.HasValue && parsed.CompareTo(range.Min.Value) < 0) parsed = range.Min.Value;
+          if (range.Max.HasValue && parsed.CompareTo(range.Max.Value) > 0) parsed = range.Max.Value;
+        }
+        control.Change(context, parsed);
+        control.Commit(context);
+      }
     }
 
     private static void Compose<T>(ref Composition cx, in T spec, Composable content) where T : struct, ISpec {
