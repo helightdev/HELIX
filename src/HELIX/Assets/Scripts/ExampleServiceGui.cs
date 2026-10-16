@@ -96,6 +96,18 @@ namespace DefaultNamespace {
       defaultResettable = true
     };
 
+    /// <summary>
+    ///   A whole generated structure as one option: every property becomes a field, labelled and
+    ///   described from the struct's own documentation comments.
+    /// </summary>
+    [RegisterOption]
+    public readonly StructureOption<SerializerTest> serializerTest = new(
+      SerializerTest.Datatype,
+      new SerializerTest("Example", 1, true, 1.8f, 70.0, 0.75f)
+    ) {
+      eagerness = OptionEagerness.Delayed
+    };
+
     [RegisterOption("user.anonymous")]
     public readonly Option<bool> anonymous = new(Datatypes.Bool, false) {
       eagerness = OptionEagerness.Confirmed,

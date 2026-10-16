@@ -111,6 +111,17 @@ namespace HELIX.Compose {
       return GetFieldData(path)?.HasFlag(FieldFlags.Dirty) == true;
     }
 
+    /// <summary>
+    ///   Whether the path or anything below it is dirty. A structured value registers one field per
+    ///   property, so its own path carries no data of its own.
+    /// </summary>
+    public bool IsSubtreeDirty(FormPath path) {
+      foreach (var pair in Selected(path, true))
+        if (pair.Value.HasFlag(FieldFlags.Dirty))
+          return true;
+      return false;
+    }
+
     public bool IsFieldTouched(FormPath path) {
       return GetFieldData(path)?.HasFlag(FieldFlags.Touched) == true;
     }

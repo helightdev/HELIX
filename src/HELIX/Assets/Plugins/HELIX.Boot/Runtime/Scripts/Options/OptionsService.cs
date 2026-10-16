@@ -90,11 +90,7 @@ namespace HELIX.Boot {
       IsOptionDirty(option);
 
     public bool IsNonDefault(string path) => _controller != null && TryGetOption(path, out var option) &&
-      !option.IsDefaultValue(
-        _controller.GetValue(
-          _controller.Path(option.path)
-        )
-      );
+      option.IsNonDefaultAt(_controller, path);
 
     public void ResetChange(string path) {
       if (!TryGetOption(path, out var option) || option.eagerness < OptionEagerness.Delayed) return;
@@ -103,7 +99,7 @@ namespace HELIX.Boot {
 
     public void ResetToDefault(string path) {
       if (!TryGetOption(path, out var option)) return;
-      option.LoadDefaultInto(_controller);
+      option.LoadDefaultInto(_controller, path);
     }
 
     public void Bind(FormController controller) {
@@ -228,16 +224,27 @@ namespace HELIX.Boot {
       }
     }
 
-    private bool IsOptionDirty(Option option) => _controller.IsFieldDirty(_controller.Path(option.path));
+    // Structured options register one field per property, so dirtiness is a question about the subtree.
+    private bool IsOptionDirty(Option option) => _controller.IsSubtreeDirty(_controller.Path(option.path));
 
+    /// <summary>
+    /// The option a field path belongs to. A structured option registers a field per property below
+    /// its own path, so the longest option path that prefixes the field wins.
+    /// </summary>
     private bool TryGetOption(string path, out Option option) {
-      for (var i = 0; i < _options.Count; i++) {
-        if (_options[i].path != path) continue;
-        option = _options[i];
-        return true;
-      }
       option = null;
-      return false;
+      if (string.IsNullOrEmpty(path)) return false;
+      for (var i = 0; i < _options.Count; i++) {
+        var candidate = _options[i].path;
+        if (candidate == null) continue;
+        if (candidate != path &&
+            !(path.Length > candidate.Length &&
+              path[candidate.Length] == '.' &&
+              path.StartsWith(candidate, StringComparison.Ordinal)))
+          continue;
+        if (option == null || candidate.Length > option.path.Length) option = _options[i];
+      }
+      return option != null;
     }
 
     private void AcceptAsInitial(Option option) =>
@@ -255,6 +262,11 @@ namespace HELIX.Boot {
 
   public struct OptionApplyEvent<T> : Evt<OptionApplyEvent<T>> {
     public Option<T> option;
+  }
+
+  /// <summary>Raised when a structured option is applied. Its properties are read off the option's value.</summary>
+  public struct StructureOptionApplyEvent<T> : Evt<StructureOptionApplyEvent<T>> {
+    public StructureOption<T> option;
   }
 
   public struct OptionsRenderEvent : Evt<OptionsRenderEvent> {
@@ -301,6 +313,17 @@ namespace HELIX.Boot {
     public virtual void RestoreValue(object captured) { }
     public virtual bool IsDefaultValue(object candidate) => true;
     public virtual void LoadDefaultInto(FormController controller) { }
+
+    /// <summary>
+    /// Whether the form holds a non-default value at <paramref name="fieldPath" />, which is this
+    /// option's own path for a scalar option and one property's path for a structured one.
+    /// </summary>
+    public virtual bool IsNonDefaultAt(FormController controller, string fieldPath) =>
+      !IsDefaultValue(controller.GetValue(controller.Path(path)));
+
+    /// <summary>Resets just the given field, or the whole option when it owns only one.</summary>
+    public virtual void LoadDefaultInto(FormController controller, string fieldPath) =>
+      LoadDefaultInto(controller);
     public abstract void ToProse(IProseWriter writer);
   }
 

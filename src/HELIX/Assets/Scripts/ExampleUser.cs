@@ -15,11 +15,16 @@ namespace HELIX.Context {
 
   [Structure(true)]
   [Mixable] public partial struct SerializerTest {
+    /// <summary>What to call this one.</summary>
     public string name;
+    /// <summary>Years since it was made.</summary>
     public int age;
+    /// <summary>Whether it takes part at all.</summary>
     public bool isActive;
+    /// <summary>Measured from the base, in metres.</summary>
     public float height;
     public double weight;
+    /// <summary>Playback level for this one.</summary>
     [Prop(1f, Datatype = "HELIX.Datatypes.PercentNormalized")]
     public float volume;
   }
