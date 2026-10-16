@@ -354,7 +354,7 @@ namespace HELIX.Compose {
       using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
         for (var i = 0; i < datatype.ComponentCount; i++) {
           if (i != 0) cx.Spacing(1);
-          cx.Text(datatype.GetComponentName(i));
+          cx.Text(datatype.GetComponentLabel(i));
           cx.Gap(ThemeProperties.TextGap[in cx]);
           cx.Spec(new CompositeComponentControlSpec(control, datatype, i));
           cx.CURSOR.Flexible(1f, 0f);
@@ -371,7 +371,7 @@ namespace HELIX.Compose {
         for (var i = 0; i < count; i++) {
           if (i != 0) cx.Spacing(1);
           using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
-            cx.Text(datatype.GetComponentName(i));
+            cx.Text(datatype.GetComponentLabel(i));
             cx.Gap(ThemeProperties.TextGap[in cx]);
             cx.Spec(new CollectionItemControlSpec(control, datatype, i));
             cx.CURSOR.Flexible(1f, 0f);

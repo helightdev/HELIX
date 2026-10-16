@@ -67,6 +67,8 @@ public sealed class Prop : Attribute {
   public string EqualitySyntax { get; set; } = "{0} == {1}";
   public string HashCodeSyntax { get; set; } = "{0}";
   public string Datatype { get; set; }
+  public string Label { get; set; }
+  public string Description { get; set; }
 
   private static readonly Slot<bool> SawOptional = new(Scope.Type);
 
@@ -74,6 +76,8 @@ public sealed class Prop : Attribute {
   static DerivedProperty Derive(DerivationTarget t, Prop a, DerivedProperty p) {
     if (!a.Equatable) p = p with { Equatable = false };
     if (!string.IsNullOrWhiteSpace(a.Datatype)) p = p with { Datatype = a.Datatype };
+    if (!string.IsNullOrWhiteSpace(a.Label)) p = p with { Label = a.Label };
+    if (!string.IsNullOrWhiteSpace(a.Description)) p = p with { Description = a.Description };
     p = WithEqualityOverrides(a, p);
 
     if (a.defaultInit == PropInit.None) {

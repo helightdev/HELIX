@@ -7,13 +7,13 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Hook {
-#line 194 "../../HELIX.Weave.Mixins/Core.cs"
+#line 198 "../../HELIX.Weave.Mixins/Core.cs"
     public string target;
 #line default
-#line 195 "../../HELIX.Weave.Mixins/Core.cs"
+#line 199 "../../HELIX.Weave.Mixins/Core.cs"
     public int order;
 #line default
-#line 197 "../../HELIX.Weave.Mixins/Core.cs"
+#line 201 "../../HELIX.Weave.Mixins/Core.cs"
     static void Apply(MethodTarget t, Hook a) {
         var name = a.target;
         if (name is null) {

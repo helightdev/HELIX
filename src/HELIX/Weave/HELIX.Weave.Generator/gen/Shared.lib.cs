@@ -101,7 +101,9 @@ public static class Shared {
     $"{Lit.Of(p.Name)}, {DatatypeOf(p)}, " +
     $"(ref {structureType} value) => value.{p.Name}, " +
     $"(ref {structureType} value, {p.Type.Qualified} propertyValue) => value.{p.Name} = propertyValue, " +
-    $"required: {Lit.Of(p.Required)}, defaultValue: {p.Default})";
+    $"required: {Lit.Of(p.Required)}, defaultValue: {p.Default}, " +
+    $"label: {Lit.Of(p.Label.Length == 0 ? null : p.Label)}, " +
+    $"description: {Lit.Of(p.Description.Length == 0 ? null : p.Description)})";
 
   /// <summary>Hix's <c>EmitGeneratedStructure</c>: a struct built out of derived properties.</summary>
   public static void EmitGeneratedStructure(SymbolTarget t, string name,

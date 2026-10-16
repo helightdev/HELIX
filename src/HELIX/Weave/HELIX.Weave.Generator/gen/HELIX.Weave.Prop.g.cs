@@ -25,16 +25,22 @@ namespace HELIX.Weave {
 #line 69 "../../HELIX.Weave.Mixins/Core.cs"
     public string Datatype { get; set; }
 #line default
+#line 70 "../../HELIX.Weave.Mixins/Core.cs"
+    public string Label { get; set; }
+#line default
 #line 71 "../../HELIX.Weave.Mixins/Core.cs"
+    public string Description { get; set; }
+#line default
+#line 73 "../../HELIX.Weave.Mixins/Core.cs"
     private static Slot<bool> SawOptional = new(Scope.Type);
 #line default
-#line 114 "../../HELIX.Weave.Mixins/Core.cs"
+#line 118 "../../HELIX.Weave.Mixins/Core.cs"
     private static string Nullable(DerivedProperty p) =>
         p.Type.Facts.HasFlag(TypeFacts.ValueType) && !p.Type.Qualified.EndsWith("?", StringComparison.Ordinal)
           ? p.Type.Qualified + "?"
           : p.Type.Qualified;
 #line default
-#line 119 "../../HELIX.Weave.Mixins/Core.cs"
+#line 123 "../../HELIX.Weave.Mixins/Core.cs"
     private static DerivedProperty WithEqualityOverrides(Prop a, DerivedProperty p) {
         if (p.Type.IsPrimitive || p.Type.IsPointer) return p;
 
@@ -51,10 +57,12 @@ namespace HELIX.Weave {
         return p;
       }
 #line default
-#line 73 "../../HELIX.Weave.Mixins/Core.cs"
+#line 75 "../../HELIX.Weave.Mixins/Core.cs"
     static DerivedProperty Derive(DerivationTarget t, Prop a, DerivedProperty p) {
         if (!a.Equatable) p = p with { Equatable = false };
         if (!string.IsNullOrWhiteSpace(a.Datatype)) p = p with { Datatype = a.Datatype };
+        if (!string.IsNullOrWhiteSpace(a.Label)) p = p with { Label = a.Label };
+        if (!string.IsNullOrWhiteSpace(a.Description)) p = p with { Description = a.Description };
         p = WithEqualityOverrides(a, p);
 
         if (a.defaultInit == PropInit.None) {
@@ -102,6 +110,8 @@ namespace HELIX.Weave {
       var __EqualitySyntax = defaults.EqualitySyntax;
       var __HashCodeSyntax = defaults.HashCodeSyntax;
       var __Datatype = defaults.Datatype;
+      var __Label = defaults.Label;
+      var __Description = defaults.Description;
       var positional = data.ConstructorArguments;
       var parameters = data.AttributeConstructor?.Parameters ?? default(System.Collections.Immutable.ImmutableArray<IParameterSymbol>);
       for (var i = 0; i < positional.Length && i < parameters.Length; i++) {
@@ -118,6 +128,10 @@ namespace HELIX.Weave {
           __HashCodeSyntax = (string)positional[i].Value;
         else if (string.Equals(name, "Datatype", System.StringComparison.OrdinalIgnoreCase))
           __Datatype = (string)positional[i].Value;
+        else if (string.Equals(name, "Label", System.StringComparison.OrdinalIgnoreCase))
+          __Label = (string)positional[i].Value;
+        else if (string.Equals(name, "Description", System.StringComparison.OrdinalIgnoreCase))
+          __Description = (string)positional[i].Value;
       }
       foreach (var named in data.NamedArguments) {
         if (string.Equals(named.Key, "defaultValue", System.StringComparison.OrdinalIgnoreCase))
@@ -132,6 +146,10 @@ namespace HELIX.Weave {
           __HashCodeSyntax = (string)named.Value.Value;
         else if (string.Equals(named.Key, "Datatype", System.StringComparison.OrdinalIgnoreCase))
           __Datatype = (string)named.Value.Value;
+        else if (string.Equals(named.Key, "Label", System.StringComparison.OrdinalIgnoreCase))
+          __Label = (string)named.Value.Value;
+        else if (string.Equals(named.Key, "Description", System.StringComparison.OrdinalIgnoreCase))
+          __Description = (string)named.Value.Value;
       }
       return new Prop {
         defaultValue = __defaultValue,
@@ -140,6 +158,8 @@ namespace HELIX.Weave {
         EqualitySyntax = __EqualitySyntax,
         HashCodeSyntax = __HashCodeSyntax,
         Datatype = __Datatype,
+        Label = __Label,
+        Description = __Description,
       };
     }
 

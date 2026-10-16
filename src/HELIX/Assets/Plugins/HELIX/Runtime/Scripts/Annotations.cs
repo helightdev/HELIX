@@ -27,6 +27,12 @@ namespace HELIX {
     public string HashCodeSyntax { get; set; } = "{0}";
     public string Datatype { get; set; }
 
+    /// <summary>Overrides the label a generated datatype would otherwise title-case from the name.</summary>
+    public string Label { get; set; }
+
+    /// <summary>Overrides the description a generated datatype takes from the documentation comment.</summary>
+    public string Description { get; set; }
+
     public PropAttribute(
       object defaultValue,
       PropInit defaultInit = PropInit.Literal

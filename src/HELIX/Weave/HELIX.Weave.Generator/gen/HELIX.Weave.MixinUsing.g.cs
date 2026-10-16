@@ -7,10 +7,10 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class MixinUsing {
-#line 231 "../../HELIX.Weave.Mixins/Core.cs"
+#line 235 "../../HELIX.Weave.Mixins/Core.cs"
     public string Statement { get; init; }
 #line default
-#line 233 "../../HELIX.Weave.Mixins/Core.cs"
+#line 237 "../../HELIX.Weave.Mixins/Core.cs"
     static void Apply(TypeTarget t, MixinUsing a) {
         if (!string.IsNullOrWhiteSpace(a.Statement)) t.Using(a.Statement);
       }

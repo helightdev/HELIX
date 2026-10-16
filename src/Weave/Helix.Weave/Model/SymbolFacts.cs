@@ -27,6 +27,9 @@ public sealed class SymbolFacts {
   private readonly Dictionary<string, INamedTypeSymbol> _byMetadataName = new(System.StringComparer.Ordinal);
   private readonly Dictionary<string, List<INamedTypeSymbol>> _annotated = new(System.StringComparer.Ordinal);
 
+  /// <summary>The documentation the analysed source already carries, for labels and descriptions.</summary>
+  public DocComments Docs { get; } = new();
+
   public int Hits { get; private set; }
 
   /// <summary>

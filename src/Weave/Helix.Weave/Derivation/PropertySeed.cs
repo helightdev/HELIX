@@ -42,6 +42,7 @@ public static class PropertySeed {
     return new DerivedProperty {
       Name = name,
       Type = pure,
+      Description = facts.Docs.Describe(symbol),
       Modifier = modifier,
       ParameterModifier = parameterModifier,
       Parameter = $"{parameterModifier}{qualified} {name}",

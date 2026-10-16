@@ -74,7 +74,8 @@ namespace HELIX.Boot {
           _commandProperty = new CommandProperty<TValue>(
             property.FieldName,
             property.Datatype,
-            defaultValue: defaultValue,
+            property.Description,
+            defaultValue,
             required: false,
             flag: true
           );
@@ -82,7 +83,8 @@ namespace HELIX.Boot {
           _commandProperty = new CommandProperty<TValue>(
             property.FieldName,
             property.Datatype,
-            defaultValue: defaultValue,
+            property.Description,
+            defaultValue,
             required: property.Required,
             named: IsNamed(property.Modifiers)
           );

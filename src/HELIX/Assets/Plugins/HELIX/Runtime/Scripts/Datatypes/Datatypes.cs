@@ -64,6 +64,13 @@ namespace HELIX {
   public interface ICompositeDatatype : IDatatype {
     int ComponentCount { get; }
     string GetComponentName(int index);
+
+    /// <summary>The component's human-facing name. Hand-written composites may return their identifier.</summary>
+    string GetComponentLabel(int index);
+
+    /// <summary>The component's description, or null when it has none.</summary>
+    string GetComponentDescription(int index);
+
     Type GetComponentType(int index);
     object GetComponentDatatype(int index);
     object GetComponentValue(object value, int index);
@@ -173,6 +180,10 @@ namespace HELIX {
     public string Separator { get; }
     public string Suffix { get; }
     public string GetComponentName(int index) => _components[index].Name;
+
+    // Hand-declared composites already name their components for display ("x", "y", "z").
+    public string GetComponentLabel(int index) => _components[index].Name;
+    public string GetComponentDescription(int index) => null;
     public Type GetComponentType(int index) => _components[index].ValueType;
     public object GetComponentDatatype(int index) => _components[index].Datatype;
     public object GetComponentValue(object value, int index) => _components[index].GetValue((T)value);

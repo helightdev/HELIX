@@ -42,9 +42,13 @@ namespace HELIX {
 
   /// <summary>A generated or manually declared property of a structured datatype.</summary>
   public abstract class StructurePropertyDatatype<T> : IPropertyDatatype<T> {
+    private readonly string _label;
+    private string _inferredLabel;
+
     protected StructurePropertyDatatype(
       string fieldName, IList<IProseModifier> modifiers = null,
-      bool required = true, object defaultValue = null
+      bool required = true, object defaultValue = null,
+      string label = null, string description = null
     ) {
       if (string.IsNullOrWhiteSpace(fieldName))
         throw new ArgumentException("A field name is required.", nameof(fieldName));
@@ -52,12 +56,23 @@ namespace HELIX {
       Modifiers = modifiers == null ? new List<IProseModifier>() : new List<IProseModifier>(modifiers);
       Required = required;
       DefaultValue = defaultValue;
+      _label = string.IsNullOrEmpty(label) ? null : label;
+      Description = string.IsNullOrEmpty(description) ? null : description;
     }
 
     public string FieldName { get; }
     public string Key => FieldName;
     public bool Required { get; }
     public object DefaultValue { get; }
+
+    /// <summary>
+    ///   The human-facing name. Title-cased from the field name unless the declaration supplied one, so a
+    ///   generated structure reads as "Max health" rather than "maxHealth" without any extra annotation.
+    /// </summary>
+    public string Label => _label ?? (_inferredLabel ??= Casing.Convert(FieldName, Casing.CaseStyle.TitleCase));
+
+    /// <summary>The declared description, usually the member's documentation comment. Null when none.</summary>
+    public string Description { get; }
     public IList<IProseModifier> Modifiers { get; }
     public abstract Type ValueType { get; }
     public abstract IDatatype ValueDatatype { get; set; }
@@ -86,8 +101,9 @@ namespace HELIX {
       string fieldName, IDatatype<TValue> datatype,
       StructurePropertyGetter<T, TValue> getter, StructurePropertySetter<T, TValue> setter,
       IList<IProseModifier> modifiers = null,
-      bool required = true, object defaultValue = null
-    ) : base(fieldName, modifiers, required, defaultValue) {
+      bool required = true, object defaultValue = null,
+      string label = null, string description = null
+    ) : base(fieldName, modifiers, required, defaultValue, label, description) {
       Datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
       _getter = getter ?? throw new ArgumentNullException(nameof(getter));
       _setter = setter ?? throw new ArgumentNullException(nameof(setter));
@@ -117,8 +133,10 @@ namespace HELIX {
     public override void ToProse(IProseWriter writer, ref T value) {
       using (writer.Property()) {
         PushModifiers(writer);
-        using (writer.PropertyKey()) writer.Write(FieldName);
+        using (writer.PropertyKey()) writer.Write(Label);
         using (writer.PropertyValue()) writer.Write(_getter(ref value), Datatype);
+        if (Description != null)
+          using (writer.PropertyDescription()) writer.Write(Description);
       }
     }
 
@@ -166,6 +184,8 @@ namespace HELIX {
 
     int ICompositeDatatype.ComponentCount => _properties.Count;
     string ICompositeDatatype.GetComponentName(int index) => _properties[index].FieldName;
+    string ICompositeDatatype.GetComponentLabel(int index) => _properties[index].Label;
+    string ICompositeDatatype.GetComponentDescription(int index) => _properties[index].Description;
     Type ICompositeDatatype.GetComponentType(int index) => _properties[index].ValueType;
     object ICompositeDatatype.GetComponentDatatype(int index) => _properties[index].ValueDatatype;
 

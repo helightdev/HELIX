@@ -13,6 +13,10 @@ namespace HELIX.Context {
     [RegisterCommand] public readonly Command quality = new QualityCommand();
     [RegisterCommand] public readonly Command timeScale = new TimeScaleCommand();
 
+    /// <summary>An example command demonstrating a custom datatype.</summary>
+    /// <param name="key">The entry to act on.</param>
+    /// <param name="value">How far to go, as a percentage.</param>
+    /// <param name="verbose">Report every step.</param>
     [Command("mycommand", "An example command demonstrating a custom datatype.")]
     public CommandResult MyCommand(
       string key,

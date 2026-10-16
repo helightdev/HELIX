@@ -37,6 +37,8 @@ namespace HELIX {
     public string Suffix { get; set; }
     public int ComponentCount => 0;
     public string GetComponentName(int index) => $"[{index}]";
+    public string GetComponentLabel(int index) => GetComponentName(index);
+    public string GetComponentDescription(int index) => null;
     public Type GetComponentType(int index) => typeof(TItem);
     public object GetComponentDatatype(int index) => ItemDatatype;
     public object GetComponentValue(object value, int index) => CollectionProxy.GetItem((TCollection)value, index);

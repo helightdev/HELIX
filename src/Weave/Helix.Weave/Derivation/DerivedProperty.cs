@@ -23,6 +23,17 @@ public sealed record DerivedProperty {
   /// <summary>Field assignment in a generated constructor.</summary>
   public string Assignment { get; init; } = "";
 
+  /// <summary>
+  /// The human-facing name. Empty unless a mixin set one — the core has no opinion about how an
+  /// identifier becomes a label.
+  /// </summary>
+  public string Label { get; init; } = "";
+
+  /// <summary>
+  /// The human-facing description, seeded from the member's own documentation comment.
+  /// </summary>
+  public string Description { get; init; } = "";
+
   /// <summary>Opaque to the core: whatever the consuming mixins mean by a datatype.</summary>
   public string Datatype { get; init; } = "";
   /// <summary>Extra configuration statements a derivation wants emitted alongside.</summary>
