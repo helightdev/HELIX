@@ -1,7 +1,0 @@
---- Manifest
-name = standalone-tests
-sources = {
-  main = []
-  test = ["*", "imports/**", "syntax/**"]
-  modules = []
-}

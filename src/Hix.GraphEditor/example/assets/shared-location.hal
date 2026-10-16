@@ -1,8 +1,0 @@
-%uid("example.watchtower")
-%tag("location")
-%tag("quest")
-%graphPosition(x=0, y=0)
---- QuestLocation &watchtower
-name = "Shared watchtower"
-x = 42
-y = -18

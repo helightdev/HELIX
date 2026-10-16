@@ -1,9 +1,0 @@
---- Manifest
-name = helix-unity-mixins
-sources = {
-  main = ["*.hix"]
-  test = []
-  modules = []
-  assets = []
-  macros = []
-}

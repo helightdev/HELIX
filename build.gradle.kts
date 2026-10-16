@@ -3,11 +3,6 @@ plugins {
     id("helix.build")
 }
 
-solutions {
-    solution("src/RiderPlugin/HelixRider.sln")
-    solution("src/Hix/Hix.sln")
-}
-
 unity {
     metadata {
         author {

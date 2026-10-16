@@ -1,9 +1,0 @@
---- Manifest
-name = graph-example
-sources = {
-  main = ["*.hix"]
-  test = []
-  modules = []
-  assets = ["assets/**"]
-  macros = ["macros/**"]
-}

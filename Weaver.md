@@ -251,7 +251,7 @@ The generator is fast because of work that has nothing to do with the language. 
 
 The thing to be careful about: the detachment boundary (§3) is also a *caching* boundary. A `PureTypeRef` with pooled handles is a sound cache key; an `ITypeSymbol` is not, since it is tied to a `Compilation` that changes on every keystroke. Keeping the late pass pure is what lets its outputs be cached per type instead of recomputed per edit — the same reason Hix had purity in the first place.
 
-Everything else — `src/Hix`, the VM glue, `Hix.Standalone`, `Hix.Toolchain`, `Hix.GraphEditor`, `Grammars`, `RiderPlugin`: **~75 000 lines** — goes, with the `.hix` files and the committed `.additionalfile` bytecode blob.
+Everything else — `src/Hix`, the VM glue, `Hix.Standalone`, `Hix.Toolchain`, `Hix.GraphEditor`, `Grammars`, `RiderPlugin`: **~75 000 lines** — goes, with the `.hix` files and the committed `.additionalfile` bytecode blob. *(Done: removed in the commit that deletes the language.)*
 
 ## 7. `Core.hix` becomes a `.lib.cs` plus derivation mixins
 
