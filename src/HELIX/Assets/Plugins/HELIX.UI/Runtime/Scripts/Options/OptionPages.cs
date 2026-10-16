@@ -29,6 +29,8 @@ namespace HELIX.UI.Options {
     [Prop(true)] public readonly bool showDefaultOptionReset;
     [Prop(null)] public readonly IconRef? changedOptionResetIcon;
     [Prop(null)] public readonly IconRef? defaultOptionResetIcon;
+    [Prop("Discard the pending change")] public readonly string changedOptionResetTooltip;
+    [Prop("Reset to the default value")] public readonly string defaultOptionResetTooltip;
   }
 
   public readonly struct OptionPagesNavigationHeaderSpec : ISpec<OptionPagesNavigationHeaderSpec> {

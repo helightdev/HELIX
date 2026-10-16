@@ -13,6 +13,10 @@ namespace HELIX.UI.Options {
   public static class OptionPageFieldModifiers {
     public static OptionPageDefaultResetModifier DefaultReset(bool enabled = true) => new(enabled);
     public static OptionPageDefaultResetModifier DisableDefaultReset() => new(false);
+
+    /// <summary>Default-value reset is offered unless the field asked for it to be suppressed.</summary>
+    public static bool AllowDefaultReset(this in ProseFieldDecoration decoration) =>
+      decoration.Modifier<OptionPageDefaultResetModifier>()?.Enabled ?? true;
   }
 
   public sealed class OptionPageFieldPresentation {
@@ -120,8 +124,13 @@ namespace HELIX.UI.Options {
     public partial struct Props {
       [Prop(null)] public Composable trigger;
       [Prop(null)] public Composable content;
+      /// <summary>Shown in place of a trigger. The circled-information sign by default.</summary>
+      [Prop("\u24D8")] public string glyph;
+      [Prop(0.7f)] public float glyphOpacity;
+      [Prop(320f)] public float maxWidth;
     }
 
+    private const float TooltipAnchorGap = 4f;
     private OverlayController _overlays;
     private OverlayHandle _overlay;
 
@@ -148,13 +157,13 @@ namespace HELIX.UI.Options {
       style.alignSelf = Align.Center;
       pickingMode = PickingMode.Position;
       if (props.trigger != null) props.trigger(ref cx);
-      else cx.Text("\u24D8", TextRole.BodySmall).Opacity(0.7f);
+      else cx.Text(props.glyph, TextRole.BodySmall).Opacity(props.glyphOpacity);
     }
 
     private void OnPointerEnter(PointerEnterEvent evt) {
       if (props.content == null || _overlays == null || _overlay?.IsOpen == true) return;
       _overlay = Overlay.Build(ComposeTooltip)
-        .AnchorTo(this, OverlayPlacement.Above, new Vector2(0f, -4f))
+        .AnchorTo(this, OverlayPlacement.Above, new Vector2(0f, -TooltipAnchorGap))
         .Show(_overlays, this);
     }
 
@@ -168,10 +177,10 @@ namespace HELIX.UI.Options {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerHighest))
         .TextColor(theme.GetColor(ColorRoles.OnSurface))
-        .BorderRadius(8f)
-        .MaxWidth(320f);
+        .BorderRadius(theme[RadiusRole.Radius2])
+        .MaxWidth(props.maxWidth);
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Padding(10f);
+        if (cx.CursorDirty) cx.CURSOR.Padding(theme[SpacingRole.Spacing2]);
         props.content?.Invoke(ref cx);
       }
     }
@@ -180,31 +189,16 @@ namespace HELIX.UI.Options {
   /// <summary>Consumes option-page help prose, delegates control creation, then wraps the completed field.</summary>
   public static class OptionPageFieldFactory {
     public static bool Create(
-      IProseField field, object formatter, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IProseField field, ref ProseFieldDecoration decoration, out Composable result
     ) {
-      var delegatedParts = new List<ComposeProseFieldPart>(parts.Count);
-      Composable label = null;
-      Composable description = null;
-      Composable tooltip = null;
-      for (var i = 0; i < parts.Count; i++) {
-        var content = parts[i].Content;
-        if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Label }) label = content;
-        if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Description }) {
-          description = content;
-          continue;
-        }
-        if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Tooltip }) {
-          tooltip = content;
-          continue;
-        }
-        delegatedParts.Add(parts[i]);
-      }
-      label ??= (ref Composition cx) => cx.Text(field.Name);
+      var label = decoration.Label ?? ComposeProseFieldFactories.Text(field.Name);
+      var description = decoration.Description;
+      var tooltip = decoration.Tooltip;
+
       if (tooltip != null || description != null) {
         var baseLabel = label;
         var hoverContent = Combine(description, tooltip);
-        Composable decoratedLabel = (ref Composition cx) => {
+        label = (ref Composition cx) => {
           var context = cx.ReadContext(OptionPageFieldContext.Key, false);
           var hasSidePanel = context.options.hasSidePanel;
           var collapse = context.options.collapseTooltipIntoDescription;
@@ -221,28 +215,44 @@ namespace HELIX.UI.Options {
             }
           }
         };
-        for (var i = delegatedParts.Count - 1; i >= 0; i--)
-          if (delegatedParts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Label })
-            delegatedParts.RemoveAt(i);
-        delegatedParts.Add(new ComposeProseFieldPart(ProseFields.Label, decoratedLabel));
-        label = decoratedLabel;
       }
-      var allowDefaultReset = true;
-      for (var i = 0; i < modifiers.Count; i++)
-        if (modifiers[i] is OptionPageDefaultResetModifier reset)
-          allowDefaultReset = reset.Enabled;
-      Composable nameActions = (ref Composition cx) => {
+
+      // The side panel renders the description itself, so the field row must not repeat it.
+      decoration.Label = label;
+      decoration.Description = null;
+      decoration.Tooltip = null;
+      decoration.NameEnd = ComposeResetActions(field.Path, OptionPageFieldModifiers.AllowDefaultReset(in decoration));
+
+      if (!ComposeProseFieldFactories.Default(field, ref decoration, out var fieldContent)) {
+        result = null;
+        return false;
+      }
+
+      var presentation = new OptionPageFieldPresentation(label, description, tooltip);
+      var path = field.Path;
+      result = (ref Composition cx) => {
         var context = cx.ReadContext(OptionPageFieldContext.Key, false);
-        var showChanged = context.options.showChangedOptionReset && context.state?.IsChanged(field.Path) == true;
+        OptionPageFieldElement.ComposeBoundary(
+          ref cx, context.form, context.controller, context.options, context.state, path,
+          presentation, fieldContent
+        );
+      };
+      return true;
+    }
+
+    private static Composable ComposeResetActions(string path, bool allowDefaultReset) =>
+      (ref Composition cx) => {
+        var context = cx.ReadContext(OptionPageFieldContext.Key, false);
+        var showChanged = context.options.showChangedOptionReset && context.state?.IsChanged(path) == true;
         var showDefault = allowDefaultReset && context.options.showDefaultOptionReset &&
-                          context.state?.IsNonDefault(field.Path) == true;
+                          context.state?.IsNonDefault(path) == true;
         if (showChanged) {
           ref var resetChange = ref cx.Button(
             OptionPageFieldElement.ComposeChangedResetIcon,
             action: OptionPageFieldElement.ResetChange,
             style: ThemeProperties.ButtonGhost[in cx]
           );
-          resetChange.element.tooltip = "Discard the pending change";
+          resetChange.element.tooltip = context.options.changedOptionResetTooltip;
         }
         if (showChanged && showDefault) cx.Spacing(1);
         if (showDefault) {
@@ -251,27 +261,10 @@ namespace HELIX.UI.Options {
             action: OptionPageFieldElement.ResetToDefault,
             style: ThemeProperties.ButtonGhost[in cx]
           );
-          resetDefault.element.tooltip = "Reset to the default value";
+          resetDefault.element.tooltip = context.options.defaultOptionResetTooltip;
         }
         if (showChanged || showDefault) cx.Spacing(1);
       };
-      if (!ComposeProseFieldFactories.Standard(
-            field, formatter, delegatedParts, modifiers, out var fieldContent,
-            new InspectorLayoutSlots(nameEnd: nameActions)
-          )) {
-        result = null;
-        return false;
-      }
-      var presentation = new OptionPageFieldPresentation(label, description, tooltip);
-      result = (ref Composition cx) => {
-        var context = cx.ReadContext(OptionPageFieldContext.Key, false);
-        OptionPageFieldElement.ComposeBoundary(
-          ref cx, context.form, context.controller, context.options, context.state, field.Path,
-          presentation, fieldContent
-        );
-      };
-      return true;
-    }
 
     private static Composable Combine(Composable first, Composable second) {
       if (first == null) return second;
@@ -282,6 +275,5 @@ namespace HELIX.UI.Options {
         second(ref cx);
       };
     }
-
   }
 }

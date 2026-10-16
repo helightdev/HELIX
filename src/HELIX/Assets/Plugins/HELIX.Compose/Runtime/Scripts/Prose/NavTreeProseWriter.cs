@@ -114,6 +114,28 @@ namespace HELIX.Compose {
       _sections.Add(Paths.Root, _rootNode);
     }
 
+    /// <summary>
+    ///   A writer whose field scopes are assembled by the given factories, falling back to
+    ///   <see cref="ComposeProseFieldFactories.Default" />. The usual setup for an options or form tree.
+    /// </summary>
+    public static NavTreeProseWriter ForFields(
+      params ComposeProseFieldFactory[] factories
+    ) => ForFields(null, factories);
+
+    public static NavTreeProseWriter ForFields(
+      FormPathPool paths,
+      params ComposeProseFieldFactory[] factories
+    ) {
+      var fields = new ComposeProseFieldReducer();
+      if (factories != null)
+        for (var i = 0; i < factories.Length; i++)
+          fields.Add(factories[i]);
+      return new NavTreeProseWriter(
+        paths,
+        delegates: new ProseReducerChain<Composable>().Add(new ComposeProseFieldHandler(fields))
+      );
+    }
+
     public FormPathPool Paths { get; }
     public FormPath CurrentPath => CurrentNode.Path;
     private NavTreeProse.Node CurrentNode => _pathFrames.Count == 0 ? _rootNode : _pathFrames[^1].node;

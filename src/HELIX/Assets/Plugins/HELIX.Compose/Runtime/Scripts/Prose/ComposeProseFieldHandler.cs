@@ -14,17 +14,47 @@ namespace HELIX.Compose {
     public Composable Content { get; }
   }
 
+  /// <summary>
+  ///   Everything a field's prose said about its presentation, already reduced to composables. A factory
+  ///   reads what it cares about, overwrites what it wants to change, and either assembles the field
+  ///   itself or hands the decoration to <see cref="ComposeProseFieldFactories.Default" />.
+  /// </summary>
+  public struct ProseFieldDecoration {
+    public Composable Label, Description, Tooltip, Prefix, Suffix, Before, Between, After;
+    public Composable NameStart, NameEnd, ValueStart, ValueEnd;
+    public Length? LabelWidth;
+    public bool FullWidth, HideName;
+
+    /// <summary>The field frame's modifiers, for factories that define their own.</summary>
+    public IReadOnlyList<IProseModifier> Modifiers;
+
+    public InspectorLayoutSlots Slots() => new(NameStart, NameEnd, ValueStart, ValueEnd);
+
+    /// <summary>The last modifier of the given kind, or null when the field declared none.</summary>
+    public TModifier Modifier<TModifier>() where TModifier : class, IProseModifier {
+      if (Modifiers == null) return null;
+      for (var i = Modifiers.Count - 1; i >= 0; i--)
+        if (Modifiers[i] is TModifier match)
+          return match;
+      return null;
+    }
+  }
+
+  /// <summary>
+  ///   Turns a field and its decoration into content. Returning false declines the field and lets the next
+  ///   factory — and finally <see cref="ComposeProseFieldFactories.Default" /> — handle it, keeping any
+  ///   change the declining factory made to the decoration.
+  /// </summary>
   public delegate bool ComposeProseFieldFactory(
     IProseField field,
-    object formatter,
-    IReadOnlyList<ComposeProseFieldPart> parts,
-    IReadOnlyList<IProseModifier> modifiers,
+    ref ProseFieldDecoration decoration,
     out Composable result
   );
 
   /// <summary>Delegates only typed field scopes to a separately configurable field reducer.</summary>
   public sealed class ComposeProseFieldHandler : IProseScopeHandler<Composable> {
     private readonly ComposeProseFieldReducer _reducer;
+    private readonly Stack<ReducingProseWriter<ComposeProseFieldPart>> _pool = new();
 
     public ComposeProseFieldHandler(ComposeProseFieldReducer reducer) {
       _reducer = reducer ?? throw new ArgumentNullException(nameof(reducer));
@@ -35,14 +65,19 @@ namespace HELIX.Compose {
         writer = null;
         return false;
       }
-      writer = new ReducingProseWriter<ComposeProseFieldPart>(_reducer);
+      writer = _pool.Count > 0
+        ? _pool.Pop()
+        : new ReducingProseWriter<ComposeProseFieldPart>(_reducer);
       return true;
     }
 
     public Composable Finish(IProseWriter writer) {
       if (writer is not ReducingProseWriter<ComposeProseFieldPart> fieldWriter)
         throw new ArgumentException("The field handler can only finish its own writer.", nameof(writer));
-      return fieldWriter.Build().Content;
+      var content = fieldWriter.Build().Content;
+      fieldWriter.Reset();
+      _pool.Push(fieldWriter);
+      return content;
     }
   }
 
@@ -97,16 +132,19 @@ namespace HELIX.Compose {
       IReadOnlyList<ComposeProseFieldPart> children,
       IReadOnlyList<IProseModifier> modifiers
     ) {
-      if (scope is IProseField proseField) {
-        for (var i = 0; i < _factories.Count; i++) {
-          if (_factories[i](proseField, proseField.Formatter, children, modifiers, out var field))
-            return new ComposeProseFieldPart(scope, field);
-        }
-        return default;
+      if (scope is not IProseField proseField) {
+        var content = ReduceContent(scope, children, modifiers);
+        return new ComposeProseFieldPart(scope, content);
       }
 
-      var content = ReduceContent(scope, children, modifiers);
-      return new ComposeProseFieldPart(scope, content);
+      var decoration = Decoration(children, modifiers);
+      for (var i = 0; i < _factories.Count; i++)
+        if (_factories[i](proseField, ref decoration, out var custom))
+          return new ComposeProseFieldPart(scope, custom);
+
+      return ComposeProseFieldFactories.Default(proseField, ref decoration, out var field)
+        ? new ComposeProseFieldPart(scope, field)
+        : default;
     }
 
     public override ComposeProseFieldPart Reduce(IReadOnlyList<ComposeProseFieldPart> children) {
@@ -115,6 +153,35 @@ namespace HELIX.Compose {
 
     public override bool IsEmpty(ComposeProseFieldPart value) {
       return value.Content == null;
+    }
+
+    /// <summary>Collects the part scopes and modifiers a field's prose produced. The one place that reads them.</summary>
+    private static ProseFieldDecoration Decoration(
+      IReadOnlyList<ComposeProseFieldPart> parts,
+      IReadOnlyList<IProseModifier> modifiers
+    ) {
+      var decoration = new ProseFieldDecoration { Modifiers = modifiers };
+      for (var i = 0; i < parts.Count; i++) {
+        if (parts[i].Scope is not ProseFieldPart part) continue;
+        var content = parts[i].Content;
+        switch (part.Kind) {
+          case ProseFieldPartKind.Label: decoration.Label = content; break;
+          case ProseFieldPartKind.Description: decoration.Description = content; break;
+          case ProseFieldPartKind.Tooltip: decoration.Tooltip = content; break;
+          case ProseFieldPartKind.Prefix: decoration.Prefix = content; break;
+          case ProseFieldPartKind.Suffix: decoration.Suffix = content; break;
+          case ProseFieldPartKind.Before: decoration.Before = content; break;
+          case ProseFieldPartKind.Between: decoration.Between = content; break;
+          case ProseFieldPartKind.After: decoration.After = content; break;
+        }
+      }
+      for (var i = 0; i < modifiers.Count; i++)
+        switch (modifiers[i]) {
+          case ProseFieldLabelWidthModifier width: decoration.LabelWidth = width.Width; break;
+          case ProseFullWidthModifier: decoration.FullWidth = true; break;
+          case ProseHideNameModifier: decoration.HideName = true; break;
+        }
+      return decoration;
     }
 
     private Composable ReduceContent(
@@ -132,317 +199,77 @@ namespace HELIX.Compose {
     }
   }
 
-  /// <summary>Conventional field factories. Applications can replace or extend these per value type.</summary>
+  /// <summary>
+  ///   The conventional field assembly: a two-column inspector row registered as a form field. The control
+  ///   itself comes from the field's own datatype through <see cref="SpecConfig" />, so adding a value type
+  ///   means registering a spec handler and nothing here.
+  /// </summary>
   public static class ComposeProseFieldFactories {
-    public static bool Standard(
+    public static bool Default(
       IProseField field,
-      object formatter,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      out Composable result,
-      InspectorLayoutSlots layoutSlots = default
-    ) {
-      if (formatter is ICollectionDatatype collection)
-        return Collection(field, collection, parts, modifiers, layoutSlots, out result);
-      if (formatter is ICompositeDatatype composite)
-        return Composite(field, composite, parts, modifiers, layoutSlots, out result);
-      if (formatter is IDatatypeChoice choices)
-        return Choice(field, choices, parts, modifiers, layoutSlots, out result);
-      if (formatter is IDatatype<string> && field is ProseField<string> text)
-        return Text(text, parts, modifiers, layoutSlots, out result);
-      if (formatter is IDatatype<int> && field is ProseField<int> integer)
-        return Integer(integer, parts, modifiers, layoutSlots, out result);
-      if (formatter is IDatatype<float> && field is ProseField<float> number)
-        return Float(number, parts, modifiers, layoutSlots, out result);
-      if (formatter is IDatatype<bool> && field is ProseField<bool> toggle)
-        return Checkbox(toggle, parts, modifiers, layoutSlots, out result);
-      result = null;
-      return false;
-    }
-
-    private static bool Composite(
-      IProseField field,
-      ICompositeDatatype formatter,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
+      ref ProseFieldDecoration decoration,
       out Composable result
     ) {
+      if (field == null) throw new ArgumentNullException(nameof(field));
       if (string.IsNullOrEmpty(field.Path)) {
         result = null;
         return false;
       }
-      var controlDatatype = new UntypedCompositeDatatype(formatter);
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<object>(
-            formField.Value,
-            controlDatatype,
-            SetComposite,
-            FinishEditing,
-            IsEnabled(formField),
-            HasError(formField)
-          )
-        );
-        cx.CURSOR.Flexible();
-      };
-      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control, layoutSlots);
-      return true;
-    }
-
-    private static bool Collection(
-      IProseField field,
-      ICollectionDatatype formatter,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
-      out Composable result
-    ) {
-      if (string.IsNullOrEmpty(field.Path)) {
+      var control = field.CreateControl();
+      if (control == null) {
         result = null;
         return false;
       }
-      var controlDatatype = new UntypedCollectionDatatype(formatter);
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<object>(
-            formField.Value,
-            controlDatatype,
-            SetComposite,
-            FinishEditing,
-            IsEnabled(formField),
-            HasError(formField)
-          )
-        );
-        cx.CURSOR.Flexible();
-      };
-      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control, layoutSlots);
-      return true;
-    }
 
-    private static bool Choice(
-      IProseField field,
-      IDatatypeChoice formatter,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
-      out Composable result
-    ) {
-      if (string.IsNullOrEmpty(field.Path) || formatter.ChoiceCount == 0) {
-        result = null;
-        return false;
-      }
-      var controlFormatter = new UntypedIDatatypeChoiceDatatype(formatter);
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<object>(
-            formField.Value,
-            controlFormatter,
-            SetChoice,
-            enabled: IsEnabled(formField),
-            error: HasError(formField)
-          )
-        );
-        cx.CURSOR.Flexible();
-      };
-      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control, layoutSlots);
-      return true;
-    }
+      var label = decoration.Label ?? Text(field.Name);
+      var prefix = decoration.Prefix;
+      var suffix = decoration.Suffix;
+      Composable value = prefix == null && suffix == null
+        ? control
+        : (ref Composition cx) => {
+          prefix?.Invoke(ref cx);
+          control(ref cx);
+          suffix?.Invoke(ref cx);
+        };
 
-    private static bool Text(
-      ProseField<string> field,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
-      out Composable result
-    ) {
-      if (string.IsNullOrEmpty(field.Path)) {
-        result = null;
-        return false;
-      }
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<string>(
-            formField.GetValue(string.Empty),
-            field.Datatype,
-            SetText,
-            FinishEditing,
-            IsEnabled(formField),
-            HasError(formField)
-          )
-        );
-        cx.CURSOR.Flexible();
-      };
-      result = Field(field, parts, modifiers, control, layoutSlots);
-      return true;
-    }
-
-    private static bool Integer(
-      ProseField<int> field,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
-      out Composable result
-    ) {
-      if (string.IsNullOrEmpty(field.Path)) {
-        result = null;
-        return false;
-      }
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<int>(
-            formField.GetValue(0),
-            field.Datatype,
-            SetInteger,
-            FinishEditing,
-            IsEnabled(formField),
-            HasError(formField)
-          )
-        );
-        cx.CURSOR.Flexible();
-      };
-      result = Field(field, parts, modifiers, control, layoutSlots);
-      return true;
-    }
-
-    private static bool Float(
-      ProseField<float> field,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
-      out Composable result
-    ) {
-      if (string.IsNullOrEmpty(field.Path)) {
-        result = null;
-        return false;
-      }
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<float>(
-            formField.GetValue(0f),
-            field.Datatype,
-            SetFloat,
-            FinishEditing,
-            IsEnabled(formField),
-            HasError(formField)
-          )
-        );
-        cx.CURSOR.Flexible();
-      };
-      result = Field(field, parts, modifiers, control, layoutSlots);
-      return true;
-    }
-
-    private static bool Checkbox(
-      ProseField<bool> field,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      InspectorLayoutSlots layoutSlots,
-      out Composable result
-    ) {
-      if (string.IsNullOrEmpty(field.Path)) {
-        result = null;
-        return false;
-      }
-      Composable control = (ref Composition cx) => {
-        var formField = cx.Lookup<HXFormField>();
-        cx.Spec(
-          new ControlSpec<bool>(
-            formField.GetValue(false),
-            field.Datatype,
-            SetBool,
-            enabled: IsEnabled(formField),
-            error: HasError(formField)
-          )
-        );
-      };
-      result = Field(field, parts, modifiers, control, layoutSlots);
-      return true;
-    }
-
-    private static Composable Field<T>(
-      ProseField<T> field,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      Composable control,
-      InspectorLayoutSlots layoutSlots
-    ) {
-      var defaultValue = Default(field);
-      return Field(
-        field.Path,
-        field.Name,
-        defaultValue.hasValue ? defaultValue.value : FormController.NoInitialValue,
-        parts,
-        modifiers,
-        control,
-        layoutSlots
+      var layout = new InspectorLayout(
+        label,
+        value,
+        decoration.Slots(),
+        decoration.LabelWidth,
+        decoration.FullWidth || decoration.HideName,
+        decoration.HideName
       );
-    }
 
-    private static Composable Field(
-      string path,
-      string name,
-      object initialValue,
-      IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers,
-      Composable control,
-      InspectorLayoutSlots layoutSlots
-    ) {
-      var decorators = Decorators(parts);
-      if (decorators.label == null) {
-        decorators = new FormFieldDecorators(
-          (ref Composition cx) => cx.Text(name),
-          decorators.description,
-          decorators.prefix,
-          decorators.suffix,
-          decorators.before,
-          decorators.between,
-          decorators.after
-        );
-      }
-      var labelWidth = new Length(35f, LengthUnit.Percent);
-      var fullWidth = false;
-      var hideName = false;
-      for (var i = 0; i < modifiers.Count; i++) {
-        if (modifiers[i] is ProseFieldLabelWidthModifier width) labelWidth = width.Width;
-        else if (modifiers[i] is ProseFullWidthModifier) fullWidth = true;
-        else if (modifiers[i] is ProseHideNameModifier) hideName = true;
-      }
-
-      Composable value = (ref Composition cx) => {
-        decorators.prefix?.Invoke(ref cx);
-        control(ref cx);
-        decorators.suffix?.Invoke(ref cx);
-      };
+      var before = decoration.Before;
+      var between = decoration.Between;
+      var description = decoration.Description;
+      var after = decoration.After;
       Composable content = (ref Composition cx) => {
-        decorators.before?.Invoke(ref cx);
-        cx.Spec(
-          new InspectorLayout(
-            decorators.label,
-            value,
-            layoutSlots,
-            labelWidth,
-            fullWidth || hideName,
-            hideName
-          )
-        );
-        decorators.between?.Invoke(ref cx);
-        decorators.description?.Invoke(ref cx);
-        decorators.after?.Invoke(ref cx);
+        before?.Invoke(ref cx);
+        cx.Spec(in layout);
+        between?.Invoke(ref cx);
+        description?.Invoke(ref cx);
+        after?.Invoke(ref cx);
       };
-      return (ref Composition cx) => cx.FormField(
+
+      var path = field.Path;
+      var initialValue = field.TryGetDefaultValue(out var declared)
+        ? declared
+        : FormController.NoInitialValue;
+      result = (ref Composition cx) => cx.FormField(
         path,
         content,
+        // The row above already carries label, description and affixes, so the decorator layout would
+        // render them a second time. Field decoration happens here, not in HXDecorator.
         new HXFormFieldStyle(Passthrough),
         initialValue: initialValue
       );
+      return true;
     }
+
+    /// <summary>A plain text composable, for a field that supplied no label prose.</summary>
+    public static Composable Text(string text) => (ref Composition cx) => cx.Text(text);
 
     private static void Passthrough(
       ref Composition cx,
@@ -450,187 +277,6 @@ namespace HELIX.Compose {
       in FormFieldDecorators decorators
     ) {
       field(ref cx);
-    }
-
-    private static void SetText(CompositionContext context, string value) {
-      context.Lookup<HXFormField>()?.SetUserValue(value);
-    }
-
-    private static void SetInteger(CompositionContext context, int value) {
-      context.Lookup<HXFormField>()?.SetUserValue(value);
-    }
-
-    private static void SetFloat(CompositionContext context, float value) {
-      context.Lookup<HXFormField>()?.SetUserValue(value);
-    }
-
-    private static void SetBool(CompositionContext context, bool value) {
-      context.Lookup<HXFormField>()?.SetUserValue(value);
-    }
-
-    private static void SetChoice(CompositionContext context, object value) {
-      context.Lookup<HXFormField>()?.SetUserValue(value);
-    }
-
-    private static void SetComposite(CompositionContext context, object value) {
-      context.Lookup<HXFormField>()?.SetUserValue(value);
-    }
-
-    private static void FinishEditing(CompositionContext context) {
-      context.Lookup<HXFormField>()?.MarkFinishedEditing();
-    }
-
-    private static bool IsEnabled(HXFormField field) {
-      return field.FieldData?.HasFlag(FieldFlags.Disabled) != true;
-    }
-
-    private static bool HasError(HXFormField field) {
-      return field.FieldData?.HasFlag(FieldFlags.Error) == true;
-    }
-
-    private static HXOptional<T> Default<T>(ProseField<T> field) {
-      return field.Datatype is IDatatypeDefault<T> value && value.HasDefaultValue
-        ? new HXOptional<T>(value.DefaultValue)
-        : HXOptional<T>.None;
-    }
-
-    private static FormFieldDecorators Decorators(IReadOnlyList<ComposeProseFieldPart> parts) {
-      Composable label = null, description = null, prefix = null, suffix = null;
-      Composable before = null, between = null, after = null;
-      for (var i = 0; i < parts.Count; i++) {
-        if (parts[i].Scope is not ProseFieldPart part) continue;
-        switch (part.Kind) {
-          case ProseFieldPartKind.Label: label = parts[i].Content; break;
-          case ProseFieldPartKind.Description: description = parts[i].Content; break;
-          case ProseFieldPartKind.Prefix: prefix = parts[i].Content; break;
-          case ProseFieldPartKind.Suffix: suffix = parts[i].Content; break;
-          case ProseFieldPartKind.Before: before = parts[i].Content; break;
-          case ProseFieldPartKind.Between: between = parts[i].Content; break;
-          case ProseFieldPartKind.After: after = parts[i].Content; break;
-        }
-      }
-      return new FormFieldDecorators(label, description, prefix, suffix, before, between, after);
-    }
-
-    private sealed class UntypedIDatatypeChoiceDatatype :
-      IDatatype<object>, IDatatypeChoice, IDatatypeAffix, IControlDatatypeWrapper {
-      private readonly IDatatypeChoice _formatter;
-
-      public UntypedIDatatypeChoiceDatatype(IDatatypeChoice formatter) {
-        _formatter = formatter;
-      }
-
-      object IControlDatatypeWrapper.Datatype => _formatter;
-
-      public void ToProse(IProseWriter writer, object value) {
-        for (var i = 0; i < ChoiceCount; i++) {
-          if (!Equals(GetChoiceValue(i), value)) continue;
-          writer.Write(GetChoiceLabel(i));
-          return;
-        }
-        writer.Write(value?.ToString() ?? "null");
-      }
-
-      public string Prefix => (_formatter as IDatatypeAffix)?.Prefix;
-      public string Suffix => (_formatter as IDatatypeAffix)?.Suffix;
-      public int ChoiceCount => _formatter.ChoiceCount;
-
-      public object GetChoiceValue(int index) {
-        return _formatter.GetChoiceValue(index);
-      }
-
-      public string GetChoiceLabel(int index) {
-        return _formatter.GetChoiceLabel(index);
-      }
-
-      public bool IsChoiceEnabled(int index) {
-        return _formatter.IsChoiceEnabled(index);
-      }
-    }
-
-    private sealed class UntypedCompositeDatatype : IDatatype<object>, ICompositeDatatype {
-      private readonly ICompositeDatatype _datatype;
-
-      public UntypedCompositeDatatype(ICompositeDatatype datatype) {
-        _datatype = datatype;
-      }
-
-      public int ComponentCount => _datatype.ComponentCount;
-
-      public string GetComponentName(int index) {
-        return _datatype.GetComponentName(index);
-      }
-
-      public Type GetComponentType(int index) {
-        return _datatype.GetComponentType(index);
-      }
-
-      public object GetComponentDatatype(int index) {
-        return _datatype.GetComponentDatatype(index);
-      }
-
-      public object GetComponentValue(object value, int index) {
-        return _datatype.GetComponentValue(value, index);
-      }
-
-      public object SetComponentValue(object value, int index, object componentValue) {
-        return _datatype.SetComponentValue(value, index, componentValue);
-      }
-
-      public void WriteComponent(IProseWriter writer, object value, int index) {
-        _datatype.WriteComponent(writer, value, index);
-      }
-
-      public void ToProse(IProseWriter writer, object value) {
-        for (var i = 0; i < ComponentCount; i++) {
-          if (i != 0) writer.Write(", ");
-          WriteComponent(writer, value, i);
-        }
-      }
-    }
-
-    private sealed class UntypedCollectionDatatype : IDatatype<object>, ICollectionDatatype {
-      private readonly ICollectionDatatype _datatype;
-
-      public UntypedCollectionDatatype(ICollectionDatatype datatype) {
-        _datatype = datatype;
-      }
-
-      public object ItemDatatype => _datatype.ItemDatatype;
-      public ICollectionProxy CollectionProxy => _datatype.CollectionProxy;
-      public int ComponentCount => 0;
-
-      public string GetComponentName(int index) {
-        return _datatype.GetComponentName(index);
-      }
-
-      public Type GetComponentType(int index) {
-        return _datatype.GetComponentType(index);
-      }
-
-      public object GetComponentDatatype(int index) {
-        return _datatype.GetComponentDatatype(index);
-      }
-
-      public object GetComponentValue(object value, int index) {
-        return _datatype.GetComponentValue(value, index);
-      }
-
-      public object SetComponentValue(object value, int index, object componentValue) {
-        return _datatype.SetComponentValue(value, index, componentValue);
-      }
-
-      public void WriteComponent(IProseWriter writer, object value, int index) {
-        _datatype.WriteComponent(writer, value, index);
-      }
-
-      public void ToProse(IProseWriter writer, object value) {
-        var count = value == null ? 0 : CollectionProxy.GetItemCount(value);
-        for (var i = 0; i < count; i++) {
-          if (i != 0) writer.Write(", ");
-          WriteComponent(writer, value, i);
-        }
-      }
     }
   }
 }

@@ -7,10 +7,23 @@ namespace HELIX.Compose {
     string Path { get; }
     string Name { get; }
     object Formatter { get; }
+
+    /// <summary>
+    /// The control for this field's value, resolved through <see cref="SpecConfig" /> rather than by a
+    /// per-type factory. The composable reads and writes the enclosing <see cref="HXFormField" />.
+    /// </summary>
+    Composable CreateControl();
+
+    /// <summary>The datatype's declared default, boxed, or false when it declares none.</summary>
+    bool TryGetDefaultValue(out object value);
   }
 
   /// <summary>A typed field description whose current value is owned by the destination form.</summary>
   public sealed class ProseField<T> : IProseField {
+    private static readonly CompositionAction<T> Setter = SetValue;
+    private static readonly CompositionAction Committer = Commit;
+    private Composable _control;
+
     public ProseField(string path, string name, IDatatype<T> datatype) {
       Path = path ?? string.Empty;
       if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field name is required.", nameof(name));
@@ -22,6 +35,39 @@ namespace HELIX.Compose {
     public string Path { get; }
     public string Name { get; }
     object IProseField.Formatter => Datatype;
+
+    public Composable CreateControl() => _control ??= ComposeControl;
+
+    public bool TryGetDefaultValue(out object value) {
+      if (Datatype is IDatatypeDefault<T> { HasDefaultValue: true } declared) {
+        value = declared.DefaultValue;
+        return true;
+      }
+      value = null;
+      return false;
+    }
+
+    private void ComposeControl(ref Composition cx) {
+      var field = cx.Lookup<HXFormField>();
+      var data = field?.FieldData;
+      cx.Spec(
+        new ControlSpec<T>(
+          field == null ? default : field.GetValue<T>(),
+          Datatype,
+          Setter,
+          Committer,
+          data?.HasFlag(FieldFlags.Disabled) != true,
+          data?.HasFlag(FieldFlags.Error) == true
+        )
+      );
+      cx.CURSOR.Flexible();
+    }
+
+    private static void SetValue(CompositionContext context, T value) =>
+      context.Lookup<HXFormField>()?.SetUserValue(value);
+
+    private static void Commit(CompositionContext context) =>
+      context.Lookup<HXFormField>()?.MarkFinishedEditing();
   }
 
   /// <summary>Semantic prose belonging to a field. Writers may ignore parts they do not support.</summary>
@@ -76,13 +122,43 @@ namespace HELIX.Compose {
   }
 
   public static class ProseFieldWriterExtensions {
+    /// <summary>
+    ///   Begins a field frame. The optional arguments cover the decorations a field usually wants, so a
+    ///   field that needs nothing else does not need a block; keep the block for nested prose.
+    /// </summary>
     public static ProseWriterScope Field<T>(
       this IProseWriter writer,
       string path,
       string name,
-      IDatatype<T> datatype
+      IDatatype<T> datatype,
+      string description = null,
+      string tooltip = null,
+      bool fullWidth = false,
+      bool hideName = false,
+      Length? labelWidth = null
     ) {
-      return writer.Scope(new ProseField<T>(path, name, datatype));
+      var scope = writer.Scope(new ProseField<T>(path, name, datatype));
+      if (fullWidth) writer.Push(ProseFields.FullWidth);
+      if (hideName) writer.Push(ProseModifiers.HideName);
+      if (labelWidth.HasValue) writer.Push(ProseFields.LabelWidth(labelWidth.Value));
+      if (description != null) writer.FieldDescription(description);
+      if (tooltip != null) writer.FieldTooltip(tooltip);
+      return scope;
+    }
+
+    /// <summary>A field with no nested prose, written in one statement.</summary>
+    public static void WriteField<T>(
+      this IProseWriter writer,
+      string path,
+      string name,
+      IDatatype<T> datatype,
+      string description = null,
+      string tooltip = null,
+      bool fullWidth = false,
+      bool hideName = false,
+      Length? labelWidth = null
+    ) {
+      using (writer.Field(path, name, datatype, description, tooltip, fullWidth, hideName, labelWidth)) { }
     }
 
     public static ProseWriterScope FieldPart(this IProseWriter writer, IProseFieldPart part) {

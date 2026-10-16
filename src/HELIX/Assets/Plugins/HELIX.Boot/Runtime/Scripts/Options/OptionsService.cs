@@ -48,9 +48,7 @@ namespace HELIX.Boot {
     }
 
     public OptionPages BuildOptionPages(OptionPagesOptions? options = null) {
-      var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
-      var handlers = new ProseReducerChain<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
-      var writer = new NavTreeProseWriter(delegates: handlers);
+      var writer = NavTreeProseWriter.ForFields(OptionPageFieldFactory.Create);
       new OptionsRenderEvent(writer).Raise();
       var prose = writer.BuildSections();
 

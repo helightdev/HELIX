@@ -36,106 +36,70 @@ namespace HELIX.Examples {
       }
     }
 
+    /// <summary>Value/label pairs as a choice datatype, so the example stays about the prose.</summary>
+    private static DatatypeChoiceDatatype<string> Choices(params string[] valueLabelPairs) {
+      var choices = new DatatypeChoice<string>[valueLabelPairs.Length / 2];
+      for (var i = 0; i < choices.Length; i++)
+        choices[i] = new DatatypeChoice<string>(valueLabelPairs[i * 2], valueLabelPairs[i * 2 + 1]);
+      return new DatatypeChoiceDatatype<string>(choices);
+    }
+
     private static OptionPages CreateProseOptionPages() {
-      var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
-      var handlers = new ProseReducerChain<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
-      var writer = new NavTreeProseWriter(delegates: handlers);
+      var writer = NavTreeProseWriter.ForFields(OptionPageFieldFactory.Create);
       using (writer.Path("graphics")) {
         writer.Push(PathSectionModifiers.Title("Graphics", TextRole.TitleLarge));
-        using (writer.Field<DisplayMode>(
-          "graphics.display-mode",
-          "Display mode",
-          Datatypes.Enum<DisplayMode>()
-        )) {
-          writer.Push(ProseModifiers.HideName);
-          writer.FieldDescription("Select how the game occupies the display.");
-          writer.FieldTooltip("Borderless uses the desktop resolution and usually switches applications faster.");
-          // using (writer.FieldSuffix()) writer.Write("3 choices");
-        }
-        using (writer.Field(
-          "graphics.upscaler",
-          "Upscaler",
-          new DatatypeChoiceDatatype<string>(
-            new[] {
-              new DatatypeChoice<string>("off", "Off"),
-              new DatatypeChoice<string>("quality", "Quality"),
-              new DatatypeChoice<string>("performance", "Performance")
-            }
-          )
-        )) { }
-        using (writer.Field(
-          "graphics.notice",
-          "Display notice",
-          new StringDatatype(prefix: "Prefix", suffix: "Suffix")
-        )) {
-          writer.Push(ProseFields.FullWidth);
-          writer.FieldDescription("Display changes may briefly blank the screen.");
-        }
+        writer.WriteField<DisplayMode>(
+          "graphics.display-mode", "Display mode", Datatypes.Enum<DisplayMode>(),
+          description: "Select how the game occupies the display.",
+          tooltip: "Borderless uses the desktop resolution and usually switches applications faster.",
+          hideName: true
+        );
+        writer.WriteField<string>(
+          "graphics.upscaler", "Upscaler",
+          Choices("off", "Off", "quality", "Quality", "performance", "Performance")
+        );
+        writer.WriteField(
+          "graphics.notice", "Display notice",
+          new StringDatatype(prefix: "Prefix", suffix: "Suffix"),
+          description: "Display changes may briefly blank the screen.",
+          fullWidth: true
+        );
         using (writer.Path("quality")) {
           writer.Push(PathSectionModifiers.Title("Quality presets", TextRole.TitleSmall));
           writer.Push(PathSectionModifiers.Description("Choose the rendering quality used by the game."));
-          using (writer.Field(
-            "graphics.texture-quality",
-            "Texture quality",
-            new DatatypeChoiceDatatype<string>(
-              new[] {
-                new DatatypeChoice<string>("low", "Low"),
-                new DatatypeChoice<string>("medium", "Medium"),
-                new DatatypeChoice<string>("high", "High")
-              }
-            )
-          )) {
-            writer.Push(ProseFields.FullWidth);
-          }
-          using (writer.Field(
-            "graphics.shadow-quality",
-            "Shadow quality",
-            new DatatypeChoiceDatatype<string>(
-              new[] {
-                new DatatypeChoice<string>("off", "Off"),
-                new DatatypeChoice<string>("medium", "Medium"),
-                new DatatypeChoice<string>("high", "High")
-              }
-            )
-          )) {
-            writer.Push(ProseFields.FullWidth);
-          }
+          writer.WriteField(
+            "graphics.texture-quality", "Texture quality",
+            Choices("low", "Low", "medium", "Medium", "high", "High"),
+            fullWidth: true
+          );
+          writer.WriteField(
+            "graphics.shadow-quality", "Shadow quality",
+            Choices("off", "Off", "medium", "Medium", "high", "High"),
+            fullWidth: true
+          );
         }
       }
       using (writer.Path("audio")) {
         writer.Push(PathSectionModifiers.Title("Audio", TextRole.TitleLarge));
-        using (writer.Field<int>(
-          "audio.master-volume",
-          "Master volume",
-          new IntDatatype(min: 0, max: 100, unit: "%", step: 1)
-        )) {
-          writer.FieldDescription("Overall output volume.");
-        }
+        writer.WriteField<int>(
+          "audio.master-volume", "Master volume",
+          new IntDatatype(min: 0, max: 100, unit: "%", step: 1),
+          description: "Overall output volume."
+        );
         using (writer.Path("voice")) {
           writer.Push(PathSectionModifiers.Title("Voice communication", TextRole.TitleSmall));
-          using (writer.Field<bool>(
-            "audio.voice-chat",
-            "Voice chat",
-            new FlagDatatype(ifTrue: "Enabled", ifFalse: "Disabled")
-          )) { }
+          writer.WriteField<bool>(
+            "audio.voice-chat", "Voice chat", new FlagDatatype(ifTrue: "Enabled", ifFalse: "Disabled")
+          );
         }
       }
       using (writer.Path("gameplay")) {
         writer.Push(PathSectionModifiers.Title("Gameplay", TextRole.TitleLarge));
-        using (writer.Field(
-          "gameplay.difficulty",
-          "Difficulty",
-          new DatatypeChoiceDatatype<string>(
-            new[] {
-              new DatatypeChoice<string>("story", "Story"),
-              new DatatypeChoice<string>("normal", "Normal"),
-              new DatatypeChoice<string>("veteran", "Veteran")
-            }
-          )
-        )) { }
-        using (writer.Field<bool>("gameplay.autosave", "Autosave", Datatypes.Bool)) {
-          // using (writer.FieldSuffix()) writer.Write("Recommended");
-        }
+        writer.WriteField<string>(
+          "gameplay.difficulty", "Difficulty",
+          Choices("story", "Story", "normal", "Normal", "veteran", "Veteran")
+        );
+        writer.WriteField<bool>("gameplay.autosave", "Autosave", Datatypes.Bool);
       }
       return new OptionPages(
         writer.BuildSections(),
