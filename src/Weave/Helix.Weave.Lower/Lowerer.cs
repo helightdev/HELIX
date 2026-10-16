@@ -19,8 +19,13 @@ public sealed class LoweringResult {
 /// <c>*.lib.cs</c> is copied straight through.
 /// </summary>
 public static class Lowerer {
+  /// <param name="lineBase">
+  /// Directory the generated files will be written to; #line paths are made relative to it so
+  /// the output carries no machine-specific absolute paths.
+  /// </param>
   public static LoweringResult Lower(IEnumerable<(string Path, string Text)> sources,
-                                     IEnumerable<MetadataReference> references) {
+                                     IEnumerable<MetadataReference> references,
+                                     string lineBase = null) {
     var result = new LoweringResult();
     // Preview: raw string literals are how mixins write emitted code, and the Roslyn version
     // pinned here still gates them behind preview.
@@ -44,7 +49,7 @@ public static class Lowerer {
     if (!result.Success) return result;
 
     foreach (var declaration in declarations)
-      result.Files[declaration.FileName] = LoweringEmitter.EmitMixin(declaration);
+      result.Files[declaration.FileName] = LoweringEmitter.EmitMixin(declaration, lineBase);
 
     // Whatever else a mixin file declared travels with it, verbatim.
     var mixinTypeNames = new HashSet<string>(
@@ -68,13 +73,14 @@ public static class Lowerer {
     return result;
   }
 
-  public static LoweringResult LowerDirectory(string directory, IEnumerable<MetadataReference> references) {
+  public static LoweringResult LowerDirectory(string directory, IEnumerable<MetadataReference> references,
+                                              string lineBase = null) {
     var root = Path.GetFullPath(directory);
     var sources = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
       .Where(path => !IsBuildOutput(root, path))
       .OrderBy(path => path, StringComparer.Ordinal)
       .Select(path => (path, File.ReadAllText(path)));
-    return Lower(sources, references);
+    return Lower(sources, references, lineBase);
   }
 
   /// <summary>Excludes build output, judged relative to the project root rather than by path text.</summary>

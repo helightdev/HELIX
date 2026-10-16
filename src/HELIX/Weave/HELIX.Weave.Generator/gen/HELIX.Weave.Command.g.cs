@@ -7,20 +7,20 @@ using System.Collections.Immutable;
 
 namespace HELIX.Weave {
   public sealed partial class Command {
-#line 33 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 33 "../../HELIX.Weave.Mixins/Boot.cs"
     public string Name { get; init; }
 #line default
-#line 34 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 34 "../../HELIX.Weave.Mixins/Boot.cs"
     public string Description { get; init; }
 #line default
-#line 35 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 35 "../../HELIX.Weave.Mixins/Boot.cs"
     public string Parent { get; init; }
 #line default
-#line 37 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 37 "../../HELIX.Weave.Mixins/Boot.cs"
     public sealed record Carry(string StructName, string Invoke, string CommandName,
                                  string Description, string Parent);
 #line default
-#line 40 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 40 "../../HELIX.Weave.Mixins/Boot.cs"
     static Carry Prelude(MethodTarget t, Command a) {
         if (t.IsGenericMethod) {
           t.Report("HX0300", "a command cannot be generic");
@@ -40,7 +40,7 @@ namespace HELIX.Weave {
           Lit.Of(a.Parent));
       }
 #line default
-#line 60 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 60 "../../HELIX.Weave.Mixins/Boot.cs"
     static void Late(LateTarget t, Carry c) {
         if (c is null) return;
         t.Using("HELIX.Boot");

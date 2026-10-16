@@ -7,10 +7,10 @@ using System.Collections.Immutable;
 
 namespace HELIX.Weave {
   public sealed partial class RegisterOption {
-#line 85 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 85 "../../HELIX.Weave.Mixins/Boot.cs"
     public string Path { get; init; }
 #line default
-#line 87 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 87 "../../HELIX.Weave.Mixins/Boot.cs"
     static void Apply(MemberTarget t, RegisterOption a) {
         if (a.Path is not null) {
           var path = Lit.Of(a.Path);

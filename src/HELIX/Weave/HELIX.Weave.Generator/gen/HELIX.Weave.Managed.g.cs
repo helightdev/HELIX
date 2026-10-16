@@ -7,30 +7,30 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Managed {
-#line 223 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 223 "../../HELIX.Weave.Mixins/Context.cs"
     public PureTypeRef Scope { get; init; }
 #line default
-#line 224 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 224 "../../HELIX.Weave.Mixins/Context.cs"
     public bool Optional { get; init; }
 #line default
-#line 225 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 225 "../../HELIX.Weave.Mixins/Context.cs"
     public int Order { get; init; }
 #line default
-#line 226 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 226 "../../HELIX.Weave.Mixins/Context.cs"
     public int Phase { get; init; }
 #line default
-#line 228 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
-    static void Apply(TypeTarget t, Managed a) {
-        Shared.MarkComponent(t);
-
-        // Hix's defineTarget block: these aliases are what hooks and other mixins weave into.
+#line 229 "../../HELIX.Weave.Mixins/Context.cs"
+    static void Aliases(TypeTarget t) {
         t.DefineTarget("$ConfigureManaged", Targets.ConfigureManaged);
         t.DefineTarget("$LoadManaged", Targets.LoadManaged);
         t.DefineTarget("$LoadManagedLate", Targets.LoadManagedLate);
         t.DefineTarget("$UnloadManaged", Targets.UnloadManaged);
         t.DefineTarget("$Init", Targets.LoadManaged);
         t.DefineTarget("$Dispose", Targets.UnloadManaged);
-
+      }
+#line default
+#line 239 "../../HELIX.Weave.Mixins/Context.cs"
+    static void Apply(TypeTarget t, Managed a) {
         t.Using("HELIX.Context", "UnityEngine");
 
         t.Inject(Targets.ConfigureManaged, -100000, $"registration.name = {Lit.Of(t.SelfName)};");
@@ -94,6 +94,9 @@ namespace HELIX.Weave {
       public override string AttributeName => "HELIX.Context.ManagedAttribute";
       public override Unit Unit => Unit.Type;
       public override int Order => -1000;
+
+      public override void DefineAliases(TypeTarget target) =>
+        Managed.Aliases(target);
 
       public override object Prelude(SymbolTarget target, AttributeData attribute) {
         if (target is not Helix.Weave.TypeTarget typed) return null;

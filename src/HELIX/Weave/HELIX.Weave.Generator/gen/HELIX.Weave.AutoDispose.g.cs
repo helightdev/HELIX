@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class AutoDispose {
-#line 196 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 196 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(MemberTarget t, AutoDispose a) {
         t.Using("HELIX.Context");
         t.Inject(Targets.Dispose, 1, $"AutoDisposeMethods.DisposeDisposable(ref {t.Name});");

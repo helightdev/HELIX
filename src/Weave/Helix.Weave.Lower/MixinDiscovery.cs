@@ -63,6 +63,7 @@ public static class MixinDiscovery {
       AttributeMetadataName = attributeName,
       Unit = unit,
       Order = order,
+      WholeCompilation = Named(mixinAttribute, "WholeCompilation") is true,
       SourcePath = syntax.SyntaxTree.FilePath,
     };
 
@@ -118,6 +119,11 @@ public static class MixinDiscovery {
   }
 
   private static void Validate(MixinDeclaration declaration, List<LoweringError> errors) {
+    var aliases = declaration.Methods.Where(m => m.Pass == WeavePass.Aliases).ToList();
+    if (aliases.Count > 1)
+      errors.Add(new LoweringError($"{declaration.Name} declares more than one [Aliases] method",
+        aliases[1].Syntax.Identifier.GetLocation()));
+
     var single = declaration.Methods.Where(m => m.Pass == WeavePass.Single).ToList();
     var prelude = declaration.Methods.Where(m => m.Pass == WeavePass.Prelude).ToList();
     var late = declaration.Methods.Where(m => m.Pass == WeavePass.Late).ToList();
@@ -159,6 +165,7 @@ public static class MixinDiscovery {
   /// <summary>A derivation step takes the property so far and returns the next one.</summary>
   private static void ValidateDerivation(MixinDeclaration declaration, List<LoweringError> errors) {
     foreach (var method in declaration.Methods) {
+      if (method.Pass == WeavePass.Aliases) continue;
       if (method.Pass != WeavePass.Single) {
         errors.Add(new LoweringError(
           $"{declaration.Name} is a derivation step, so it declares a single [Weave] method",
@@ -189,6 +196,7 @@ public static class MixinDiscovery {
           case "Helix.Weave.WeaveAttribute": return WeavePass.Single;
           case "Helix.Weave.PreludeAttribute": return WeavePass.Prelude;
           case "Helix.Weave.LateAttribute": return WeavePass.Late;
+          case "Helix.Weave.AliasesAttribute": return WeavePass.Aliases;
         }
       }
     return null;

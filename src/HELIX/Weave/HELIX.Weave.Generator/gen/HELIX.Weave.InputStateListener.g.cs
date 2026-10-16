@@ -6,16 +6,16 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class InputStateListener {
-#line 410 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 411 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Focus { get; init; } = true;
 #line default
-#line 411 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 412 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Hover { get; init; } = true;
 #line default
-#line 412 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 413 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Dirty { get; init; } = true;
 #line default
-#line 414 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 415 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Apply(TypeTarget t, InputStateListener a) {
         Shared.RequireInputState(t);
         t.Inject(Targets.PostConstruct, 0, $$"""

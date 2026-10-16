@@ -11,14 +11,13 @@ public static class Targets {
 }
 
 public static class Shared {
-  private static readonly Slot<bool> HasHandler = new(Scope.Type);
-
-  public static void RequireHandler(LateTarget t) {
-    if (!t.Once(HasHandler)) return;
-    t.Implements("global::Fixtures.IEventListener");
-    t.Class(@"
+  // A shared key rather than cross-symbol state: each handler emits the block and the merge
+  // keeps one copy, which is what lets every prelude be cached on its own.
+  public static void RequireHandler(LateTarget t) => t.Shared("Fixtures.EventHandlerList", target => {
+    target.Implements("global::Fixtures.IEventListener");
+    target.Class(@"
       private readonly global::Fixtures.EventHandlerList eventHandlerList = new();
       global::Fixtures.EventHandlerList global::Fixtures.IEventListener.HandlerList => eventHandlerList;");
-    t.Inject(Targets.Dispose, 1, "eventHandlerList.UnregisterAll();");
-  }
+    target.Inject(Targets.Dispose, 1, "eventHandlerList.UnregisterAll();");
+  });
 }

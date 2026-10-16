@@ -6,12 +6,9 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class WriteContextHandler {
-#line 375 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 379 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Apply(MethodTarget t, WriteContextHandler a) {
-        if (!Shared.ClaimWriteContext(t)) {
-          t.Report("HX0400", "a type can declare only one write-context handler");
-          return;
-        }
+        Shared.ClaimWriteContext(t);
         t.Inject(Targets.Compose, -1, $$"""
           using (cx.WriteContext(out var context)) {
             {{t.Name}}(ref cx, context);

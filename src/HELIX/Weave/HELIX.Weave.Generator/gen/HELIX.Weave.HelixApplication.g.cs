@@ -7,16 +7,16 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class HelixApplication {
-#line 423 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 424 "../../HELIX.Weave.Mixins/Context.cs"
     public string Name { get; init; }
 #line default
-#line 424 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 425 "../../HELIX.Weave.Mixins/Context.cs"
     public string Filter { get; init; }
 #line default
-#line 425 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 426 "../../HELIX.Weave.Mixins/Context.cs"
     public PureTypeRef[] Import { get; init; }
 #line default
-#line 427 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 428 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(TypeTarget t, HelixApplication a) {
         Modules.Configure(t, a.Filter, a.Import);
         if (t.IsGeneric) return;
@@ -68,6 +68,7 @@ namespace HELIX.Weave {
     public sealed class __Mixin : Mixin {
       public override string AttributeName => "HELIX.Context.HelixApplicationAttribute";
       public override Unit Unit => Unit.Type;
+      public override bool WholeCompilation => true;
 
       public override object Prelude(SymbolTarget target, AttributeData attribute) {
         if (target is not Helix.Weave.TypeTarget typed) return null;

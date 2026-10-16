@@ -7,7 +7,7 @@ using System.Collections.Immutable;
 
 namespace HELIX.Weave {
   public sealed partial class RegisterCommand {
-#line 73 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 73 "../../HELIX.Weave.Mixins/Boot.cs"
     static void Apply(MemberTarget t, RegisterCommand a) {
         t.Inject(Targets.ConfigureManaged, -1,
           "registration.Publication(typeof(HELIX.UI.Console.Command), null, true);");

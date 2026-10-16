@@ -6,27 +6,29 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class CustomBoundaryElement {
-#line 232 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 232 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Constructor { get; init; } = true;
 #line default
-#line 233 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 233 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Composable { get; init; } = true;
 #line default
-#line 234 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 234 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Extension { get; init; }
 #line default
-#line 235 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 235 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool CacheLookups { get; init; }
 #line default
-#line 236 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 236 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool TrimChildren { get; init; } = true;
 #line default
-#line 237 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 237 "../../HELIX.Weave.Mixins/Compose.cs"
     public string Name { get; init; }
 #line default
-#line 239 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 239 "../../HELIX.Weave.Mixins/Compose.cs"
+    static void Aliases(TypeTarget t) => Boundary.DefineOwnTargets(t);
+#line default
+#line 242 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Apply(TypeTarget t, CustomBoundaryElement a) {
-        Boundary.DefineOwnTargets(t);
         if (a.Composable) Boundary.GenerateElement(t, a.Name, a.Extension);
 
         t.Using("HELIX.Compose", "HELIX.Coloring");
@@ -178,6 +180,9 @@ namespace HELIX.Weave {
       public override string AttributeName => "HELIX.Compose.CustomBoundaryElementAttribute";
       public override Unit Unit => Unit.Type;
       public override int Order => -1000;
+
+      public override void DefineAliases(TypeTarget target) =>
+        CustomBoundaryElement.Aliases(target);
 
       public override object Prelude(SymbolTarget target, AttributeData attribute) {
         if (target is not Helix.Weave.TypeTarget typed) return null;

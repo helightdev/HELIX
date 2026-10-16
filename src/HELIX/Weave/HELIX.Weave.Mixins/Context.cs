@@ -225,18 +225,19 @@ public sealed class Managed : Attribute {
   public int Order { get; init; }
   public int Phase { get; init; }
 
-  [Weave]
-  static void Apply(TypeTarget t, Managed a) {
-    Shared.MarkComponent(t);
-
-    // Hix's defineTarget block: these aliases are what hooks and other mixins weave into.
+  /// <summary>Hix's defineTarget block: what hooks and other mixins weave into.</summary>
+  [Aliases]
+  static void Aliases(TypeTarget t) {
     t.DefineTarget("$ConfigureManaged", Targets.ConfigureManaged);
     t.DefineTarget("$LoadManaged", Targets.LoadManaged);
     t.DefineTarget("$LoadManagedLate", Targets.LoadManagedLate);
     t.DefineTarget("$UnloadManaged", Targets.UnloadManaged);
     t.DefineTarget("$Init", Targets.LoadManaged);
     t.DefineTarget("$Dispose", Targets.UnloadManaged);
+  }
 
+  [Weave]
+  static void Apply(TypeTarget t, Managed a) {
     t.Using("HELIX.Context", "UnityEngine");
 
     t.Inject(Targets.ConfigureManaged, -100000, $"registration.name = {Lit.Of(t.SelfName)};");
@@ -396,7 +397,7 @@ public static class Modules {
   }
 }
 
-[Mixin(Unit.Type, Attribute = "HELIX.Context.HelixModuleAttribute")]
+[Mixin(Unit.Type, WholeCompilation = true, Attribute = "HELIX.Context.HelixModuleAttribute")]
 public sealed class HelixModule : Attribute {
   public HelixModule(string name = null, string filter = null, PureTypeRef[] import = null) {
     Name = name;
@@ -412,7 +413,7 @@ public sealed class HelixModule : Attribute {
   static void Apply(TypeTarget t, HelixModule a) => Modules.Configure(t, a.Filter, a.Import);
 }
 
-[Mixin(Unit.Type, Attribute = "HELIX.Context.HelixApplicationAttribute")]
+[Mixin(Unit.Type, WholeCompilation = true, Attribute = "HELIX.Context.HelixApplicationAttribute")]
 public sealed class HelixApplication : Attribute {
   public HelixApplication(string name = null, string filter = null, PureTypeRef[] import = null) {
     Name = name;

@@ -6,10 +6,10 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class ComposableDelegate {
-#line 182 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 182 "../../HELIX.Weave.Mixins/Compose.cs"
     public string Name { get; init; }
 #line default
-#line 184 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 184 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Apply(MethodTarget t, ComposableDelegate a) {
         t.Using("HELIX.Compose");
         var name = a.Name ?? (t.Name.StartsWith("_", StringComparison.Ordinal) ? t.Name.Substring(1) : t.Name);

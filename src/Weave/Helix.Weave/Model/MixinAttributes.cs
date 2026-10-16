@@ -30,7 +30,21 @@ public sealed class MixinAttribute : Attribute {
   /// fully qualified name, which is the case that needs no thought.
   /// </summary>
   public string Attribute { get; set; }
+
+  /// <summary>
+  /// Set when the mixin queries the whole compilation (module discovery). Such a mixin is not
+  /// cached per symbol, because an unrelated type elsewhere changes its answer.
+  /// </summary>
+  public bool WholeCompilation { get; set; }
 }
+
+/// <summary>
+/// Declares the injection-target aliases this mixin's attribute implies for a type. Runs before
+/// any prelude on that type, and only ever reads the type — so it is a pure function of the
+/// type's attributes rather than state one mixin leaves for another.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class AliasesAttribute : Attribute { }
 
 /// <summary>A single-pass weave method: prelude only.</summary>
 [AttributeUsage(AttributeTargets.Method)]

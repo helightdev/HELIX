@@ -7,7 +7,7 @@ using System.Collections.Immutable;
 
 namespace HELIX.Weave {
   public sealed partial class NamedArg {
-#line 11 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Boot.cs"
+#line 11 "../../HELIX.Weave.Mixins/Boot.cs"
     static DerivedProperty Derive(DerivationTarget t, NamedArg a, DerivedProperty p) =>
         p with {
           Configuration = $"datatype.GetProperty({Lit.Of(p.Name)})" +

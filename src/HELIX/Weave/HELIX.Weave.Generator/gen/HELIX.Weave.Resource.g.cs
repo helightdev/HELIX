@@ -7,16 +7,16 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Resource {
-#line 130 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 130 "../../HELIX.Weave.Mixins/Context.cs"
     public ResourceSource Source { get; init; }
 #line default
-#line 131 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 131 "../../HELIX.Weave.Mixins/Context.cs"
     public string Qualifier { get; init; }
 #line default
-#line 132 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 132 "../../HELIX.Weave.Mixins/Context.cs"
     public bool Required { get; init; } = true;
 #line default
-#line 144 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 144 "../../HELIX.Weave.Mixins/Context.cs"
     private static void ApplySingle(MemberTarget t, Resource a) {
         if (t.Type.Symbol is { IsValueType: true } || !t.Type.Implements(Types.UnityObject)) {
           t.Report("HX0220", $"a resource must be a {Types.UnityObject} subclass");
@@ -41,7 +41,7 @@ namespace HELIX.Weave {
         t.Inject(Targets.Init, -1, $"{t.Name} = managed.ResolveOptional<{t.Type}>({key});");
       }
 #line default
-#line 168 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 168 "../../HELIX.Weave.Mixins/Context.cs"
     private static void ApplyList(MemberTarget t, Resource a, TypeRef element) {
         if (element.Symbol is { IsValueType: true } || !element.Implements(Types.UnityObject)) {
           t.Report("HX0222", $"a collected resource must hold a {Types.UnityObject} subclass");
@@ -67,7 +67,7 @@ namespace HELIX.Weave {
         t.Inject(Targets.Init, -1, $"{t.Name} = managed.Resolve<List<{element}>>({key}) as {t.Type};");
       }
 #line default
-#line 134 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 134 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(MemberTarget t, Resource a) {
         var element = t.Type.Argument(0);
         if (t.Type.Implements(Types.Enumerable) && !t.Type.Implements(Types.String) && element.Exists) {

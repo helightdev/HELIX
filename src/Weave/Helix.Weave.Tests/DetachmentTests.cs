@@ -16,7 +16,7 @@ public class DetachmentTests {
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
     var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
     Assert.Empty(errors);
-    return (new SymbolFacts(new StringPool()), compilation.GetTypeByMetadataName(typeName));
+    return (new SymbolFacts(), compilation.GetTypeByMetadataName(typeName));
   }
 
   private const string Source = """

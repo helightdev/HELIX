@@ -194,34 +194,48 @@ HELIX.UI.GuiService is already registered`). Fixed by scanning
 Registration order is now sorted by qualified name too, since load order uses entry order as a
 tie-breaker.
 
-## Performance
+## Performance and incrementality
 
-From Unity's own per-assembly generator timings in `Logs/Editor.log`, comparing one compile
-burst each:
+The pipeline is built around the prelude/late split. Each annotated symbol's prelude runs inside
+its own `ForAttributeWithMetadataName` transform and produces a value-only `SymbolContribution`,
+so Roslyn caches it; contributions are grouped per type and each type's output is registered
+separately with its own equality, so an untouched type is not re-rendered. `IncrementalTests`
+reads the driver's own step tracking rather than trusting the shape:
+
+| edit | preludes re-run | types re-rendered |
+|---|---|---|
+| change a method body | 0 of 4 | 0 of 3 |
+| whitespace only | 0 | 0 |
+| add an annotated method | 1 of 5 | 1 |
+
+Three things had to change to get there, and each is a rule worth keeping:
+
+- **Nothing symbol-backed may survive a prelude.** `PureTypeRef` holds plain strings rather than
+  handles into a pool that only lives for one run, and emissions, diagnostics and the type's
+  shape are all value data. The carry was already detached, which is what made it a usable cache
+  key in the first place.
+- **Cross-symbol state is gone.** A cached prelude cannot know whether another symbol already
+  emitted a shared block, so every symbol that needs one emits it under a key (`t.Shared`) and
+  the merge keeps a single copy. `IsComponent` became a question about the type's attributes
+  rather than a flag another mixin left behind — which also removes Hix's dependence on
+  attribute evaluation order.
+- **Injection-target aliases are declared, not accumulated.** A mixin's `[Aliases]` method says
+  what its attribute implies for a type, and the host seeds them from the type's attributes
+  before any prelude. That is what `defineTarget` always meant.
+
+Unity's own per-assembly generator timings, heaviest assembly in a burst:
 
 | | heaviest assembly | burst total |
 |---|---|---|
 | Hix (`HixUnityGenerator`) | 0.63 s | ~2.0 s |
-| weave, before caching | 1.75 s | — |
-| weave, now | **0.45 s** | **~0.65 s** |
+| weave, first version | 1.75 s | — |
+| weave, after caching symbol lookups | 0.45 s | ~0.65 s |
+| weave, incremental | **0.16 s** | **~0.35 s** |
 
-Every other assembly in the current burst lands between 1 ms and 58 ms. (Bursts do not always
-cover an identical set of assemblies, so read the totals as indicative rather than exact.)
-
-Most of the improvement came from memoizing two things in `SymbolFacts`: metadata-name lookups,
-which `GetTypeByMetadataName` resolves by searching every referenced assembly and which the
-weaver was calling once per injection target per type, and the annotated-type scan behind module
-discovery.
-
-Measured side by side in one process (`Helix.Weave.Compare` prints per-project timings), weave
-still looks worse than Hix on the largest assembly — 571 ms against 193 ms — but that comparison
-flatters Hix: its `MixinCompilationCache` is process-wide, so it compiles its `.hix` catalog once
-and reuses it across all 20 projects, which is not what happens in a real build. Unity's own
-numbers above are the ones that count.
-
-The remaining ceiling is incrementality: `Initialize` collects every match and combines it with
-`CompilationProvider`, so any edit regenerates every type in the assembly. Per-type caching is
-the next real win and is not done.
+Measured side by side in one process (`Helix.Weave.Compare` prints per-project timings) weave
+still looks worse than Hix on the largest assembly, but that comparison flatters Hix: its
+`MixinCompilationCache` is process-wide, so it compiles its `.hix` catalog once and reuses it
+across all 20 projects, which is not what happens in a real build.
 
 ## Building the generator DLL
 

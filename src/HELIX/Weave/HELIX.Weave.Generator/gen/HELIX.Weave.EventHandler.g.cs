@@ -7,10 +7,10 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class EventHandler {
-#line 11 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 11 "../../HELIX.Weave.Mixins/Context.cs"
     public int Priority { get; init; }
 #line default
-#line 13 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 13 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(MethodTarget t, EventHandler a) {
         Shared.RequireHandler(t);
 

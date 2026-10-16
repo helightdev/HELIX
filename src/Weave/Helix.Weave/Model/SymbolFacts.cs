@@ -27,8 +27,7 @@ public sealed class SymbolFacts {
   private readonly Dictionary<string, INamedTypeSymbol> _byMetadataName = new(System.StringComparer.Ordinal);
   private readonly Dictionary<string, List<INamedTypeSymbol>> _annotated = new(System.StringComparer.Ordinal);
 
-  public SymbolFacts(StringPool pool) => Pool = pool;
-  public StringPool Pool { get; }
+  public int Hits { get; private set; }
 
   /// <summary>
   /// Metadata-name lookup, memoized. Uncached this is one of the most expensive things a
@@ -79,7 +78,6 @@ public sealed class SymbolFacts {
       }
     }
   }
-  public int Hits { get; private set; }
   public int Misses { get; private set; }
 
   public string Qualified(ISymbol symbol) {
@@ -160,8 +158,7 @@ public sealed class SymbolFacts {
       arguments = ImmutableArray.Create(Detach(array.ElementType));
     }
 
-    var result = new PureTypeRef(Pool, Pool.Intern(Qualified(symbol)), Pool.Intern(MetadataName(symbol)),
-                                 facts, arguments);
+    var result = new PureTypeRef(Qualified(symbol), MetadataName(symbol), facts, arguments);
     _detached[symbol] = result;
     return result;
   }

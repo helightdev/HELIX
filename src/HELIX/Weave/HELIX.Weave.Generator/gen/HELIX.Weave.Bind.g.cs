@@ -7,19 +7,19 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Bind {
-#line 92 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 92 "../../HELIX.Weave.Mixins/Context.cs"
     public PureTypeRef Type { get; init; }
 #line default
-#line 93 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 93 "../../HELIX.Weave.Mixins/Context.cs"
     public string Qualifier { get; init; }
 #line default
-#line 94 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 94 "../../HELIX.Weave.Mixins/Context.cs"
     public bool Required { get; init; } = true;
 #line default
-#line 95 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 95 "../../HELIX.Weave.Mixins/Context.cs"
     public bool Proxied { get; init; }
 #line default
-#line 97 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 97 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(MemberTarget t, Bind a) {
         t.Using("HELIX.Context");
         var qualifier = Lit.Of(a.Qualifier);

@@ -6,7 +6,7 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class ClickHandler {
-#line 391 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 392 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Apply(MethodTarget t, ClickHandler a) {
         Shared.RequireInputState(t);
         t.Inject(Targets.PostConstruct, 0, $$"""

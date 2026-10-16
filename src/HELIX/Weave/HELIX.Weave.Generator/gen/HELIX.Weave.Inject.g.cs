@@ -7,13 +7,13 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Inject {
-#line 51 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 51 "../../HELIX.Weave.Mixins/Context.cs"
     public string Qualifier { get; init; }
 #line default
-#line 52 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 52 "../../HELIX.Weave.Mixins/Context.cs"
     public bool Required { get; init; } = true;
 #line default
-#line 54 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 54 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(MemberTarget t, Inject a) {
         t.Using("HELIX.Context");
         var qualifier = Lit.Of(a.Qualifier);

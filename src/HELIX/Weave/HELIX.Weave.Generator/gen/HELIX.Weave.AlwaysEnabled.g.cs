@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class AlwaysEnabled {
-#line 205 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 205 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(TypeTarget t, AlwaysEnabled a) =>
         t.Inject(Targets.ConfigureManaged, 0, "registration.Condition(context => true);");
 #line default

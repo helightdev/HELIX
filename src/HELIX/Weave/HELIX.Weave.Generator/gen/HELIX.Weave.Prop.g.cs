@@ -7,34 +7,34 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Prop {
-#line 63 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 63 "../../HELIX.Weave.Mixins/Core.cs"
     public Literal defaultValue;
 #line default
-#line 64 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 64 "../../HELIX.Weave.Mixins/Core.cs"
     public PropInit defaultInit = PropInit.None;
 #line default
-#line 66 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 66 "../../HELIX.Weave.Mixins/Core.cs"
     public bool Equatable { get; set; } = true;
 #line default
-#line 67 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 67 "../../HELIX.Weave.Mixins/Core.cs"
     public string EqualitySyntax { get; set; } = "{0} == {1}";
 #line default
-#line 68 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 68 "../../HELIX.Weave.Mixins/Core.cs"
     public string HashCodeSyntax { get; set; } = "{0}";
 #line default
-#line 69 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 69 "../../HELIX.Weave.Mixins/Core.cs"
     public string Datatype { get; set; }
 #line default
-#line 71 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 71 "../../HELIX.Weave.Mixins/Core.cs"
     private static Slot<bool> SawOptional = new(Scope.Type);
 #line default
-#line 114 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 114 "../../HELIX.Weave.Mixins/Core.cs"
     private static string Nullable(DerivedProperty p) =>
         p.Type.Facts.HasFlag(TypeFacts.ValueType) && !p.Type.Qualified.EndsWith("?", StringComparison.Ordinal)
           ? p.Type.Qualified + "?"
           : p.Type.Qualified;
 #line default
-#line 119 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 119 "../../HELIX.Weave.Mixins/Core.cs"
     private static DerivedProperty WithEqualityOverrides(Prop a, DerivedProperty p) {
         if (p.Type.IsPrimitive || p.Type.IsPointer) return p;
 
@@ -51,7 +51,7 @@ namespace HELIX.Weave {
         return p;
       }
 #line default
-#line 73 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 73 "../../HELIX.Weave.Mixins/Core.cs"
     static DerivedProperty Derive(DerivationTarget t, Prop a, DerivedProperty p) {
         if (!a.Equatable) p = p with { Equatable = false };
         if (!string.IsNullOrWhiteSpace(a.Datatype)) p = p with { Datatype = a.Datatype };

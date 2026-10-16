@@ -14,7 +14,7 @@ public sealed class WeaveMethod {
   public string TargetParameterType { get; init; }
 }
 
-public enum WeavePass { Single, Prelude, Late }
+public enum WeavePass { Single, Prelude, Late, Aliases }
 
 /// <summary>One <c>[Mixin]</c> dataclass, with everything lowering needs to relocate it.</summary>
 public sealed class MixinDeclaration {
@@ -25,6 +25,7 @@ public sealed class MixinDeclaration {
   public string AttributeMetadataName { get; init; }
   public Unit Unit { get; init; }
   public int Order { get; init; }
+  public bool WholeCompilation { get; init; }
   /// <summary>Settable members an attribute argument can bind to: properties and fields alike.</summary>
   public List<ISymbol> Decodable { get; } = new();
   public List<MemberDeclarationSyntax> RelocatedMembers { get; } = new();

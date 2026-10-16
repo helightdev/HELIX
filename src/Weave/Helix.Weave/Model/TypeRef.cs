@@ -49,34 +49,35 @@ public readonly struct TypeRef {
 /// The pool is deliberately excluded from equality — only the handles and facts identify it.
 /// </summary>
 public readonly struct PureTypeRef : System.IEquatable<PureTypeRef> {
-  internal PureTypeRef(StringPool pool, StringHandle qualified, StringHandle metadataName,
-                       TypeFacts facts, ImmutableArray<PureTypeRef> typeArguments) {
-    Pool = pool;
-    QualifiedHandle = qualified;
-    MetadataNameHandle = metadataName;
+  internal PureTypeRef(string qualified, string metadataName, TypeFacts facts,
+                       ImmutableArray<PureTypeRef> typeArguments) {
+    Qualified = qualified;
+    MetadataName = metadataName;
     Facts = facts;
     TypeArguments = typeArguments.IsDefault ? ImmutableArray<PureTypeRef>.Empty : typeArguments;
   }
 
-  internal StringPool Pool { get; }
-  public StringHandle QualifiedHandle { get; }
-  public StringHandle MetadataNameHandle { get; }
+  /// <summary>
+  /// Plain strings rather than handles into a string pool: a detached ref travels in carry
+  /// records that the incremental pipeline caches across runs, and a pool only lives for one.
+  /// </summary>
+  public string Qualified { get; }
+  public string MetadataName { get; }
   public TypeFacts Facts { get; }
   public ImmutableArray<PureTypeRef> TypeArguments { get; }
 
-  public bool Exists => !QualifiedHandle.IsNull;
+  public bool Exists => Qualified is not null;
   public bool IsClass => (Facts & TypeFacts.Class) != 0;
   public bool IsEnum => (Facts & TypeFacts.Enum) != 0;
   public bool IsPrimitive => (Facts & TypeFacts.Primitive) != 0;
   public bool IsPointer => (Facts & TypeFacts.Pointer) != 0;
   public bool ContainsPointer => (Facts & TypeFacts.ContainsPointer) != 0;
 
-  public string Qualified => Pool?.Resolve(QualifiedHandle);
-  public string MetadataName => Pool?.Resolve(MetadataNameHandle);
   public override string ToString() => Qualified ?? "";
 
   public bool Equals(PureTypeRef other) {
-    if (QualifiedHandle != other.QualifiedHandle || MetadataNameHandle != other.MetadataNameHandle ||
+    if (!string.Equals(Qualified, other.Qualified, System.StringComparison.Ordinal) ||
+        !string.Equals(MetadataName, other.MetadataName, System.StringComparison.Ordinal) ||
         Facts != other.Facts || TypeArguments.Length != other.TypeArguments.Length) return false;
     for (var i = 0; i < TypeArguments.Length; i++)
       if (!TypeArguments[i].Equals(other.TypeArguments[i])) return false;
@@ -86,7 +87,7 @@ public readonly struct PureTypeRef : System.IEquatable<PureTypeRef> {
   public override bool Equals(object obj) => obj is PureTypeRef other && Equals(other);
 
   public override int GetHashCode() {
-    var hash = QualifiedHandle.GetHashCode() * 397 ^ (int)Facts;
+    var hash = (Qualified?.GetHashCode() ?? 0) * 397 ^ (int)Facts;
     for (var i = 0; i < TypeArguments.Length; i++) hash = hash * 397 ^ TypeArguments[i].GetHashCode();
     return hash;
   }

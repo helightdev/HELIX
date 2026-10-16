@@ -7,16 +7,16 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class HelixModule {
-#line 407 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 408 "../../HELIX.Weave.Mixins/Context.cs"
     public string Name { get; init; }
 #line default
-#line 408 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 409 "../../HELIX.Weave.Mixins/Context.cs"
     public string Filter { get; init; }
 #line default
-#line 409 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 410 "../../HELIX.Weave.Mixins/Context.cs"
     public PureTypeRef[] Import { get; init; }
 #line default
-#line 411 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 412 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(TypeTarget t, HelixModule a) => Modules.Configure(t, a.Filter, a.Import);
 #line default
 
@@ -57,6 +57,7 @@ namespace HELIX.Weave {
     public sealed class __Mixin : Mixin {
       public override string AttributeName => "HELIX.Context.HelixModuleAttribute";
       public override Unit Unit => Unit.Type;
+      public override bool WholeCompilation => true;
 
       public override object Prelude(SymbolTarget target, AttributeData attribute) {
         if (target is not Helix.Weave.TypeTarget typed) return null;

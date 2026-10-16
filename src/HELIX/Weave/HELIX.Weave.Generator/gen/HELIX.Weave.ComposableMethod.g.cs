@@ -6,22 +6,22 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class ComposableMethod {
-#line 125 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 125 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool RequiresTracking { get; init; }
 #line default
-#line 126 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 126 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Scope { get; init; }
 #line default
-#line 127 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 127 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Extension { get; init; }
 #line default
-#line 128 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 128 "../../HELIX.Weave.Mixins/Compose.cs"
     public string Name { get; init; }
 #line default
-#line 129 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 129 "../../HELIX.Weave.Mixins/Compose.cs"
     public string ScopeCallback { get; init; } = "cell.TrimChildren()";
 #line default
-#line 131 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 131 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Apply(MethodTarget t, ComposableMethod a) {
         t.Using("HELIX.Compose");
         Shared.RequireCompositionTypeId(t);

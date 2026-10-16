@@ -7,10 +7,10 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Structure {
-#line 140 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 140 "../../HELIX.Weave.Mixins/Core.cs"
     public bool Datatype { get; init; }
 #line default
-#line 142 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 142 "../../HELIX.Weave.Mixins/Core.cs"
     static void Apply(TypeTarget t, Structure a) {
         var props = t.DeriveFields();
         var self = t.TypeRef.Qualified;

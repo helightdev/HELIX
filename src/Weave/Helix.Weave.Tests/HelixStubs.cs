@@ -6,6 +6,9 @@ namespace Helix.Weave.Tests;
 /// verifying real behaviour is the downstream project's job.
 /// </summary>
 public static class HelixStubs {
+  /// <summary>The fixture runtime, for tests that build their own compilation.</summary>
+  public const string Empty = Helix.Weave.Tests.Harness.RuntimeSource;
+
   public const string Runtime = """
     using System;
 

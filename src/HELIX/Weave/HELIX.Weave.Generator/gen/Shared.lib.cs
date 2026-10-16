@@ -7,82 +7,73 @@ using Helix.Weave;
 namespace HELIX.Weave;
 
 public static class Shared {
-  private static readonly Slot<bool> HasCompanion = new(Scope.Type);
-  private static readonly Slot<string> CompanionName = new(Scope.Type);
-  private static readonly Slot<bool> HasHandler = new(Scope.Type);
-  private static readonly Slot<bool> HasTypeId = new(Scope.Type);
-  private static readonly Slot<bool> HasCompositionId = new(Scope.Type);
-  private static readonly Slot<bool> HasInputState = new(Scope.Type);
-  private static readonly Slot<bool> HasWriteContext = new(Scope.Type);
-  private static readonly Slot<bool> IsComponent = new(Scope.Type);
+  // Shared keys, not slots: a prelude is cached per symbol, so it cannot know whether another
+  // symbol already emitted a block. Every symbol that needs one emits it, tagged with its key,
+  // and the merge keeps a single copy per type.
+  private const string CompanionKey = "HELIX.Companion";
+  private const string HandlerKey = "HELIX.EventHandlerList";
+  private const string TypeIdKey = "HELIX.CompositionTypeId";
+  private const string CompositionIdKey = "HELIX.CompositionId";
+  private const string InputStateKey = "HELIX.InputState";
+  private const string WriteContextKey = "HELIX.WriteContext";
 
   /// <summary>The companion static class every Compose type accumulates members into.</summary>
-  public static string Companion(SymbolTarget t) {
-    var existing = t.Get(CompanionName);
-    if (existing is not null) return existing;
-    var name = t.SelfName + "_Companion";
-    t.Set(CompanionName, name);
-    return name;
-  }
+  public static string Companion(SymbolTarget t) => t.SelfName + "_Companion";
 
   /// <summary>Hix's <c>RequireCompanion</c>: declare the empty companion once.</summary>
-  public static void RequireCompanion(SymbolTarget t) {
-    var name = Companion(t);
-    if (t.Once(HasCompanion)) t.File($"public static partial class {name} {{ }}");
-  }
+  public static void RequireCompanion(SymbolTarget t) =>
+    t.Shared(CompanionKey, target => target.File($"public static partial class {Companion(t)} {{ }}"));
 
-  /// <summary>Hix's <c>DeclareCompanion</c>: add members to it. Partial, so repeats are fine.</summary>
-  public static void DeclareCompanion(SymbolTarget t, string body) {
-    var name = Companion(t);
-    t.Once(HasCompanion);
+  /// <summary>
+  /// Hix's <c>DeclareCompanion</c>: add members to it. The class is partial, so each block is a
+  /// declaration of its own and no deduplication is wanted here.
+  /// </summary>
+  public static void DeclareCompanion(SymbolTarget t, string body) =>
     t.File($$"""
-      public static partial class {{name}} {
+      public static partial class {{Companion(t)}} {
         {{body}}
       }
       """);
-  }
 
-  public static void RequireCompositionTypeId(SymbolTarget t) {
-    if (!t.Once(HasTypeId)) return;
-    DeclareCompanion(t,
-      $"public static readonly ushort typeId = CompositionId.GetTypeId({Lit.Of(t.SelfName)});");
-  }
+  public static void RequireCompositionTypeId(SymbolTarget t) =>
+    t.Shared(TypeIdKey, target => DeclareCompanion(t,
+      $"public static readonly ushort typeId = CompositionId.GetTypeId({Lit.Of(t.SelfName)});"));
 
-  public static void RequireCompositionId(SymbolTarget t) {
-    if (!t.Once(HasCompositionId)) return;
-    DeclareCompanion(t,
-      $"public static readonly ushort compositionId = CompositionId.GetCompositionId({Lit.Of(t.SelfName)});");
-  }
+  public static void RequireCompositionId(SymbolTarget t) =>
+    t.Shared(CompositionIdKey, target => DeclareCompanion(t,
+      $"public static readonly ushort compositionId = CompositionId.GetCompositionId({Lit.Of(t.SelfName)});"));
 
-  public static void RequireInputState(SymbolTarget t) {
-    if (!t.Once(HasInputState)) return;
-    t.Using("HELIX.Compose");
-    t.Implements("IStateHolder");
-    t.Class("""
+  public static void RequireInputState(SymbolTarget t) => t.Shared(InputStateKey, target => {
+    target.Using("HELIX.Compose");
+    target.Implements("IStateHolder");
+    target.Class("""
       private State inputState;
       public ref State InputState => ref inputState;
       """);
-  }
+  });
 
-  /// <summary>Only one write-context handler per type; Hix asserted this.</summary>
-  public static bool ClaimWriteContext(SymbolTarget t) => t.Once(HasWriteContext);
+  /// <summary>Only one write-context handler per type; the merge reports a second one.</summary>
+  public static void ClaimWriteContext(SymbolTarget t) =>
+    t.Unique(WriteContextKey, "HX0400", "a type can declare only one write-context handler");
 
   /// <summary>Hix's <c>RequireHandler</c>.</summary>
-  public static void RequireHandler(SymbolTarget t) {
-    if (!t.Once(HasHandler)) return;
-    t.Using("System");
-    t.Implements("IEventListener");
-    t.Class("""
+  public static void RequireHandler(SymbolTarget t) => t.Shared(HandlerKey, target => {
+    target.Using("System");
+    target.Implements("IEventListener");
+    target.Class("""
       [NonSerializedAttribute]
       protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
       EventHandlerList IEventListener.HandlerList => eventHandlerList;
       """);
-    t.Inject(Targets.Dispose, 1, "eventHandlerList.UnregisterAll();");
-  }
+    target.Inject(Targets.Dispose, 1, "eventHandlerList.UnregisterAll();");
+  });
 
-  /// <summary>Set by ManagedAttribute; read by mixins that register against the container.</summary>
-  public static void MarkComponent(SymbolTarget t) => t.Set(IsComponent, true);
-  public static bool IsManagedComponent(SymbolTarget t) => t.Get(IsComponent);
+  /// <summary>
+  /// Whether the owning type is a managed component. A question about the type, not state another
+  /// mixin left behind — which also removes Hix's dependence on attribute evaluation order.
+  /// </summary>
+  public static bool IsManagedComponent(SymbolTarget t) =>
+    t.Owner.HasAttribute("HELIX.Context.ManagedAttribute");
 
   /// <summary>Hix's <c>BuildDatatype</c>.</summary>
   public static string BuildDatatype(string type, string name, ImmutableArray<DerivedProperty> props) {

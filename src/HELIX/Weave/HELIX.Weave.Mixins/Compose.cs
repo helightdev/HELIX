@@ -236,9 +236,11 @@ public sealed class CustomBoundaryElement : Attribute {
   public bool TrimChildren { get; init; } = true;
   public string Name { get; init; }
 
+  [Aliases]
+  static void Aliases(TypeTarget t) => Boundary.DefineOwnTargets(t);
+
   [Weave]
   static void Apply(TypeTarget t, CustomBoundaryElement a) {
-    Boundary.DefineOwnTargets(t);
     if (a.Composable) Boundary.GenerateElement(t, a.Name, a.Extension);
 
     t.Using("HELIX.Compose", "HELIX.Coloring");
@@ -353,9 +355,11 @@ public sealed class BoundaryElementMixin : Attribute {
 
   public sealed record Carry(bool Placeholder);
 
+  [Aliases]
+  static void Aliases(TypeTarget t) => Boundary.DefineMixinTargets(t);
+
   [Prelude]
   static Carry Prelude(TypeTarget t, BoundaryElementMixin a) {
-    Boundary.DefineMixinTargets(t);
     t.Extends("HELIX.Compose.GeneratedBoundaryBase");
     t.Class($"public {t.SelfName}() : base({Lit.Of(a.CacheLookups)}, {Lit.Of(a.TrimChildren)}) {{}}");
     if (a.Composable) Boundary.GenerateElement(t, a.Name, a.Extension);
@@ -374,10 +378,7 @@ public sealed class BoundaryElementMixin : Attribute {
 public sealed class WriteContextHandler : Attribute {
   [Weave]
   static void Apply(MethodTarget t, WriteContextHandler a) {
-    if (!Shared.ClaimWriteContext(t)) {
-      t.Report("HX0400", "a type can declare only one write-context handler");
-      return;
-    }
+    Shared.ClaimWriteContext(t);
     t.Inject(Targets.Compose, -1, $$"""
       using (cx.WriteContext(out var context)) {
         {{t.Name}}(ref cx, context);

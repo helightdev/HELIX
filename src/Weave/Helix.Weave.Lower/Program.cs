@@ -18,7 +18,7 @@ public static class Program {
       .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
       .ToList();
 
-    var result = Lowerer.LowerDirectory(args[0], references);
+    var result = Lowerer.LowerDirectory(args[0], references, lineBase: args[1]);
     foreach (var error in result.Errors) Console.Error.WriteLine(error);
     if (!result.Success) return 1;
 

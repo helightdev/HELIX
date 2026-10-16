@@ -10,8 +10,9 @@ namespace Helix.Weave;
 /// Derivations run inside another mixin's prelude, so symbol access is fine here.
 /// </summary>
 public sealed class DerivationTarget : SymbolTarget {
-  internal DerivationTarget(WeaveSession session, ISymbol symbol, DerivedProperty property)
-    : base(session, symbol) => Property = property;
+  internal DerivationTarget(ContributionBuffer buffer, ISymbol symbol, PreludeContext context,
+                            DerivedProperty property)
+    : base(buffer, symbol, context) => Property = property;
 
   /// <summary>The property as earlier steps left it.</summary>
   public DerivedProperty Property { get; }
@@ -47,30 +48,30 @@ public sealed class DerivationPipeline {
 
   public int Count => _steps.Length;
 
-  public ImmutableArray<DerivedProperty> Run(WeaveSession session, IEnumerable<ISymbol> symbols) {
+  public ImmutableArray<DerivedProperty> Run(SymbolTarget owner, IEnumerable<ISymbol> symbols) {
     var builder = ImmutableArray.CreateBuilder<DerivedProperty>();
     var order = 0;
-    foreach (var symbol in symbols) builder.Add(Run(session, symbol, order++));
+    foreach (var symbol in symbols) builder.Add(Run(owner, symbol, order++));
     return builder.ToImmutable();
   }
 
-  public DerivedProperty Run(WeaveSession session, ISymbol symbol, int order = 0) {
-    var property = PropertySeed.Seed(symbol, session.Facts, order);
+  public DerivedProperty Run(SymbolTarget owner, ISymbol symbol, int order = 0) {
+    var property = PropertySeed.Seed(symbol, owner.Facts, order);
     if (_steps.Length == 0) return property;
 
     foreach (var step in _steps) {
-      var attribute = FindAttribute(session, symbol, step.AttributeName);
+      var attribute = FindAttribute(owner.Facts, symbol, step.AttributeName);
       if (attribute is null) continue;
-      var target = new DerivationTarget(session, symbol, property);
+      var target = new DerivationTarget(owner.Buffer, symbol, owner.Context, property);
       property = step.Derive(target, attribute, property) ?? property;
     }
     return property;
   }
 
-  private static AttributeData FindAttribute(WeaveSession session, ISymbol symbol, string metadataName) {
-    foreach (var attribute in session.Facts.Attributes(symbol))
+  private static AttributeData FindAttribute(SymbolFacts facts, ISymbol symbol, string metadataName) {
+    foreach (var attribute in facts.Attributes(symbol))
       if (attribute.AttributeClass is not null &&
-          session.Facts.MetadataName(attribute.AttributeClass) == metadataName)
+          facts.MetadataName(attribute.AttributeClass) == metadataName)
         return attribute;
     return null;
   }

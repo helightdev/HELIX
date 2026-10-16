@@ -6,34 +6,36 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class BoundaryElementMixin {
-#line 348 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 350 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Composable { get; init; } = true;
 #line default
-#line 349 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 351 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool Extension { get; init; }
 #line default
-#line 350 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 352 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool CacheLookups { get; init; }
 #line default
-#line 351 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 353 "../../HELIX.Weave.Mixins/Compose.cs"
     public bool TrimChildren { get; init; } = true;
 #line default
-#line 352 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 354 "../../HELIX.Weave.Mixins/Compose.cs"
     public string Name { get; init; }
 #line default
-#line 354 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 356 "../../HELIX.Weave.Mixins/Compose.cs"
     public sealed record Carry(bool Placeholder);
 #line default
-#line 356 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 358 "../../HELIX.Weave.Mixins/Compose.cs"
+    static void Aliases(TypeTarget t) => Boundary.DefineMixinTargets(t);
+#line default
+#line 361 "../../HELIX.Weave.Mixins/Compose.cs"
     static Carry Prelude(TypeTarget t, BoundaryElementMixin a) {
-        Boundary.DefineMixinTargets(t);
         t.Extends("HELIX.Compose.GeneratedBoundaryBase");
         t.Class($"public {t.SelfName}() : base({Lit.Of(a.CacheLookups)}, {Lit.Of(a.TrimChildren)}) {{}}");
         if (a.Composable) Boundary.GenerateElement(t, a.Name, a.Extension);
         return new Carry(true);
       }
 #line default
-#line 365 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Compose.cs"
+#line 369 "../../HELIX.Weave.Mixins/Compose.cs"
     static void Late(LateTarget t, Carry c) {
         t.Using("HELIX.Compose", "HELIX.Coloring");
         t.Implements("HELIX.Compose.IBoundaryHooks");
@@ -91,6 +93,9 @@ namespace HELIX.Weave {
       public override string AttributeName => "HELIX.Compose.BoundaryElementMixinAttribute";
       public override Unit Unit => Unit.Type;
       public override int Order => -1000;
+
+      public override void DefineAliases(TypeTarget target) =>
+        BoundaryElementMixin.Aliases(target);
       public override bool HasLate => true;
 
       public override object Prelude(SymbolTarget target, AttributeData attribute) {

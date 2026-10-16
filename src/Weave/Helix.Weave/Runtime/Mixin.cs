@@ -13,6 +13,19 @@ public abstract class Mixin {
   public virtual int Order => 0;
   public virtual bool HasLate => false;
 
+  /// <summary>
+  /// True when the prelude queries the whole compilation rather than just its own symbol, as
+  /// module discovery does. Such a mixin cannot be cached per symbol, so it is declared rather
+  /// than guessed.
+  /// </summary>
+  public virtual bool WholeCompilation => false;
+
+  /// <summary>
+  /// Defines the injection-target aliases this mixin's attribute implies, for any type carrying
+  /// it. Called for every symbol on such a type, before its prelude.
+  /// </summary>
+  public virtual void DefineAliases(TypeTarget target) { }
+
   /// <summary>Runs the prelude. Returns the carry when there is a late pass, otherwise null.</summary>
   public abstract object Prelude(SymbolTarget target, AttributeData attribute);
 

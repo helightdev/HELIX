@@ -6,7 +6,7 @@ using System;
 
 namespace HELIX.Weave {
   public sealed partial class OdinSerializable {
-#line 9 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Odin.cs"
+#line 9 "../../HELIX.Weave.Mixins/Odin.cs"
     static void Apply(TypeTarget t, OdinSerializable a) {
         t.Using("UnityEngine", "Sirenix.Serialization", "Sirenix.OdinInspector");
         t.Implements("ISerializationCallbackReceiver", "ISupportsPrefabSerialization");

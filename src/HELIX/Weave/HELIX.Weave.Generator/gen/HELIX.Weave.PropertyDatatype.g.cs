@@ -7,10 +7,10 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class PropertyDatatype {
-#line 35 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 35 "../../HELIX.Weave.Mixins/Core.cs"
     public string datatype;
 #line default
-#line 37 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Core.cs"
+#line 37 "../../HELIX.Weave.Mixins/Core.cs"
     static DerivedProperty Derive(DerivationTarget t, PropertyDatatype a, DerivedProperty p) =>
         string.IsNullOrWhiteSpace(a.datatype) ? p : p with { Datatype = a.datatype };
 #line default

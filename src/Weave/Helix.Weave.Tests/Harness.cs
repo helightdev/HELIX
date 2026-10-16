@@ -129,8 +129,7 @@ public static class Harness {
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
     // The driver parses generated sources too; its options must match the compilation's.
-    var driver = CSharpGeneratorDriver
-      .Create(new[] { generator.AsSourceGenerator() }, parseOptions: new CSharpParseOptions(LanguageVersion.Preview))
+    var driver = Driver(generator)
       .RunGeneratorsAndUpdateCompilation(compilation, out var updated, out var diagnostics);
 
     var produced = driver.GetRunResult().Results
@@ -139,6 +138,23 @@ public static class Harness {
 
     return new GeneratorRun(produced, diagnostics, updated.GetDiagnostics()
       .Where(d => d.Severity == DiagnosticSeverity.Error).ToList());
+  }
+
+  /// <summary>A driver with step tracking on, so tests can see what the pipeline cached.</summary>
+  public static GeneratorDriver Driver(IIncrementalGenerator generator) =>
+    CSharpGeneratorDriver.Create(
+      new[] { generator.AsSourceGenerator() },
+      additionalTexts: null,
+      parseOptions: new CSharpParseOptions(LanguageVersion.Preview),
+      optionsProvider: null,
+      driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None,
+                                                trackIncrementalGeneratorSteps: true));
+
+  public static CSharpCompilation Compilation(params string[] sources) {
+    var trees = sources.Select((text, index) =>
+      CSharpSyntaxTree.ParseText(text, new CSharpParseOptions(LanguageVersion.Preview), path: $"user{index}.cs"));
+    return CSharpCompilation.Create("UserCode", trees, References,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
   }
 
   public static GeneratorRun RunFixtures(params string[] sources) {

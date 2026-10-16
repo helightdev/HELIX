@@ -7,19 +7,19 @@ using System.Linq;
 
 namespace HELIX.Weave {
   public sealed partial class Ticker {
-#line 268 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 269 "../../HELIX.Weave.Mixins/Context.cs"
     public string Time { get; init; } = "tick";
 #line default
-#line 269 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 270 "../../HELIX.Weave.Mixins/Context.cs"
     public string Target { get; init; } = "Update";
 #line default
-#line 270 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 271 "../../HELIX.Weave.Mixins/Context.cs"
     public string Condition { get; init; }
 #line default
-#line 271 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 272 "../../HELIX.Weave.Mixins/Context.cs"
     public int Order { get; init; } = 10;
 #line default
-#line 273 "/phome/UnityProjects/HELIX/src/HELIX/Weave/HELIX.Weave.Mixins/Context.cs"
+#line 274 "../../HELIX.Weave.Mixins/Context.cs"
     static void Apply(MethodTarget t, Ticker a) {
         t.Using("HELIX.Context");
 
